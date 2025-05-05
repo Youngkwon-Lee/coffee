@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Link from "next/link";
+import { HomeIcon, MagnifyingGlassIcon, BookOpenIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
+import Header from "../components/Header";
+import FloatingAction from "../components/FloatingAction";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,11 +27,39 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="ko">
+      <head>
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-amber-50 to-rose-50 min-h-screen`}>
+        <Header />
         {children}
+        <FloatingAction />
+        {/* 하단 네비게이션 - 도킹 플로팅 버튼(FAB) 스타일, 카페 감성 색상 */}
+        <nav className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-r from-amber-200 via-amber-100 to-rose-100 flex justify-around items-center h-16 shadow-2xl rounded-t-2xl border-t border-caramel">
+          <Link href="/" className="flex flex-col items-center text-xs text-espresso hover:text-mocha transition">
+            <HomeIcon className="w-7 h-7 mb-1" />
+            홈
+          </Link>
+          <Link href="/cafes" className="flex flex-col items-center text-xs text-espresso hover:text-mocha transition">
+            <MagnifyingGlassIcon className="w-7 h-7 mb-1" />
+            카페찾기
+          </Link>
+          {/* 중앙 파내기 + 플로팅 버튼 부분 삭제 */}
+          <div className="relative flex flex-col items-center" style={{ width: 64 }}>
+            {/* 중앙 파내기 반원 */}
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-20 h-10 bg-gradient-to-r from-amber-200 via-amber-100 to-rose-100 rounded-b-full z-10 border-t border-caramel"></div>
+            {/* 플로팅 버튼 삭제됨 */}
+          </div>
+          <Link href="/beans" className="flex flex-col items-center text-xs text-espresso hover:text-mocha transition">
+            <ShoppingBagIcon className="w-7 h-7 mb-1" />
+            원두사기
+          </Link>
+          <Link href="/history" className="flex flex-col items-center text-xs text-espresso hover:text-mocha transition">
+            <BookOpenIcon className="w-7 h-7 mb-1" />
+            기록목록
+          </Link>
+        </nav>
       </body>
     </html>
   );

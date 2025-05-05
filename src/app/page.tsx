@@ -1,103 +1,142 @@
+"use client";
+import { useEffect, useState } from "react";
+import { db, auth } from "../firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { onAuthStateChanged, User } from "firebase/auth";
 import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+interface Bean {
+  id: string;
+  name: string;
+  flavor: string;
+  price: string;
+  image: string;
+  desc?: string;
+  roast?: string;
+  brand?: string;
+  link?: string;
+  category?: string;
+  views?: number;
+  likes?: number;
+}
+interface RecordItem {
+  id: string;
+  date: string;
+  beanName: string;
+  memo?: string;
+}
+
+export default function HomePage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [beans, setBeans] = useState<Bean[]>([]);
+  const [records, setRecords] = useState<RecordItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 로그인 상태 감지
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
+  }, []);
+
+  // Firestore에서 beans, records 불러오기
+  useEffect(() => {
+    const fetchData = async () => {
+    setLoading(true);
+      const beansSnap = await getDocs(collection(db, "beans"));
+      const beansList = beansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Bean[];
+      setBeans(beansList);
+      if (user) {
+        const recSnap = await getDocs(collection(db, `users/${user.uid}/records`));
+        const recList = recSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as RecordItem[];
+        setRecords(recList.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3));
+      } else {
+        setRecords([]);
+      }
+      setLoading(false);
+    };
+    fetchData();
+  }, [user]);
+
+  // 오늘의 추천(랜덤 원두)
+  const todayBean = beans.length > 0 ? beans[Math.floor(Math.random() * beans.length)] : null;
+  // 인기 원두(조회수/찜순 등 임시 상위 3개)
+  const popularBeans = beans
+    .slice()
+    .sort((a, b) => (b.likes || 0) - (a.likes || 0))
+    .slice(0, 3);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <main className="flex flex-col items-center min-h-screen pt-20 pb-24 bg-gradient-to-br from-amber-50 to-rose-100">
+      <h1 className="text-2xl font-bold mb-6 text-espresso">☕ 커피 메인 대시보드</h1>
+      {loading ? (
+        <div className="text-center py-10">로딩 중...</div>
+      ) : (
+        <div className="w-full max-w-2xl flex flex-col gap-8">
+          {/* 오늘의 추천 */}
+          <section className="bg-white/90 rounded-2xl shadow p-6 flex flex-col md:flex-row gap-6 items-center border border-caramel">
+            <div className="flex-1">
+              <div className="text-lg font-bold text-mocha mb-2">오늘의 추천 원두</div>
+              {todayBean ? (
+                <>
+                  <div className="text-xl font-bold text-espresso mb-1">{todayBean.name}</div>
+                  <div className="text-xs text-brown-700 mb-2">{todayBean.flavor}</div>
+                  <div className="text-caramel font-bold mb-2">{todayBean.price}</div>
+                  <Link href={todayBean.link || "#"} target="_blank" className="inline-block px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition text-sm">구매처</Link>
+                </>
+              ) : (
+                <div className="text-brown-400">추천할 원두가 없습니다.</div>
+              )}
+            </div>
+            {todayBean && (
+              <Image src={todayBean.image || "/beans/default.jpg"} alt={todayBean.name} width={100} height={100} className="rounded-xl object-cover w-24 h-24" />
+            )}
+          </section>
+          {/* 내 기록 요약 */}
+          <section className="bg-white/90 rounded-2xl shadow p-6 border border-caramel">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-lg font-bold text-mocha">내 기록 요약</div>
+              <Link href="/record" className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-caramel to-mocha text-white shadow hover:scale-110 transition">
+                <span className="material-icons text-lg">add</span>
+              </Link>
+            </div>
+            {!user ? (
+              <div className="text-brown-400">로그인 후 내 기록을 확인할 수 있습니다.</div>
+            ) : records.length === 0 ? (
+              <div className="text-brown-400">최근 기록이 없습니다.</div>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {records.map(r => (
+                  <li key={r.id} className="flex flex-col md:flex-row md:items-center gap-2 border-b pb-2">
+                    <span className="font-bold text-espresso">{r.beanName}</span>
+                    <span className="text-xs text-mocha">{r.date}</span>
+                    {r.memo && <span className="text-xs text-brown-700">{r.memo}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          {/* 인기 원두 */}
+          <section className="bg-white/90 rounded-2xl shadow p-6 border border-caramel">
+            <div className="text-lg font-bold text-mocha mb-2">인기 원두</div>
+            {popularBeans.length === 0 ? (
+              <div className="text-brown-400">인기 원두 데이터가 없습니다.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {popularBeans.map(bean => (
+                  <div key={bean.id} className="bg-amber-50 rounded-xl shadow p-3 flex flex-col items-center border border-caramel">
+                    <Image src={bean.image || "/beans/default.jpg"} alt={bean.name} width={80} height={80} className="rounded-lg object-cover mb-2" />
+                    <div className="font-bold text-espresso text-sm mb-1">{bean.name}</div>
+                    <div className="text-xs text-mocha mb-1">{bean.flavor}</div>
+                    <div className="text-caramel font-bold mb-1">{bean.price}</div>
+                    <Link href={bean.link || "#"} target="_blank" className="inline-block px-3 py-1 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition text-xs">구매처</Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      )}
+    </main>
   );
 }

@@ -1,0 +1,752 @@
+[
+  {
+    "name": "Ethiopia Yirgacheffe #1",
+    "brand": "Fritz Coffee Company",
+    "origin": "Ethiopia",
+    "flavors": [
+      "Floral",
+      "Citrus"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 200,
+    "price": 16000,
+    "buyUrl": "https://example.com/product/ethiopia-yirgacheffe-1",
+    "imageUrl": "/beans/ethiopia_yirgacheffe_1.jpg",
+    "desc": "Floral, Citrus 향미가 돋보이는 Ethiopia 원두입니다."
+  },
+  {
+    "name": "Colombia El Paraiso #2",
+    "brand": "Momos Coffee",
+    "origin": "Colombia",
+    "flavors": [
+      "Floral",
+      "Sweet"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 250,
+    "price": 14000,
+    "buyUrl": "https://example.com/product/colombia-el-paraiso-2",
+    "imageUrl": "/beans/colombia_el_paraiso_2.jpg",
+    "desc": "Floral, Sweet 향미가 돋보이는 Colombia 원두입니다."
+  },
+  {
+    "name": "Indonesia Mandheling #3",
+    "brand": "Fritz Coffee Company",
+    "origin": "Indonesia",
+    "flavors": [
+      "Earthy",
+      "Spicy"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 200,
+    "price": 16000,
+    "buyUrl": "https://example.com/product/indonesia-mandheling-3",
+    "imageUrl": "/beans/indonesia_mandheling_3.jpg",
+    "desc": "Earthy, Spicy 향미가 돋보이는 Indonesia 원두입니다."
+  },
+  {
+    "name": "Brazil Santos #4",
+    "brand": "Coffee Libre",
+    "origin": "Brazil",
+    "flavors": [
+      "Chocolate",
+      "Earthy"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 250,
+    "price": 20000,
+    "buyUrl": "https://example.com/product/brazil-santos-4",
+    "imageUrl": "/beans/brazil_santos_4.jpg",
+    "desc": "Chocolate, Earthy 향미가 돋보이는 Brazil 원두입니다."
+  },
+  {
+    "name": "Yemen Mocha #5",
+    "brand": "Momento",
+    "origin": "Yemen",
+    "flavors": [
+      "Chocolate",
+      "Spicy"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 200,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/yemen-mocha-5",
+    "imageUrl": "/beans/yemen_mocha_5.jpg",
+    "desc": "Chocolate, Spicy 향미가 돋보이는 Yemen 원두입니다."
+  },
+  {
+    "name": "Kenya AA #6",
+    "brand": "Tailor Coffee",
+    "origin": "Kenya",
+    "flavors": [
+      "Fruity",
+      "Sweet"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 20000,
+    "buyUrl": "https://example.com/product/kenya-aa-6",
+    "imageUrl": "/beans/kenya_aa_6.jpg",
+    "desc": "Fruity, Sweet 향미가 돋보이는 Kenya 원두입니다."
+  },
+  {
+    "name": "Ethiopia Yirgacheffe #7",
+    "brand": "Fritz Coffee Company",
+    "origin": "Ethiopia",
+    "flavors": [
+      "Floral",
+      "Citrus"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 250,
+    "price": 20000,
+    "buyUrl": "https://example.com/product/ethiopia-yirgacheffe-7",
+    "imageUrl": "/beans/ethiopia_yirgacheffe_7.jpg",
+    "desc": "Floral, Citrus 향미가 돋보이는 Ethiopia 원두입니다."
+  },
+  {
+    "name": "Indonesia Mandheling #8",
+    "brand": "Fritz Coffee Company",
+    "origin": "Indonesia",
+    "flavors": [
+      "Earthy",
+      "Spicy"
+    ],
+    "roast_level": "Light",
+    "weight_g": 250,
+    "price": 20000,
+    "buyUrl": "https://example.com/product/indonesia-mandheling-8",
+    "imageUrl": "/beans/indonesia_mandheling_8.jpg",
+    "desc": "Earthy, Spicy 향미가 돋보이는 Indonesia 원두입니다."
+  },
+  {
+    "name": "Costa Rica Tarrazu #9",
+    "brand": "Bean Brothers",
+    "origin": "Costa Rica",
+    "flavors": [
+      "Sweet",
+      "Nutty"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 500,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/costa-rica-tarrazu-9",
+    "imageUrl": "/beans/costa_rica_tarrazu_9.jpg",
+    "desc": "Sweet, Nutty 향미가 돋보이는 Costa Rica 원두입니다."
+  },
+  {
+    "name": "Guatemala Huehuetenango #10",
+    "brand": "Anthracite",
+    "origin": "Guatemala",
+    "flavors": [
+      "Nutty",
+      "Chocolate"
+    ],
+    "roast_level": "Light",
+    "weight_g": 250,
+    "price": 14000,
+    "buyUrl": "https://example.com/product/guatemala-huehuetenango-10",
+    "imageUrl": "/beans/guatemala_huehuetenango_10.jpg",
+    "desc": "Nutty, Chocolate 향미가 돋보이는 Guatemala 원두입니다."
+  },
+  {
+    "name": "Panama Geisha #11",
+    "brand": "Terarosa",
+    "origin": "Panama",
+    "flavors": [
+      "Floral",
+      "Fruity"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/panama-geisha-11",
+    "imageUrl": "/beans/panama_geisha_11.jpg",
+    "desc": "Floral, Fruity 향미가 돋보이는 Panama 원두입니다."
+  },
+  {
+    "name": "Guatemala Huehuetenango #12",
+    "brand": "Anthracite",
+    "origin": "Guatemala",
+    "flavors": [
+      "Nutty",
+      "Chocolate"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 250,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/guatemala-huehuetenango-12",
+    "imageUrl": "/beans/guatemala_huehuetenango_12.jpg",
+    "desc": "Nutty, Chocolate 향미가 돋보이는 Guatemala 원두입니다."
+  },
+  {
+    "name": "Yemen Mocha #13",
+    "brand": "Momento",
+    "origin": "Yemen",
+    "flavors": [
+      "Chocolate",
+      "Spicy"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 250,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/yemen-mocha-13",
+    "imageUrl": "/beans/yemen_mocha_13.jpg",
+    "desc": "Chocolate, Spicy 향미가 돋보이는 Yemen 원두입니다."
+  },
+  {
+    "name": "Ethiopia Yirgacheffe #14",
+    "brand": "Fritz Coffee Company",
+    "origin": "Ethiopia",
+    "flavors": [
+      "Floral",
+      "Citrus"
+    ],
+    "roast_level": "Light",
+    "weight_g": 200,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/ethiopia-yirgacheffe-14",
+    "imageUrl": "/beans/ethiopia_yirgacheffe_14.jpg",
+    "desc": "Floral, Citrus 향미가 돋보이는 Ethiopia 원두입니다."
+  },
+  {
+    "name": "Costa Rica Tarrazu #15",
+    "brand": "Bean Brothers",
+    "origin": "Costa Rica",
+    "flavors": [
+      "Sweet",
+      "Nutty"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 500,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/costa-rica-tarrazu-15",
+    "imageUrl": "/beans/costa_rica_tarrazu_15.jpg",
+    "desc": "Sweet, Nutty 향미가 돋보이는 Costa Rica 원두입니다."
+  },
+  {
+    "name": "Yemen Mocha #16",
+    "brand": "Momento",
+    "origin": "Yemen",
+    "flavors": [
+      "Chocolate",
+      "Spicy"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 500,
+    "price": 16000,
+    "buyUrl": "https://example.com/product/yemen-mocha-16",
+    "imageUrl": "/beans/yemen_mocha_16.jpg",
+    "desc": "Chocolate, Spicy 향미가 돋보이는 Yemen 원두입니다."
+  },
+  {
+    "name": "Guatemala Huehuetenango #17",
+    "brand": "Anthracite",
+    "origin": "Guatemala",
+    "flavors": [
+      "Nutty",
+      "Chocolate"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 200,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/guatemala-huehuetenango-17",
+    "imageUrl": "/beans/guatemala_huehuetenango_17.jpg",
+    "desc": "Nutty, Chocolate 향미가 돋보이는 Guatemala 원두입니다."
+  },
+  {
+    "name": "Kenya AA #18",
+    "brand": "Tailor Coffee",
+    "origin": "Kenya",
+    "flavors": [
+      "Fruity",
+      "Sweet"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 250,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/kenya-aa-18",
+    "imageUrl": "/beans/kenya_aa_18.jpg",
+    "desc": "Fruity, Sweet 향미가 돋보이는 Kenya 원두입니다."
+  },
+  {
+    "name": "Ethiopia Yirgacheffe #19",
+    "brand": "Fritz Coffee Company",
+    "origin": "Ethiopia",
+    "flavors": [
+      "Floral",
+      "Citrus"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 200,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/ethiopia-yirgacheffe-19",
+    "imageUrl": "/beans/ethiopia_yirgacheffe_19.jpg",
+    "desc": "Floral, Citrus 향미가 돋보이는 Ethiopia 원두입니다."
+  },
+  {
+    "name": "Costa Rica Tarrazu #20",
+    "brand": "Bean Brothers",
+    "origin": "Costa Rica",
+    "flavors": [
+      "Sweet",
+      "Nutty"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 500,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/costa-rica-tarrazu-20",
+    "imageUrl": "/beans/costa_rica_tarrazu_20.jpg",
+    "desc": "Sweet, Nutty 향미가 돋보이는 Costa Rica 원두입니다."
+  },
+  {
+    "name": "Panama Geisha #21",
+    "brand": "Terarosa",
+    "origin": "Panama",
+    "flavors": [
+      "Floral",
+      "Fruity"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/panama-geisha-21",
+    "imageUrl": "/beans/panama_geisha_21.jpg",
+    "desc": "Floral, Fruity 향미가 돋보이는 Panama 원두입니다."
+  },
+  {
+    "name": "Ethiopia Yirgacheffe #22",
+    "brand": "Fritz Coffee Company",
+    "origin": "Ethiopia",
+    "flavors": [
+      "Floral",
+      "Citrus"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 200,
+    "price": 16000,
+    "buyUrl": "https://example.com/product/ethiopia-yirgacheffe-22",
+    "imageUrl": "/beans/ethiopia_yirgacheffe_22.jpg",
+    "desc": "Floral, Citrus 향미가 돋보이는 Ethiopia 원두입니다."
+  },
+  {
+    "name": "Brazil Santos #23",
+    "brand": "Coffee Libre",
+    "origin": "Brazil",
+    "flavors": [
+      "Chocolate",
+      "Earthy"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/brazil-santos-23",
+    "imageUrl": "/beans/brazil_santos_23.jpg",
+    "desc": "Chocolate, Earthy 향미가 돋보이는 Brazil 원두입니다."
+  },
+  {
+    "name": "Kenya AA #24",
+    "brand": "Tailor Coffee",
+    "origin": "Kenya",
+    "flavors": [
+      "Fruity",
+      "Sweet"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 200,
+    "price": 16000,
+    "buyUrl": "https://example.com/product/kenya-aa-24",
+    "imageUrl": "/beans/kenya_aa_24.jpg",
+    "desc": "Fruity, Sweet 향미가 돋보이는 Kenya 원두입니다."
+  },
+  {
+    "name": "Ethiopia Yirgacheffe #25",
+    "brand": "Fritz Coffee Company",
+    "origin": "Ethiopia",
+    "flavors": [
+      "Floral",
+      "Citrus"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 250,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/ethiopia-yirgacheffe-25",
+    "imageUrl": "/beans/ethiopia_yirgacheffe_25.jpg",
+    "desc": "Floral, Citrus 향미가 돋보이는 Ethiopia 원두입니다."
+  },
+  {
+    "name": "Yemen Mocha #26",
+    "brand": "Momento",
+    "origin": "Yemen",
+    "flavors": [
+      "Chocolate",
+      "Spicy"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/yemen-mocha-26",
+    "imageUrl": "/beans/yemen_mocha_26.jpg",
+    "desc": "Chocolate, Spicy 향미가 돋보이는 Yemen 원두입니다."
+  },
+  {
+    "name": "Brazil Santos #27",
+    "brand": "Coffee Libre",
+    "origin": "Brazil",
+    "flavors": [
+      "Chocolate",
+      "Earthy"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 250,
+    "price": 20000,
+    "buyUrl": "https://example.com/product/brazil-santos-27",
+    "imageUrl": "/beans/brazil_santos_27.jpg",
+    "desc": "Chocolate, Earthy 향미가 돋보이는 Brazil 원두입니다."
+  },
+  {
+    "name": "Colombia El Paraiso #28",
+    "brand": "Momos Coffee",
+    "origin": "Colombia",
+    "flavors": [
+      "Floral",
+      "Sweet"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 250,
+    "price": 20000,
+    "buyUrl": "https://example.com/product/colombia-el-paraiso-28",
+    "imageUrl": "/beans/colombia_el_paraiso_28.jpg",
+    "desc": "Floral, Sweet 향미가 돋보이는 Colombia 원두입니다."
+  },
+  {
+    "name": "Costa Rica Tarrazu #29",
+    "brand": "Bean Brothers",
+    "origin": "Costa Rica",
+    "flavors": [
+      "Sweet",
+      "Nutty"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 200,
+    "price": 14000,
+    "buyUrl": "https://example.com/product/costa-rica-tarrazu-29",
+    "imageUrl": "/beans/costa_rica_tarrazu_29.jpg",
+    "desc": "Sweet, Nutty 향미가 돋보이는 Costa Rica 원두입니다."
+  },
+  {
+    "name": "Kenya AA #30",
+    "brand": "Tailor Coffee",
+    "origin": "Kenya",
+    "flavors": [
+      "Fruity",
+      "Sweet"
+    ],
+    "roast_level": "Light",
+    "weight_g": 250,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/kenya-aa-30",
+    "imageUrl": "/beans/kenya_aa_30.jpg",
+    "desc": "Fruity, Sweet 향미가 돋보이는 Kenya 원두입니다."
+  },
+  {
+    "name": "Costa Rica Tarrazu #31",
+    "brand": "Bean Brothers",
+    "origin": "Costa Rica",
+    "flavors": [
+      "Sweet",
+      "Nutty"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 16000,
+    "buyUrl": "https://example.com/product/costa-rica-tarrazu-31",
+    "imageUrl": "/beans/costa_rica_tarrazu_31.jpg",
+    "desc": "Sweet, Nutty 향미가 돋보이는 Costa Rica 원두입니다."
+  },
+  {
+    "name": "Panama Geisha #32",
+    "brand": "Terarosa",
+    "origin": "Panama",
+    "flavors": [
+      "Floral",
+      "Fruity"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 200,
+    "price": 14000,
+    "buyUrl": "https://example.com/product/panama-geisha-32",
+    "imageUrl": "/beans/panama_geisha_32.jpg",
+    "desc": "Floral, Fruity 향미가 돋보이는 Panama 원두입니다."
+  },
+  {
+    "name": "Panama Geisha #33",
+    "brand": "Terarosa",
+    "origin": "Panama",
+    "flavors": [
+      "Floral",
+      "Fruity"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 200,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/panama-geisha-33",
+    "imageUrl": "/beans/panama_geisha_33.jpg",
+    "desc": "Floral, Fruity 향미가 돋보이는 Panama 원두입니다."
+  },
+  {
+    "name": "Costa Rica Tarrazu #34",
+    "brand": "Bean Brothers",
+    "origin": "Costa Rica",
+    "flavors": [
+      "Sweet",
+      "Nutty"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 250,
+    "price": 20000,
+    "buyUrl": "https://example.com/product/costa-rica-tarrazu-34",
+    "imageUrl": "/beans/costa_rica_tarrazu_34.jpg",
+    "desc": "Sweet, Nutty 향미가 돋보이는 Costa Rica 원두입니다."
+  },
+  {
+    "name": "Costa Rica Tarrazu #35",
+    "brand": "Bean Brothers",
+    "origin": "Costa Rica",
+    "flavors": [
+      "Sweet",
+      "Nutty"
+    ],
+    "roast_level": "Light",
+    "weight_g": 500,
+    "price": 20000,
+    "buyUrl": "https://example.com/product/costa-rica-tarrazu-35",
+    "imageUrl": "/beans/costa_rica_tarrazu_35.jpg",
+    "desc": "Sweet, Nutty 향미가 돋보이는 Costa Rica 원두입니다."
+  },
+  {
+    "name": "Rwanda Bourbon #36",
+    "brand": "Cafe Layered",
+    "origin": "Rwanda",
+    "flavors": [
+      "Citrus",
+      "Sweet"
+    ],
+    "roast_level": "Light",
+    "weight_g": 250,
+    "price": 16000,
+    "buyUrl": "https://example.com/product/rwanda-bourbon-36",
+    "imageUrl": "/beans/rwanda_bourbon_36.jpg",
+    "desc": "Citrus, Sweet 향미가 돋보이는 Rwanda 원두입니다."
+  },
+  {
+    "name": "Brazil Santos #37",
+    "brand": "Coffee Libre",
+    "origin": "Brazil",
+    "flavors": [
+      "Chocolate",
+      "Earthy"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/brazil-santos-37",
+    "imageUrl": "/beans/brazil_santos_37.jpg",
+    "desc": "Chocolate, Earthy 향미가 돋보이는 Brazil 원두입니다."
+  },
+  {
+    "name": "Rwanda Bourbon #38",
+    "brand": "Cafe Layered",
+    "origin": "Rwanda",
+    "flavors": [
+      "Citrus",
+      "Sweet"
+    ],
+    "roast_level": "Light",
+    "weight_g": 200,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/rwanda-bourbon-38",
+    "imageUrl": "/beans/rwanda_bourbon_38.jpg",
+    "desc": "Citrus, Sweet 향미가 돋보이는 Rwanda 원두입니다."
+  },
+  {
+    "name": "Ethiopia Yirgacheffe #39",
+    "brand": "Fritz Coffee Company",
+    "origin": "Ethiopia",
+    "flavors": [
+      "Floral",
+      "Citrus"
+    ],
+    "roast_level": "Light",
+    "weight_g": 500,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/ethiopia-yirgacheffe-39",
+    "imageUrl": "/beans/ethiopia_yirgacheffe_39.jpg",
+    "desc": "Floral, Citrus 향미가 돋보이는 Ethiopia 원두입니다."
+  },
+  {
+    "name": "Yemen Mocha #40",
+    "brand": "Momento",
+    "origin": "Yemen",
+    "flavors": [
+      "Chocolate",
+      "Spicy"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 14000,
+    "buyUrl": "https://example.com/product/yemen-mocha-40",
+    "imageUrl": "/beans/yemen_mocha_40.jpg",
+    "desc": "Chocolate, Spicy 향미가 돋보이는 Yemen 원두입니다."
+  },
+  {
+    "name": "Panama Geisha #41",
+    "brand": "Terarosa",
+    "origin": "Panama",
+    "flavors": [
+      "Floral",
+      "Fruity"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 500,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/panama-geisha-41",
+    "imageUrl": "/beans/panama_geisha_41.jpg",
+    "desc": "Floral, Fruity 향미가 돋보이는 Panama 원두입니다."
+  },
+  {
+    "name": "Brazil Santos #42",
+    "brand": "Coffee Libre",
+    "origin": "Brazil",
+    "flavors": [
+      "Chocolate",
+      "Earthy"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 250,
+    "price": 14000,
+    "buyUrl": "https://example.com/product/brazil-santos-42",
+    "imageUrl": "/beans/brazil_santos_42.jpg",
+    "desc": "Chocolate, Earthy 향미가 돋보이는 Brazil 원두입니다."
+  },
+  {
+    "name": "Rwanda Bourbon #43",
+    "brand": "Cafe Layered",
+    "origin": "Rwanda",
+    "flavors": [
+      "Citrus",
+      "Sweet"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 16000,
+    "buyUrl": "https://example.com/product/rwanda-bourbon-43",
+    "imageUrl": "/beans/rwanda_bourbon_43.jpg",
+    "desc": "Citrus, Sweet 향미가 돋보이는 Rwanda 원두입니다."
+  },
+  {
+    "name": "Kenya AA #44",
+    "brand": "Tailor Coffee",
+    "origin": "Kenya",
+    "flavors": [
+      "Fruity",
+      "Sweet"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 200,
+    "price": 14000,
+    "buyUrl": "https://example.com/product/kenya-aa-44",
+    "imageUrl": "/beans/kenya_aa_44.jpg",
+    "desc": "Fruity, Sweet 향미가 돋보이는 Kenya 원두입니다."
+  },
+  {
+    "name": "Rwanda Bourbon #45",
+    "brand": "Cafe Layered",
+    "origin": "Rwanda",
+    "flavors": [
+      "Citrus",
+      "Sweet"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 500,
+    "price": 14000,
+    "buyUrl": "https://example.com/product/rwanda-bourbon-45",
+    "imageUrl": "/beans/rwanda_bourbon_45.jpg",
+    "desc": "Citrus, Sweet 향미가 돋보이는 Rwanda 원두입니다."
+  },
+  {
+    "name": "Brazil Santos #46",
+    "brand": "Coffee Libre",
+    "origin": "Brazil",
+    "flavors": [
+      "Chocolate",
+      "Earthy"
+    ],
+    "roast_level": "Light",
+    "weight_g": 200,
+    "price": 20000,
+    "buyUrl": "https://example.com/product/brazil-santos-46",
+    "imageUrl": "/beans/brazil_santos_46.jpg",
+    "desc": "Chocolate, Earthy 향미가 돋보이는 Brazil 원두입니다."
+  },
+  {
+    "name": "Indonesia Mandheling #47",
+    "brand": "Fritz Coffee Company",
+    "origin": "Indonesia",
+    "flavors": [
+      "Earthy",
+      "Spicy"
+    ],
+    "roast_level": "Medium",
+    "weight_g": 200,
+    "price": 12000,
+    "buyUrl": "https://example.com/product/indonesia-mandheling-47",
+    "imageUrl": "/beans/indonesia_mandheling_47.jpg",
+    "desc": "Earthy, Spicy 향미가 돋보이는 Indonesia 원두입니다."
+  },
+  {
+    "name": "Brazil Santos #48",
+    "brand": "Coffee Libre",
+    "origin": "Brazil",
+    "flavors": [
+      "Chocolate",
+      "Earthy"
+    ],
+    "roast_level": "Dark",
+    "weight_g": 250,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/brazil-santos-48",
+    "imageUrl": "/beans/brazil_santos_48.jpg",
+    "desc": "Chocolate, Earthy 향미가 돋보이는 Brazil 원두입니다."
+  },
+  {
+    "name": "Ethiopia Yirgacheffe #49",
+    "brand": "Fritz Coffee Company",
+    "origin": "Ethiopia",
+    "flavors": [
+      "Floral",
+      "Citrus"
+    ],
+    "roast_level": "Light",
+    "weight_g": 500,
+    "price": 16000,
+    "buyUrl": "https://example.com/product/ethiopia-yirgacheffe-49",
+    "imageUrl": "/beans/ethiopia_yirgacheffe_49.jpg",
+    "desc": "Floral, Citrus 향미가 돋보이는 Ethiopia 원두입니다."
+  },
+  {
+    "name": "Brazil Santos #50",
+    "brand": "Coffee Libre",
+    "origin": "Brazil",
+    "flavors": [
+      "Chocolate",
+      "Earthy"
+    ],
+    "roast_level": "Light",
+    "weight_g": 250,
+    "price": 18000,
+    "buyUrl": "https://example.com/product/brazil-santos-50",
+    "imageUrl": "/beans/brazil_santos_50.jpg",
+    "desc": "Chocolate, Earthy 향미가 돋보이는 Brazil 원두입니다."
+  }
+]

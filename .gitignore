@@ -39,3 +39,36 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.env
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VSCode
+.vscode/
+
+# Firebase/Google Cloud
+serviceAccountKey.json
+
+vision-key.json
+
+# Node.js
+node_modules/
+dist/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# 기타
+*.log
+
+venv/
