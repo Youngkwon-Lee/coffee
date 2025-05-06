@@ -1,5 +1,8 @@
 import CafeClient from "./CafeClient";
 import type { Cafe } from "./CafeClient";
+import { db } from "@/firebase";
+import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { auth } from "@/firebase";
 
 const WEATHER_MAP: { [key: string]: string } = {
   Clear: "맑음",
@@ -38,10 +41,6 @@ async function getWeather() {
   return res.json();
 }
 
-// Firestore에서 cafes 데이터 fetch (서버 컴포넌트에서)
-import { db } from "../../firebase";
-import { collection, getDocs } from "firebase/firestore";
-
 async function getCafes(): Promise<Cafe[]> {
   const snap = await getDocs(collection(db, "cafes"));
   return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafe));
@@ -52,14 +51,61 @@ function getRandomElement<T>(arr: T[]): T | null {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+async function getUserPreference(userId: string) {
+  try {
+    const q = query(
+      collection(db, `users/${userId}/records`),
+      orderBy("createdAt", "desc"),
+      limit(10)
+    );
+    const snap = await getDocs(q);
+    const records = snap.docs.map(doc => doc.data());
+    
+    // 향미 빈도수 계산
+    const flavorCount: { [key: string]: number } = {};
+    records.forEach(record => {
+      if (record.flavor && Array.isArray(record.flavor)) {
+        record.flavor.forEach((f: string) => {
+          flavorCount[f] = (flavorCount[f] || 0) + 1;
+        });
+      }
+    });
+    
+    // 가장 많이 선택된 향미 반환
+    const sortedFlavors = Object.entries(flavorCount)
+      .sort(([,a], [,b]) => b - a);
+    
+    return sortedFlavors.length > 0 ? sortedFlavors[0][0] : "Floral";
+  } catch (error) {
+    console.error("Error fetching user preference:", error);
+    return "Floral";
+  }
+}
+
 export default async function CafesPage() {
   const weather = await getWeather();
   const main: string = weather?.weather?.[0]?.main || "알 수 없음";
   const todayWeather = WEATHER_MAP[main] || "알 수 없음";
   const weatherEmoji = WEATHER_EMOJI[todayWeather] || "❔";
   const cafes = await getCafes();
-  const userPreferenceDefault = "Floral";
+  
+  // 사용자 취향 가져오기
+  let userPreferenceDefault = "Floral";
+  const currentUser = auth.currentUser;
+  
+  if (currentUser) {
+    userPreferenceDefault = await getUserPreference(currentUser.uid);
+  }
+  
   const matchingCafes = cafes.filter(cafe => cafe.flavor === userPreferenceDefault);
   const todayCafe = getRandomElement(matchingCafes.length > 0 ? matchingCafes : cafes);
-  return <CafeClient weather={todayWeather} weatherEmoji={weatherEmoji} cafes={cafes} todayCafe={todayCafe} userPreferenceDefault={userPreferenceDefault} />;
+  
+  return <CafeClient 
+    weather={todayWeather} 
+    weatherEmoji={weatherEmoji} 
+    cafes={cafes} 
+    todayCafe={todayCafe} 
+    userPreferenceDefault={userPreferenceDefault} 
+    className="bg-gradient-to-br from-amber-50 to-rose-100"
+  />;
 } 

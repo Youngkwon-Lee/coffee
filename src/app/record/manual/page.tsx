@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import cafes from '@/data/cafesList_sample.json';
 import useFrequentCafes from "@/hooks/useFrequentCafes";
 import { BEAN_ORIGINS } from "@/constants/beanOrigins";
+import { db, auth } from "../../../firebase";
+import { collection, addDoc, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 type Step = "bean" | "cafe" | "flavor" | "mood" | "rating" | "review" | "done";
 type RecordData = {
@@ -66,6 +69,9 @@ export default function RecordManualPage() {
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   const [openOrigin, setOpenOrigin] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [myRecords, setMyRecords] = useState<RecordData[]>([]);
+  const [loadingRecords, setLoadingRecords] = useState(true);
 
   // 위치 기반 가까운 카페 추천
   function getDistance(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -120,6 +126,30 @@ export default function RecordManualPage() {
 
   const { frequentCafes, loading: frequentLoading } = useFrequentCafes();
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUserId(user ? user.uid : null);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 내 기록 불러오기
+  useEffect(() => {
+    if (!userId) {
+      setMyRecords([]);
+      setLoadingRecords(false);
+      return;
+    }
+    async function fetchRecords() {
+      setLoadingRecords(true);
+      const q = query(collection(db, `users/${userId}/records`), orderBy("createdAt", "desc"), limit(3));
+      const snap = await getDocs(q);
+      setMyRecords(snap.docs.map(doc => doc.data() as RecordData));
+      setLoadingRecords(false);
+    }
+    fetchRecords();
+  }, [userId]);
+
   // 챗봇 입력 처리
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,9 +197,24 @@ export default function RecordManualPage() {
   };
 
   // 기록 저장(실제 저장 로직은 추후 구현)
-  const handleSave = () => {
-    alert("기록이 저장되었습니다!\n" + JSON.stringify(data, null, 2));
-    // TODO: Firestore 등 저장 연동
+  const handleSave = async () => {
+    if (!userId) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+    try {
+      await addDoc(collection(db, `users/${userId}/records`), {
+        ...data,
+        createdAt: new Date().toISOString(),
+      });
+      alert("기록이 저장되었습니다!");
+      // 저장 후 기록 새로고침
+      const q = query(collection(db, `users/${userId}/records`), orderBy("createdAt", "desc"), limit(3));
+      const snap = await getDocs(q);
+      setMyRecords(snap.docs.map(doc => doc.data() as RecordData));
+    } catch {
+      alert("저장 중 오류가 발생했습니다.");
+    }
   };
 
   // 별점 선택
@@ -476,6 +521,28 @@ export default function RecordManualPage() {
           </button>
         </div>
       )}
+      {/* 내 최근 기록 요약 */}
+      <div className="mb-6">
+        <h2 className="text-lg font-bold mb-2">내 최근 기록 요약</h2>
+        {loadingRecords ? (
+          <div>불러오는 중...</div>
+        ) : myRecords.length === 0 ? (
+          <div>최근 기록이 없습니다.</div>
+        ) : (
+          <ul className="space-y-2">
+            {myRecords.map((rec, i) => (
+              <li key={i} className="p-2 bg-amber-50 rounded shadow">
+                <div>☕️ <b>원두명:</b> {rec.bean}</div>
+                <div>🏠 <b>카페명:</b> {rec.cafe}</div>
+                <div>🌸 <b>향미:</b> {rec.flavor?.join(", ")}</div>
+                {rec.mood && <div>🧘 <b>기분:</b> {rec.mood}</div>}
+                {rec.rating && <div>⭐ <b>별점:</b> {"⭐".repeat(rec.rating)}</div>}
+                {rec.review && <div>💬 <b>감상:</b> {rec.review}</div>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 } 
