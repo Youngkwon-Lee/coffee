@@ -105,7 +105,6 @@ export default async function CafesPage() {
     weatherEmoji={weatherEmoji} 
     cafes={cafes} 
     todayCafe={todayCafe} 
-    userPreferenceDefault={userPreferenceDefault} 
-    className="bg-gradient-to-br from-amber-50 to-rose-100"
+    userPreferenceDefault={userPreferenceDefault}
   />;
 } 
