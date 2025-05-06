@@ -1,10 +1,9 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { db, auth } from "../../firebase";
-import { collection, addDoc, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from "firebase/auth";
+import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
+import { onAuthStateChanged, User } from "firebase/auth";
 import GoogleMapView from './GoogleMapView';
-import { upsertCafesWithPurchase } from "./upsertPurchaseInfo";
 
 // Cafe 인터페이스 복구
 interface Cafe {
@@ -31,9 +30,9 @@ interface Cafe {
 }
 
 const FLAVOR_OPTIONS = ["Floral", "Chocolate", "Nutty", "Fruity", "Earthy", "Sweet"];
-const TAGS_ICON = { "조용함": "🔇", "채광 좋음": "☀️", "노트북 가능": "💻", "로스터리": "🔥", "테이스팅룸": "🧑‍🔬", "한옥": "🏯", "모던": "🏢", "빈티지": "📻", "공장 리모델링": "🏭", "포토존": "📸", "베이커리": "🥐", "성당 느낌": "⛪" };
-const MENU_ICON = { "에스프레소": "☕", "드립커피": "🫖", "콜드브루": "🧊", "플로럴 블렌드": "🌸", "프렌치프레스": "🥄", "크루아상": "🥐", "베이커리 플래터": "🍞", "티라미수": "🍰", "라떼": "🥛", "시그니처 음료": "⭐" };
-const FLAVOR_ICON = { "Floral": "🌸", "Fruity": "🍑", "Sweet": "🍯", "Nutty": "🥜", "Chocolate": "🍫", "Earthy": "🌱", "Herbal": "🌿", "Smoky": "🔥", "Juicy": "🍹", "Bitter": "☕", "Bright": "✨", "Balanced": "⚖️" };
+const TAGS_ICON: { [key: string]: string } = { "조용함": "🔇", "채광 좋음": "☀️", "노트북 가능": "💻", "로스터리": "🔥", "테이스팅룸": "🧑‍🔬", "한옥": "🏯", "모던": "🏢", "빈티지": "📻", "공장 리모델링": "🏭", "포토존": "📸", "베이커리": "🥐", "성당 느낌": "⛪" };
+const MENU_ICON: { [key: string]: string } = { "에스프레소": "☕", "드립커피": "🫖", "콜드브루": "🧊", "플로럴 블렌드": "🌸", "프렌치프레스": "🥄", "크루아상": "🥐", "베이커리 플래터": "🍞", "티라미수": "🍰", "라떼": "🥛", "시그니처 음료": "⭐" };
+const FLAVOR_ICON: { [key: string]: string } = { "Floral": "🌸", "Fruity": "🍑", "Sweet": "🍯", "Nutty": "🥜", "Chocolate": "🍫", "Earthy": "🌱", "Herbal": "🌿", "Smoky": "🔥", "Juicy": "🍹", "Bitter": "☕", "Bright": "✨", "Balanced": "⚖️" };
 
 function getRandomElement<T>(arr: T[]): T | null {
   if (!arr.length) return null;
@@ -50,8 +49,6 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ssrTodayCafe, userPreferenceDefault }: { weather: string, weatherEmoji: string, cafes: Cafe[], todayCafe: Cafe | null, userPreferenceDefault: string }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedFlavor, setSelectedFlavor] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -62,7 +59,6 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
   const [user, setUser] = useState<User | null>(null);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [mapCenter, setMapCenter] = useState<{lat: number, lng: number} | null>(null);
-  const [showMyLocation, setShowMyLocation] = useState(false);
   const [todayCafe, setTodayCafe] = useState<Cafe | null>(ssrTodayCafe);
   const [page, setPage] = useState(1);
   const itemsPerPage = 9;
@@ -128,7 +124,7 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
   }, [userPreference]);
 
   const todayMent = todayCafe
-    ? `오늘은 ${weather}이에요. ${userPreference}한 분위기가 어울릴 것 같아요.\n'${todayCafe.name}'에서 감성 한 잔 어떠세요? ☕️`
+    ? `오늘은 ${weather}이에요. ${userPreference}한 분위기가 어울릴 것 같아요.\n&#39;${todayCafe.name}&#39;에서 감성 한 잔 어떠세요? ☕️`
     : "오늘의 추천 카페를 불러오는 중...";
 
   return (
@@ -150,7 +146,7 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
                     rel="noopener noreferrer"
                     className="inline font-bold text-espresso underline hover:text-mocha transition ml-1"
                   >
-                    '{todayCafe.name}'
+                    &#39;{todayCafe.name}&#39;
                   </a>
                   에서 감성 한 잔 어떠세요? ☕️
                 </>
@@ -251,7 +247,6 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
                 pos => {
                   setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                   setMapCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                  setShowMyLocation(true);
                 },
                 () => {
                   alert("위치 권한이 필요합니다.");
@@ -265,8 +260,6 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
           📌 내 위치로 이동
         </button>
       </div>
-      {loading && <div className="text-caramel mb-4">처리 중...</div>}
-      {error && <div className="text-red-500 mb-4">{error}</div>}
       {/* 카드 리스트 위에 안내 메시지 */}
       {pagedCafes.length === 0 && (
         <div className="w-full text-center text-red-500 font-bold my-4">

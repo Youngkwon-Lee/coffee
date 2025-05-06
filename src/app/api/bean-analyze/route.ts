@@ -8,6 +8,13 @@ const client = new vision.ImageAnnotatorClient({
   keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
 });
 
+// Bean 타입 정의
+interface Bean {
+  name: string;
+  brand: string;
+  flavors?: string[];
+}
+
 // 문자열 전처리(소문자, 특수문자/공백 제거)
 function normalize(str: string) {
   return str
@@ -20,7 +27,7 @@ function findBestBean(text: string) {
   const normText = normalize(text);
   let best = null;
   let maxScore = 0;
-  for (const bean of beans as any[]) {
+  for (const bean of beans as Bean[]) {
     const normName = normalize(bean.name);
     const normBrand = normalize(bean.brand);
     let score = 0;

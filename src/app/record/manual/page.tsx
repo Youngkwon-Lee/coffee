@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import cafes from '@/data/cafesList_sample.json';
 import useFrequentCafes from "@/hooks/useFrequentCafes";
+import { BEAN_ORIGINS } from "@/constants/beanOrigins";
 
 type Step = "bean" | "cafe" | "flavor" | "mood" | "rating" | "review" | "done";
 type RecordData = {
@@ -18,29 +19,6 @@ type ChatMessage = {
   type: "bot" | "user";
   text: string;
 };
-
-export const BEAN_ORIGINS = [
-  {
-    origin: "에티오피아",
-    varieties: ["예가체프", "시다모", "구지"],
-  },
-  {
-    origin: "콜롬비아",
-    varieties: ["우일라", "나리뇨", "톨리마"],
-  },
-  {
-    origin: "파나마",
-    varieties: ["게이샤", "카투라", "카투아이"],
-  },
-  {
-    origin: "케냐",
-    varieties: ["니에리", "키리냐가", "엠부"],
-  },
-  {
-    origin: "브라질",
-    varieties: ["세라도 미네이루", "술 데 미나스", "모지아나"],
-  },
-];
 
 const FLAVOR_CATEGORIES = [
   {
@@ -72,6 +50,11 @@ const MOOD_OPTIONS = [
   { emoji: "😐", label: "평온해요" },
   { emoji: "😴", label: "졸려요" }
 ];
+
+interface BeanOrigin {
+  origin: string;
+  varieties: string[];
+}
 
 export default function RecordManualPage() {
   const [step, setStep] = useState<Step>("bean");
@@ -239,7 +222,7 @@ export default function RecordManualPage() {
       {step === "bean" && (
         <div className="mb-4">
           <div className="flex flex-wrap gap-2 mb-2">
-            {BEAN_ORIGINS.map(origin => (
+            {BEAN_ORIGINS.map((origin: BeanOrigin) => (
               <button
                 key={origin.origin}
                 className="px-3 py-1 rounded-full border bg-yellow-100"
@@ -256,10 +239,10 @@ export default function RecordManualPage() {
               </button>
             ))}
           </div>
-          {BEAN_ORIGINS.map(origin => (
+          {BEAN_ORIGINS.map((origin: BeanOrigin) => (
             openOrigin === origin.origin && (
               <div key={origin.origin} className="flex flex-wrap gap-2 mb-2 ml-4">
-                {origin.varieties.map(variety => (
+                {origin.varieties.map((variety: string) => (
                   <button
                     key={variety}
                     className="px-3 py-1 rounded-full border bg-yellow-400 text-white font-bold"
