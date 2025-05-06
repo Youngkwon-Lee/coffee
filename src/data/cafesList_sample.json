@@ -1,0 +1,1022 @@
+[
+  {
+    "name": "모모스커피 영도 로스터리 & 커피바",
+    "address": "부산광역시 영도구 봉래나루로 160",
+    "lat": 35.0863,
+    "lng": 129.0384,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/momos.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Fruity",
+    "flavor_tags": ["Fruity", "Juicy"],
+
+    "signature_menu": ["드립커피", "에스프레소"],
+
+    "tags": ["포토존", "로스터리", "채광 좋음"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://momos.co.kr",
+      "products": ["원두", "드립백", "구독"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "센터커피 명동점",
+    "address": "서울특별시 중구 명동길 49-1",
+    "lat": 37.5638,
+    "lng": 126.9871,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/centrecoffee.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Floral",
+    "flavor_tags": ["Floral", "Sweet", "Balanced"],
+
+    "signature_menu": ["라떼"],
+
+    "tags": ["모던", "노트북 가능", "포토존"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://centercoffee.co.kr/shop",
+      "products": ["원두", "브루잉 도구"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "아임뮤트 (Immute)",
+    "address": "서울특별시 강남구 논현로157길 36 1층",
+    "lat": 37.5249,
+    "lng": 127.0285,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/immute.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": true,
+      "sunny": true
+    },
+
+    "flavor_main": "Chocolate",
+    "flavor_tags": ["Chocolate", "Nutty"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["채광 좋음", "조용함"],
+
+    "purchase": {
+      "channel": "Instagram DM",
+      "website": "https://instagram.com/_immute",
+      "products": ["원두"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "생추어리 (Sanctuary)",
+    "address": "서울특별시 마포구 성미산로25길 27",
+    "lat": 37.5619,
+    "lng": 126.9208,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/sanctuary.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": true,
+      "sunny": false
+    },
+
+    "flavor_main": "Balanced",
+    "flavor_tags": ["Balanced", "Herbal"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["성당 느낌", "노트북 가능", "조용함"],
+
+    "purchase": {
+      "channel": "Instagram DM / 전화 예약",
+      "website": "https://instagram.com/sanctuary_seoul",
+      "products": ["원두"],
+      "delivery": false,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "컨플릭트스토어",
+    "address": "서울특별시 강남구 논현로153길 53",
+    "lat": 37.5245,
+    "lng": 127.0219,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/conflict.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Balanced",
+    "flavor_tags": ["Balanced"],
+
+    "signature_menu": ["드립커피", "콜드브루"],
+
+    "tags": ["포토존", "채광 좋음"],
+
+    "purchase": {
+      "channel": "오프라인 편집샵",
+      "website": "https://instagram.com/conflictstore",
+      "products": ["해외 로스터리 원두"],
+      "delivery": false,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "테일러커피 합정점",
+    "address": "서울특별시 마포구 성지길 6",
+    "lat": 37.551,
+    "lng": 126.9146,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/taylor.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": false
+    },
+
+    "flavor_main": "Sweet",
+    "flavor_tags": ["Sweet", "Nutty"],
+
+    "signature_menu": ["라떼", "드립커피"],
+
+    "tags": ["로스터리"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://tailorcoffee.com",
+      "products": ["원두", "캡슐", "드립백", "구독"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "앤트러사이트 합정",
+    "address": "서울특별시 마포구 토정로5길 17",
+    "lat": 37.5485,
+    "lng": 126.9122,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/anthracite.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": false
+    },
+
+    "flavor_main": "Smoky",
+    "flavor_tags": ["Smoky", "Chocolate"],
+
+    "signature_menu": ["라떼", "드립커피"],
+
+    "tags": ["로스터리", "공장 리모델링"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://anthracitecoffee.com/shop",
+      "products": ["원두", "콜드브루", "굿즈"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "히트커피로스터스 천안본점",
+    "address": "충청남도 천안시 동남구 통정4로 67 1층",
+    "lat": 36.7856,
+    "lng": 127.1709,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/hitcoffee.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Nutty",
+    "flavor_tags": ["Nutty", "Sweet"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["노트북 가능", "로스터리", "채광 좋음"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://hitcoffeeroasters.co.kr",
+      "products": ["원두", "드립백"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "헬카페 신사",
+    "address": "서울특별시 강남구 도산대로15길 8-5",
+    "lat": 37.5237,
+    "lng": 127.0232,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/hellcafe.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": false,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": false
+    },
+
+    "flavor_main": "Bitter",
+    "flavor_tags": ["Bitter", "Smoky"],
+
+    "signature_menu": ["에스프레소"],
+
+    "tags": ["로스터리", "빈티지"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://hellcafe.co.kr",
+      "products": ["원두", "툴"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "폰트커피 파주 로스팅 팩토리",
+    "address": "경기도 파주시 탄현면 소리개길 164-17 3동",
+    "lat": 37.7568,
+    "lng": 126.6693,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/pont.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": true,
+      "sunny": true
+    },
+
+    "flavor_main": "Nutty",
+    "flavor_tags": ["Nutty", "Sweet"],
+
+    "signature_menu": ["드립커피", "라떼"],
+
+    "tags": ["공장 리모델링", "채광 좋음", "조용함"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://pontcoffee.com",
+      "products": ["원두", "블렌드"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "트래버틴",
+    "address": "서울특별시 용산구 한강대로7길 18-7",
+    "lat": 37.5339,
+    "lng": 126.9657,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/travertine.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Fruity",
+    "flavor_tags": ["Fruity", "Floral"],
+
+    "signature_menu": ["드립커피", "콜드브루"],
+
+    "tags": ["채광 좋음"],
+
+    "purchase": {
+      "channel": "29CM 브랜드관",
+      "website": "https://shop.29cm.co.kr/brand/15495", 
+      "products": ["원두"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "쿼츠커피",
+    "address": "서울특별시 용산구 한강대로84길 9",
+    "lat": 37.5347,
+    "lng": 126.9712,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/quartz.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": true,
+      "sunny": true
+    },
+
+    "flavor_main": "Fruity",
+    "flavor_tags": ["Fruity", "Chocolate"],
+
+    "signature_menu": ["드립커피", "라떼"],
+
+    "tags": ["노트북 가능", "포토존", "채광 좋음"],
+
+    "purchase": {
+      "channel": "네이버 스마트스토어",
+      "website": "https://smartstore.naver.com/quartzcoffee",
+      "products": ["원두", "드립백"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "바마셀",
+    "address": "서울특별시 용산구 원효로89길 10",
+    "lat": 37.5421,
+    "lng": 126.9691,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/bamacell.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": true,
+      "sunny": false
+    },
+
+    "flavor_main": "Bitter",
+    "flavor_tags": ["Bitter"],
+
+    "signature_menu": ["에스프레소"],
+
+    "tags": ["조용함"],
+
+    "purchase": {
+      "channel": "매장 음료 전용 (원두 판매 없음)",
+      "website": "https://instagram.com/bamaself_coffee",
+      "products": [],
+      "delivery": false,
+      "pickup": false
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "오츠커피",
+    "address": "서울특별시 용산구 원효로89길 13-12",
+    "lat": 37.5418,
+    "lng": 126.9689,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/oatscoffee.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Nutty",
+    "flavor_tags": ["Nutty"],
+
+    "signature_menu": ["라떼"],
+
+    "tags": ["베이커리", "노트북 가능", "채광 좋음"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://oatscoffee.kr",
+      "products": ["원두", "굿즈"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.361Z"
+  },
+  {
+    "name": "엘카페커피로스터스",
+    "address": "서울특별시 용산구 후암로 104-1 2층",
+    "lat": 37.5515,
+    "lng": 126.9772,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/elcafe.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": true,
+      "sunny": false
+    },
+
+    "flavor_main": "Balanced",
+    "flavor_tags": ["Balanced", "Sweet"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["로스터리", "노트북 가능", "조용함"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://elcafe.co.kr",
+      "products": ["원두", "캡슐", "구독", "툴"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "프로토콜",
+    "address": "서울특별시 서대문구 연희로 109 2층",
+    "lat": 37.5682,
+    "lng": 126.9288,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/protokoll.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": true,
+      "sunny": false
+    },
+
+    "flavor_main": "Floral",
+    "flavor_tags": ["Floral", "Herbal"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["모던", "노트북 가능", "조용함"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://protokoll.kr/shop",
+      "products": ["원두", "툴"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "영앤도터스",
+    "address": "서울특별시 마포구 마포대로 156 1층 107호",
+    "lat": 37.5391,
+    "lng": 126.9456,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/youngndaughters.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Balanced",
+    "flavor_tags": ["Balanced"],
+
+    "signature_menu": ["시그니처 음료"],
+
+    "tags": ["로스터리", "채광 좋음"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://youngndaughters.com",
+      "products": ["원두", "MD"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "프릳츠 서촌점",
+    "address": "서울특별시 종로구 자하문로 17",
+    "lat": 37.579,
+    "lng": 126.9709,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/fritz.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": false
+    },
+
+    "flavor_main": "Nutty",
+    "flavor_tags": ["Nutty"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["베이커리", "로스터리", "빈티지"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://fritz.co.kr",
+      "products": ["원두", "드립백", "베이커리 MD"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "비로소커피",
+    "address": "서울특별시 마포구 광성로 6",
+    "lat": 37.5507,
+    "lng": 126.9403,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/biroso.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": false,
+      "laptop_friendly": true,
+      "quiet": true,
+      "sunny": false
+    },
+
+    "flavor_main": "Chocolate",
+    "flavor_tags": ["Chocolate", "Nutty"],
+
+    "signature_menu": ["에스프레소", "드립커피"],
+
+    "tags": ["로스터리", "노트북 가능", "조용함"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://birosocoffee.com",
+      "products": ["원두", "드립백"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "구대회커피 본점",
+    "address": "서울특별시 마포구 창전로2길 9",
+    "lat": 37.5478,
+    "lng": 126.9349,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/gudaehoe.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": false,
+      "laptop_friendly": false,
+      "quiet": true,
+      "sunny": false
+    },
+
+    "flavor_main": "Bitter",
+    "flavor_tags": ["Bitter"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["빈티지", "조용함"],
+
+    "purchase": {
+      "channel": "모두스토어",
+      "website": "http://koodaehoicoffee.modoo.at",
+      "products": ["원두", "드립백"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "밀로커피로스터스",
+    "address": "서울특별시 마포구 와우산로37길 28",
+    "lat": 37.5574,
+    "lng": 126.9274,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/milo.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Sweet",
+    "flavor_tags": ["Sweet", "Nutty"],
+
+    "signature_menu": ["라떼", "드립커피"],
+
+    "tags": ["노트북 가능", "로스터리", "채광 좋음"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://milocoffeeshop.com",
+      "products": ["원두", "음료"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "디폴트벨류",
+    "address": "서울특별시 서초구 효령로 304 1층",
+    "lat": 37.4906,
+    "lng": 127.0142,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/defaultvalue.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": true,
+      "sunny": true
+    },
+
+    "flavor_main": "Balanced",
+    "flavor_tags": ["Balanced"],
+
+    "signature_menu": ["크루아상"],
+
+    "tags": ["모던", "노트북 가능", "채광 좋음"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://defaultvalue.kr",
+      "products": ["원두", "굿즈", "아카데미"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "딥블루레이크",
+    "address": "서울특별시 마포구 포은로 106",
+    "lat": 37.5569,
+    "lng": 126.9104,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/deepbluelake.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": false
+    },
+
+    "flavor_main": "Chocolate",
+    "flavor_tags": ["Chocolate", "Nutty"],
+
+    "signature_menu": ["라떼"],
+
+    "tags": ["로스터리"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://dblcoffee.com/category/shop",
+      "products": ["원두", "싱글오리진"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "벙커컴퍼니 로스터스",
+    "address": "서울특별시 강남구 언주로167길 23",
+    "lat": 37.5227,
+    "lng": 127.0386,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/bunkercompany.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Bright",
+    "flavor_tags": ["Bright"],
+
+    "signature_menu": ["드립커피", "라떼"],
+
+    "tags": ["로스터리", "채광 좋음"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://bunkercompany.co.kr/shop",
+      "products": ["원두", "드립백"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "도피오로스터리",
+    "address": "서울특별시 강남구 강남대로118길 17",
+    "lat": 37.5039,
+    "lng": 127.0256,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/doppio.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": false,
+      "laptop_friendly": true,
+      "quiet": true,
+      "sunny": false
+    },
+
+    "flavor_main": "Bitter",
+    "flavor_tags": ["Bitter"],
+
+    "signature_menu": ["에스프레소"],
+
+    "tags": ["로스터리", "노트북 가능", "조용함"],
+
+    "purchase": {
+      "channel": "네이버 스마트스토어",
+      "website": "https://smartstore.naver.com/doppio-roastery",
+      "products": ["원두", "드립백"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "메쉬커피",
+    "address": "서울특별시 성동구 성수동1가 685-307",
+    "lat": 37.5454,
+    "lng": 127.0593,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/meshcoffee.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": true,
+      "sunny": true
+    },
+
+    "flavor_main": "Floral",
+    "flavor_tags": ["Floral", "Fruity"],
+
+    "signature_menu": ["티라미수"],
+
+    "tags": ["로스터리", "채광 좋음", "조용함"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://meshcoffee.kr",
+      "products": ["원두", "드립백"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "로우키 성수",
+    "address": "서울특별시 성동구 아차산로5길 37",
+    "lat": 37.5463,
+    "lng": 127.0542,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/lowkey.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Fruity",
+    "flavor_tags": ["Fruity", "Bright"],
+
+    "signature_menu": ["드립커피", "크루아상"],
+
+    "tags": ["채광 좋음", "공장 리모델링"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://lowkeycoffee.com",
+      "products": ["원두", "드립백", "캡슐", "구독"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "피어커피 로스터스",
+    "address": "서울특별시 용산구 한남대로27길 33",
+    "lat": 37.5341,
+    "lng": 127.0068,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/peer.jpg",
+
+    "features": {
+      "dessert": false,
+      "instagrammable": true,
+      "laptop_friendly": false,
+      "quiet": false,
+      "sunny": true
+    },
+
+    "flavor_main": "Balanced",
+    "flavor_tags": ["Balanced"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["로스터리", "채광 좋음"],
+
+    "purchase": {
+      "channel": "자사몰 (간헐적 오류) / 전화·DM",
+      "website": "https://peercoffee.co.kr",
+      "products": ["원두"],
+      "delivery": false,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "기미사",
+    "address": "서울특별시 성동구 성수이로26길 47",
+    "lat": 37.5437,
+    "lng": 127.0579,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/gimisa.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": true,
+      "sunny": false
+    },
+
+    "flavor_main": "Balanced",
+    "flavor_tags": ["Balanced"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["노트북 가능", "조용함"],
+
+    "purchase": {
+      "channel": "B2B·대량 납품",
+      "website": "https://instagram.com/gimisa_coffee",
+      "products": [],
+      "delivery": false,
+      "pickup": false
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  },
+  {
+    "name": "보난자커피 목동 현대점",
+    "address": "서울특별시 양천구 목동동로 257 현대백화점 B1",
+    "lat": 37.527,
+    "lng": 126.8755,
+    "distance_km": null,
+
+    "imageUrl": "/cafes/bonanza.jpg",
+
+    "features": {
+      "dessert": true,
+      "instagrammable": true,
+      "laptop_friendly": true,
+      "quiet": false,
+      "sunny": false
+    },
+
+    "flavor_main": "Bright",
+    "flavor_tags": ["Bright", "Balanced"],
+
+    "signature_menu": ["드립커피"],
+
+    "tags": ["로스터리", "모던", "노트북 가능"],
+
+    "purchase": {
+      "channel": "자사몰",
+      "website": "https://bonanzacoffee.kr",
+      "products": ["원두"],
+      "delivery": true,
+      "pickup": true
+    },
+
+    "updatedAt": "2025-05-04T15:30:58.362Z"
+  }
+]
