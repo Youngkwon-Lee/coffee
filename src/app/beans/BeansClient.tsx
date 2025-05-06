@@ -172,7 +172,19 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
             <button onClick={() => signOut(auth)} className="px-3 py-1 rounded-full bg-mocha text-white font-bold hover:bg-espresso transition">로그아웃</button>
           </>
         ) : (
-          <button onClick={() => signInWithPopup(auth, new GoogleAuthProvider())} className="px-3 py-1 rounded-full bg-blue-500 text-white font-bold hover:bg-blue-700 transition">구글 로그인</button>
+          <button
+            onClick={async () => {
+              try {
+                await signInWithPopup(auth, new GoogleAuthProvider());
+                window.location.reload();
+              } catch {
+                alert("로그인에 실패했습니다. 다시 시도해 주세요.");
+              }
+            }}
+            className="px-3 py-1 rounded-full bg-blue-500 text-white font-bold hover:bg-blue-700 transition"
+          >
+            구글 로그인
+          </button>
         )}
       </div>
       {/* GPT 감성 추천 입력창 및 결과 */}
