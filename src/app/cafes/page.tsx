@@ -1,6 +1,7 @@
 import CafeClient from "./CafeClient";
+import type { Cafe } from "./CafeClient";
 
-const WEATHER_MAP = {
+const WEATHER_MAP: { [key: string]: string } = {
   Clear: "맑음",
   Clouds: "흐림",
   Rain: "비",
@@ -9,7 +10,7 @@ const WEATHER_MAP = {
   Drizzle: "이슬비",
   Thunderstorm: "뇌우"
 };
-const WEATHER_EMOJI = {
+const WEATHER_EMOJI: { [key: string]: string } = {
   "맑음": "☀️",
   "흐림": "☁️",
   "비": "🌧️",
@@ -41,19 +42,19 @@ async function getWeather() {
 import { db } from "../../firebase";
 import { collection, getDocs } from "firebase/firestore";
 
-async function getCafes() {
+async function getCafes(): Promise<Cafe[]> {
   const snap = await getDocs(collection(db, "cafes"));
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafe));
 }
 
-function getRandomElement(arr) {
+function getRandomElement<T>(arr: T[]): T | null {
   if (!arr.length) return null;
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 export default async function CafesPage() {
   const weather = await getWeather();
-  const main = weather?.weather?.[0]?.main || "알 수 없음";
+  const main: string = weather?.weather?.[0]?.main || "알 수 없음";
   const todayWeather = WEATHER_MAP[main] || "알 수 없음";
   const weatherEmoji = WEATHER_EMOJI[todayWeather] || "❔";
   const cafes = await getCafes();

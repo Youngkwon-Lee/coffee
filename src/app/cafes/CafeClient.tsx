@@ -48,6 +48,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
+export type { Cafe };
 export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ssrTodayCafe, userPreferenceDefault }: { weather: string, weatherEmoji: string, cafes: Cafe[], todayCafe: Cafe | null, userPreferenceDefault: string }) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedFlavor, setSelectedFlavor] = useState<string | null>(null);
