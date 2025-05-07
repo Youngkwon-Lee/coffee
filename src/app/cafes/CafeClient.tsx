@@ -69,7 +69,15 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
     let match = true;
     if (selectedTag && !(cafe.tags || []).includes(selectedTag)) match = false;
     if (selectedFlavor && !(cafe.flavor_tags || []).includes(selectedFlavor)) match = false;
-    if (search && !cafe.name.includes(search)) match = false;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      const nameMatch = cafe.name.toLowerCase().includes(searchLower);
+      const menuMatch = cafe.menu?.toLowerCase().includes(searchLower);
+      const signatureMenuMatch = cafe.signature_menu?.some(menu => 
+        menu.toLowerCase().includes(searchLower)
+      );
+      if (!nameMatch && !menuMatch && !signatureMenuMatch) match = false;
+    }
     return match;
   });
   const totalPages = Math.ceil(filteredCafes.length / itemsPerPage);
@@ -170,7 +178,7 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
         {userRecordCount === 0 ? (
           <a
             href="/record"
-            className="ml-2 px-3 py-1 rounded-full bg-espresso text-white font-bold hover:bg-mocha transition"
+            className="ml-2 px-3 py-1 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition"
           >
             취향분석하기
           </a>
@@ -178,13 +186,22 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
       </div>
       {/* 검색/정렬 UI */}
       <div className="flex flex-col md:flex-row gap-2 mb-4 w-full max-w-md">
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="카페명, 메뉴명 검색"
-          className="flex-1 border border-mocha rounded-full px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mocha font-serif text-sm"
-        />
+        <div className="flex-1 flex gap-2">
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyPress={e => e.key === 'Enter' && setSearch(e.currentTarget.value)}
+            placeholder="카페명, 메뉴명 검색"
+            className="flex-1 border border-mocha rounded-full px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mocha font-serif text-sm"
+          />
+          <button
+            onClick={() => setSearch(search)}
+            className="px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition"
+          >
+            검색
+          </button>
+        </div>
         <select
           value={sort}
           onChange={e => setSort(e.target.value as "distance"|"name")}

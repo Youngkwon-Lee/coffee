@@ -72,3 +72,8 @@ Thumbs.db
 *.log
 
 venv/
+
+your-service-account-key.json
+
+# Backend
+/coffee-backend/

@@ -100,9 +100,9 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
   };
 
   // 향미/배전도/브랜드 목록 추출
-  const flavors = Array.from(new Set(beans.flatMap(b => b.flavor?.split(/[ ,·,]+/) || []).filter(Boolean)));
-  const roasts = Array.from(new Set(beans.map(b => b.roast).filter(Boolean)));
-  const brands = Array.from(new Set(beans.map(b => b.brand).filter(Boolean)));
+  const flavors = ["Floral", "Fruity", "Sweet", "Nutty", "Chocolate", "Earthy", "Herbal", "Smoky", "Juicy", "Bitter", "Bright", "Balanced"];
+  const roasts = ["Light", "Medium", "Medium-Dark", "Dark"];
+  const brands = ["카페더", "모모스", "리브레", "스타벅스", "블루보틀", "일리", "피크닉", "테라로사", "커피베이", "투썸플레이스"];
 
   // 취향 기반 추천 필터
   const recommendedBeans = beans.filter(bean => {
@@ -112,14 +112,22 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
     return flavorMatch && roastMatch && brandMatch;
   });
 
+  // 배전도 순으로 정렬
+  const sortedBeans = [...recommendedBeans].sort((a, b) => {
+    const roastOrder = { "Light": 1, "Medium": 2, "Medium-Dark": 3, "Dark": 4 };
+    const aRoast = a.roast || "";
+    const bRoast = b.roast || "";
+    return (roastOrder[aRoast as keyof typeof roastOrder] || 0) - (roastOrder[bRoast as keyof typeof roastOrder] || 0);
+  });
+
   // Fuzzy Search 적용 (Fuse.js)
-  const fuse = new Fuse(recommendedBeans, {
+  const fuse = new Fuse(sortedBeans, {
     keys: ["name", "flavor", "brand"],
     threshold: 0.3,
   });
   const fuzzyBeans = search
     ? fuse.search(search).map(result => result.item)
-    : recommendedBeans;
+    : sortedBeans;
 
   // 브랜드 필터 추가 적용
   const filteredBeans = fuzzyBeans.filter(bean => {
@@ -233,32 +241,53 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
       </section>
       {/* 취향 기반 추천 UI */}
       <div className="flex flex-wrap gap-2 mb-4 justify-center">
-        <select value={myFlavor} onChange={e => setMyFlavor(e.target.value)} className="border rounded px-2 py-1">
+        <select 
+          value={myFlavor} 
+          onChange={e => setMyFlavor(e.target.value)} 
+          className="border border-mocha rounded-full px-3 py-2 bg-caramel text-espresso font-serif text-sm focus:outline-none focus:ring-2 focus:ring-mocha"
+        >
           <option value="">향미 선택</option>
           {flavors.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
-        <select value={myRoast} onChange={e => setMyRoast(e.target.value)} className="border rounded px-2 py-1">
+        <select 
+          value={myRoast} 
+          onChange={e => setMyRoast(e.target.value)} 
+          className="border border-mocha rounded-full px-3 py-2 bg-caramel text-espresso font-serif text-sm focus:outline-none focus:ring-2 focus:ring-mocha"
+        >
           <option value="">배전도 선택</option>
           {roasts.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
-        <select value={myBrand} onChange={e => setMyBrand(e.target.value)} className="border rounded px-2 py-1">
+        <select 
+          value={myBrand} 
+          onChange={e => setMyBrand(e.target.value)} 
+          className="border border-mocha rounded-full px-3 py-2 bg-caramel text-espresso font-serif text-sm focus:outline-none focus:ring-2 focus:ring-mocha"
+        >
           <option value="">브랜드 선택</option>
           {brands.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
       </div>
       {/* 검색/브랜드 필터 */}
       <div className="flex flex-wrap gap-2 mb-4 justify-center">
-        <input
-          type="text"
-          placeholder="이름/향미/브랜드 검색 (부분/오타 허용)"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="이름/향미/브랜드 검색 (부분/오타 허용)"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyPress={e => e.key === 'Enter' && setSearch(e.currentTarget.value)}
+            className="border border-mocha rounded-full px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mocha font-serif text-sm"
+          />
+          <button
+            onClick={() => setSearch(search)}
+            className="px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition"
+          >
+            검색
+          </button>
+        </div>
         <select
           value={brandFilter}
           onChange={e => setBrandFilter(e.target.value)}
-          className="border rounded px-2 py-1"
+          className="border border-mocha rounded-full px-3 py-2 bg-caramel text-espresso font-serif text-sm focus:outline-none focus:ring-2 focus:ring-mocha"
         >
           <option value="">전체 브랜드</option>
           {brands.map(brand => (
