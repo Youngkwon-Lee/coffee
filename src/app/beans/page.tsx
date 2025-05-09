@@ -13,15 +13,21 @@ type Bean = {
   brand?: string;
   link?: string;
   category?: string;
+  createdAt?: Date;
 };
 
 export default async function BeansPage() {
   const beansCol = collection(db, "beans");
   const beanSnapshot = await getDocs(beansCol);
-  const beans = beanSnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })) as Bean[];
+  const beans = beanSnapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      // Timestamp를 Date 객체로 변환
+      createdAt: data.createdAt?.toDate() || new Date()
+    };
+  }) as Bean[];
 
   return <BeansClient beans={beans} />;
-} 
+}

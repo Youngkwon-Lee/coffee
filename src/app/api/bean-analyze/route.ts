@@ -45,6 +45,42 @@ function findBestBean(text: string) {
   return best;
 }
 
+// OCR 텍스트에서 향미(flavor) 추출 (영문/한글)
+function extractFlavors(text: string) {
+  // 영문 flavor: Bergamot, Nectarine, ...
+  const engMatch = text.match(/[Bb]ergamot,[^\n]*/);
+  // 한글 flavor: 향미[:：]?\s*([가-힣,·\s]+)
+  const korMatch = text.match(/향미[:：]?\s*([가-힣,·\s]+)/);
+  let flavors: string[] = [];
+  if (engMatch) flavors = engMatch[0].split(/,|and/).map(f => f.trim());
+  if (korMatch) flavors = korMatch[1].split(/,|·/).map(f => f.trim());
+  return flavors.filter(f => f.length > 1);
+}
+
+// OCR 텍스트에서 카페명 추출 (예: HYANGMISA, Fritz 등 대문자+영문/한글 한 단어)
+function extractCafe(text: string) {
+  // 대문자+영문, 한글 단어 중 6자 이상
+  const cafeMatch = text.match(/[A-Z가-힣]{4,}/g);
+  if (cafeMatch) return cafeMatch[0];
+  return null;
+}
+
+// OCR 텍스트에서 원두명 추출 (에티오피아, 콜롬비아 등 주요 산지명 포함된 한글/영문 라인)
+function extractBean(text: string) {
+  // 한글/영문 주요 산지명
+  const origins = [
+    '에티오피아', '콜롬비아', '케냐', '브라질', '예멘', '과테말라', '파나마',
+    'Ethiopia', 'Colombia', 'Kenya', 'Brazil', 'Yemen', 'Guatemala', 'Panama'
+  ];
+  const lines = text.split(/\n|\r/);
+  for (const line of lines) {
+    for (const o of origins) {
+      if (line.includes(o) && line.length < 40) return line.trim();
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const file = formData.get('image') as File | null;
@@ -69,10 +105,14 @@ export async function POST(req: NextRequest) {
       raw_text: text
     });
   } else {
+    // beans DB 매칭 실패 시 OCR 텍스트에서 직접 추출
+    const bean = extractBean(text);
+    const cafe = extractCafe(text);
+    const flavor = extractFlavors(text);
     return NextResponse.json({
-      bean: null,
-      cafe: null,
-      flavor: null,
+      bean,
+      cafe,
+      flavor,
       raw_text: text
     });
   }

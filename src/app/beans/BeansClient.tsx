@@ -100,9 +100,22 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
   };
 
   // 향미/배전도/브랜드 목록 추출
-  const flavors = ["Floral", "Fruity", "Sweet", "Nutty", "Chocolate", "Earthy", "Herbal", "Smoky", "Juicy", "Bitter", "Bright", "Balanced"];
-  const roasts = ["Light", "Medium", "Medium-Dark", "Dark"];
-  const brands = ["카페더", "모모스", "리브레", "스타벅스", "블루보틀", "일리", "피크닉", "테라로사", "커피베이", "투썸플레이스"];
+  // 실제 데이터에서 향미 목록 추출 (쉼표로 구분된 문자열을 분리하고 중복 제거)
+  const flavors = Array.from(new Set(
+    beans.flatMap(bean => 
+      (bean.flavor || "").split(",").map(f => f.trim())
+    ).filter(Boolean)
+  )).sort();
+
+  // 실제 데이터에서 배전도 목록 추출
+  const roasts = Array.from(new Set(
+    beans.map(bean => bean.roast || "").filter(Boolean)
+  )).sort();
+
+  // 실제 데이터에서 브랜드 목록 추출
+  const brands = Array.from(new Set(
+    beans.map(bean => bean.brand || "").filter(Boolean)
+  )).sort();
 
   // 취향 기반 추천 필터
   const recommendedBeans = beans.filter(bean => {
@@ -168,6 +181,16 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
 
   // Firestore 원두 데이터와 매칭
   const getBeanDetail = (name: string) => beans.find((bean) => bean.name === name);
+
+  // 카페별로 그룹화
+  const beansByBrand: { [brand: string]: Bean[] } = {};
+  filteredBeans.forEach(bean => {
+    const brand = bean.brand || "기타";
+    if (!beansByBrand[brand]) beansByBrand[brand] = [];
+    beansByBrand[brand].push(bean);
+  });
+  const brandList = Object.keys(beansByBrand).sort();
+  const [openBrand, setOpenBrand] = useState<string | null>(null);
 
   return (
     <main className="flex flex-col items-center min-h-screen pt-20 pb-20 bg-gradient-to-br from-amber-50 to-rose-100">
@@ -295,41 +318,60 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
           ))}
         </select>
       </div>
-      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
-        {paginatedBeans.map(bean => (
-          <div key={bean.id} className="bg-white/80 rounded-2xl shadow p-4 flex flex-col gap-4 border border-caramel relative">
-            {/* 찜/장바구니 버튼 */}
-            <div className="absolute top-2 right-2 flex gap-2 z-10">
-              <button
-                onClick={() => user ? toggleWishlist(bean.id!) : undefined}
-                aria-label="찜하기"
-                className={`text-2xl ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={!user}
-                title={!user ? "로그인 후 이용 가능" : wishlist.includes(bean.id!) ? "찜 해제" : "찜하기"}
-              >
-                {wishlist.includes(bean.id!) ? "❤️" : "🤍"}
-              </button>
-              <button onClick={() => toggleBasket(bean.id!)} aria-label="장바구니 담기" className="text-2xl">
-                {basket.includes(bean.id!) ? "🛒" : "🛍️"}
-              </button>
-            </div>
-            <div className="flex justify-center">
-              <Image src={bean.image || "/beans/default.jpg"} alt={bean.name} width={200} height={200} className="rounded-xl object-cover w-48 h-48" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="text-lg font-bold text-espresso">{bean.name}</div>
-              <div className="text-xs text-mocha">향미: {bean.flavor}</div>
-              {bean.desc && <div className="text-xs text-brown-700">{bean.desc}</div>}
-              <div className="text-caramel font-bold">{bean.price} / 200g</div>
-              <div className="flex justify-center">
-                <button
-                  onClick={() => bean.link && window.open(bean.link, "_blank")}
-                  className="px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition text-sm"
-                >
-                  구매하기
-                </button>
+      {/* 카페별 아코디언 카드 UI */}
+      <div className="w-full max-w-4xl flex flex-col gap-4 px-4">
+        {brandList.length === 0 && (
+          <div className="text-center text-mocha py-10">원두가 없습니다.</div>
+        )}
+        {brandList.map(brand => (
+          <div key={brand} className="bg-white/90 rounded-2xl shadow border border-caramel">
+            <button
+              className="w-full text-left px-6 py-4 flex items-center justify-between text-xl font-bold text-espresso hover:bg-amber-50 rounded-2xl transition"
+              onClick={() => setOpenBrand(openBrand === brand ? null : brand)}
+            >
+              <span>{brand}</span>
+              <span className="text-lg">{openBrand === brand ? "▲" : "▼"}</span>
+            </button>
+            {openBrand === brand && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 pt-0">
+                {beansByBrand[brand].map(bean => (
+                  <div key={bean.id} className="bg-white/80 rounded-2xl shadow p-4 flex flex-col gap-4 border border-caramel relative">
+                    {/* 찜/장바구니 버튼 */}
+                    <div className="absolute top-2 right-2 flex gap-2 z-10">
+                      <button
+                        onClick={() => user ? toggleWishlist(bean.id!) : undefined}
+                        aria-label="찜하기"
+                        className={`text-2xl ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={!user}
+                        title={!user ? "로그인 후 이용 가능" : wishlist.includes(bean.id!) ? "찜 해제" : "찜하기"}
+                      >
+                        {wishlist.includes(bean.id!) ? "❤️" : "🤍"}
+                      </button>
+                      <button onClick={() => toggleBasket(bean.id!)} aria-label="장바구니 담기" className="text-2xl">
+                        {basket.includes(bean.id!) ? "🛒" : "🛍️"}
+                      </button>
+                    </div>
+                    <div className="flex justify-center">
+                      <Image src={bean.image || "/beans/default.jpg"} alt={bean.name} width={200} height={200} className="rounded-xl object-cover w-48 h-48" />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <div className="text-lg font-bold text-espresso">{bean.name}</div>
+                      <div className="text-xs text-mocha">향미: {bean.flavor}</div>
+                      {bean.desc && <div className="text-xs text-brown-700">{bean.desc}</div>}
+                      <div className="text-caramel font-bold">{bean.price} / 200g</div>
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => bean.link && window.open(bean.link, "_blank")}
+                          className="px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition text-sm"
+                        >
+                          구매하기
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
         ))}
       </div>
