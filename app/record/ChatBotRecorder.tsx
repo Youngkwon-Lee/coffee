@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import MessageBubble from "./MessageBubble";
-import { db, auth } from "../../firebase";
+import { db, auth } from "@/firebase";
 import { collection, addDoc, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { motion } from "framer-motion";

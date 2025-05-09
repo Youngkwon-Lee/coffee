@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { db } from "../../firebase";
+import { db } from "../../src/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import Image from "next/image";
 

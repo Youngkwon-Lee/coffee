@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import cafes from '@/data/cafesList_sample.json';
 import useFrequentCafes from "@/hooks/useFrequentCafes";
 import { BEAN_ORIGINS } from "@/constants/beanOrigins";
-import { db, auth } from "../../../firebase";
+import { db, auth } from "@/firebase";
 import { collection, addDoc, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
