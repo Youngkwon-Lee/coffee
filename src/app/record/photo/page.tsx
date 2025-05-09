@@ -114,54 +114,36 @@ export default function RecordPhotoPage() {
     const formData = new FormData();
     formData.append("image", image); // bean-analyze API는 'image' 필드 사용
 
-    try {
-      const res = await fetch("/api/bean-analyze", {
-        method: "POST",
-        body: formData,
-      });
-      let data: any = null;
-      try {
-        data = await res.json();
-      } catch (jsonErr) {
-        setLoading(false);
-        setChat(prev => [
-          ...prev,
-          { type: "bot", text: "서버에서 올바른 응답을 받지 못했습니다. (JSON 파싱 오류)" }
-        ]);
-        return;
-      }
-      setOcrResult(data);
-      setLoading(false);
-      // OCR 결과(raw_text)와 매칭 결과를 모두 챗봇에 표시
-      let resultMsg = `분석 결과가 나왔어요!`;
-      if (data.bean || data.cafe) {
-        resultMsg += `\n원두명: ${data.bean ?? "-"}\n카페/브랜드: ${data.cafe ?? "-"}`;
-        setChat(prev => [
-          ...prev,
-          { type: "bot", text: resultMsg },
-          { type: "bot", text: "입력되었습니다! 아래에서 설문을 이어서 작성해 주세요." }
-        ]);
-        return;
-      } else {
-        resultMsg += `\n원두명/카페명을 찾지 못했어요.`;
-      }
-      resultMsg += `\n\n[추출된 텍스트]\n${data.raw_text ? data.raw_text.trim() : "(없음)"}`;
+    const res = await fetch("/api/bean-analyze", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    setOcrResult(data);
+    setLoading(false);
+    // OCR 결과(raw_text)와 매칭 결과를 모두 챗봇에 표시
+    let resultMsg = `분석 결과가 나왔어요!`;
+    if (data.bean || data.cafe) {
+      resultMsg += `\n원두명: ${data.bean ?? "-"}\n카페/브랜드: ${data.cafe ?? "-"}`;
       setChat(prev => [
         ...prev,
-        { type: "bot", text: resultMsg }
+        { type: "bot", text: resultMsg },
+        { type: "bot", text: "입력되었습니다! 아래에서 설문을 이어서 작성해 주세요." }
       ]);
-      // 매칭 실패 시 직접 입력 안내
-      if (!data.bean && !data.cafe) {
-        setChat(prev => [
-          ...prev,
-          { type: "bot", text: "원두명과 카페명을 직접 입력해 주세요!" }
-        ]);
-      }
-    } catch (err) {
-      setLoading(false);
+      return;
+    } else {
+      resultMsg += `\n원두명/카페명을 찾지 못했어요.`;
+    }
+    resultMsg += `\n\n[추출된 텍스트]\n${data.raw_text ? data.raw_text.trim() : "(없음)"}`;
+    setChat(prev => [
+      ...prev,
+      { type: "bot", text: resultMsg }
+    ]);
+    // 매칭 실패 시 직접 입력 안내
+    if (!data.bean && !data.cafe) {
       setChat(prev => [
         ...prev,
-        { type: "bot", text: "서버 요청에 실패했습니다. 네트워크 또는 서버 상태를 확인해 주세요." }
+        { type: "bot", text: "원두명과 카페명을 직접 입력해 주세요!" }
       ]);
     }
   };
