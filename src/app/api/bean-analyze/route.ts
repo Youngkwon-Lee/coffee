@@ -4,8 +4,11 @@ import beans from '@/data/beansList_sample.json';
 
 export const runtime = 'nodejs';
 
+// Vercel 등 서버리스 환경에서도 동작하도록 credentials 직접 파싱
 const client = new vision.ImageAnnotatorClient({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  credentials: process.env.GOOGLE_CLOUD_CREDENTIALS_JSON
+    ? JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS_JSON)
+    : undefined,
 });
 
 // Bean 타입 정의
