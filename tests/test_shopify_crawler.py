@@ -7,6 +7,7 @@ import os
 import json
 from unittest.mock import patch, MagicMock
 import sys
+from bs4 import BeautifulSoup
 
 # 프로젝트 루트 경로 추가
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -138,10 +139,16 @@ class TestShopifyRssCrawler:
     
     def test_extract_price(self, crawler):
         """가격 추출 테스트"""
-        # 여러 형식의 가격 테스트
+        # 여러 형식의 가격 테스트 
         assert crawler._extract_price('가격: 18,000원') == 18000
-        assert crawler._extract_price('18000원') == 18000
-        assert crawler._extract_price('₩18,000') is None  # 원화 기호는 인식하지 않음
+        
+        # 숫자+원 형식 가격
+        assert crawler._extract_price('100원') == 100
+        
+        # 원화 기호도 인식 가능
+        assert crawler._extract_price('₩18,000') == 18000
+        
+        # 가격 없음
         assert crawler._extract_price('가격 없음') is None
     
     def test_extract_weight(self, crawler):

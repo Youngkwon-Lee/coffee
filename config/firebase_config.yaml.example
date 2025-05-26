@@ -1,0 +1,26 @@
+# Firebase Firestore 설정
+# 주의: 이 파일에 실제 인증 키를 포함하지 마세요. 환경 변수나 별도의 비밀 파일을 사용하세요.
+
+firebase:
+  # 프로젝트 정보
+  project_id: "your-firebase-project-id"
+  
+  # 인증 방법 (환경 변수 또는 키 파일)
+  auth_method: "key_file"  # 'env_var' 또는 'key_file'
+  
+  # 키 파일 경로 (auth_method가 'key_file'일 경우)
+  key_file_path: "secret/serviceAccountKey.json"
+  
+  # 환경 변수 이름 (auth_method가 'env_var'일 경우)
+  credentials_env_var: "FIREBASE_CREDENTIALS"
+  
+  # Firestore 설정
+  firestore:
+    collection_beans: "beans"      # 원두 정보 컬렉션
+    collection_cafes: "cafes"      # 카페 정보 컬렉션
+    collection_logs: "crawl_logs"  # 크롤링 로그 컬렉션
+  
+  # Storage 설정 (이미지 저장용)
+  storage:
+    bucket_name: "your-firebase-storage-bucket"
+    image_path: "bean_images" 

@@ -109,11 +109,19 @@ class TestBeanRepository:
             "flavors": ["Fruity", "Floral", "Chocolate"]
         }
         
-        # 원두 업데이트
-        repo.update_bean(TEST_BEAN["id"], updated_bean)
-        
-        # 검증
-        mock_firebase_client.update_bean.assert_called_once()
+        # bean_mapper.merge_with_existing 함수 모의
+        with patch('coffee_crawler.storage.bean_repository.merge_with_existing') as mock_merge:
+            # 병합 결과 설정
+            merged_data = existing_bean.copy()
+            merged_data.update(updated_bean)
+            mock_merge.return_value = merged_data
+            
+            # 원두 업데이트
+            repo.update_bean(TEST_BEAN["id"], updated_bean)
+            
+            # 검증
+            mock_firebase_client.update_bean.assert_called_once()
+            mock_merge.assert_called_once()
     
     def test_deactivate_bean(self, mock_firebase_client):
         """원두 비활성화 테스트"""

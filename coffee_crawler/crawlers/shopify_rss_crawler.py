@@ -32,8 +32,9 @@ class ShopifyRssCrawler(BaseCrawler):
         if not self.rss_url:
             raise ValueError(f"RSS URL이 설정되지 않았습니다: {cafe_id}")
             
-        # 가격 정규식 패턴
+        # 가격 정규식 패턴 (쉼표 있는 형식과 없는 형식 모두 지원)
         self.price_pattern = re.compile(r'(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*원')
+        self.price_pattern_no_comma = re.compile(r'(\d+)원')
         
         # 테스트 모드 제한 수
         self.test_limit = 3
@@ -146,19 +147,72 @@ class ShopifyRssCrawler(BaseCrawler):
         Returns:
             가격 (정수)
         """
-        # HTML 파싱
-        soup = BeautifulSoup(summary, 'html.parser')
+        if not summary:
+            return None
         
-        # 텍스트만 추출
-        text = soup.get_text()
-        
-        # 가격 패턴 검색
+        # 텍스트 준비
+        try:
+            # HTML인 경우 파싱해서 텍스트 추출
+            if '<' in summary and '>' in summary:
+                soup = BeautifulSoup(summary, 'html.parser')
+                text = soup.get_text()
+            else:
+                # 일반 텍스트인 경우 그대로 사용
+                text = summary
+        except Exception as e:
+            self.logger.warning(f"HTML 파싱 실패: {e}")
+            text = summary  # 실패 시 원본 그대로 사용
+            
+        self.logger.debug(f"추출된 텍스트: {text}")
+            
+        # 가격 패턴 검색 (쉼표 있는 형식)
         match = self.price_pattern.search(text)
         if match:
             price_str = match.group(1)
             # 쉼표 제거하고 정수로 변환
-            price = int(price_str.replace(',', ''))
-            return price
+            try:
+                price = int(price_str.replace(',', ''))
+                return price
+            except ValueError:
+                self.logger.warning(f"가격 변환 실패: {price_str}")
+        
+        # 쉼표 없는 형식 검색
+        match = self.price_pattern_no_comma.search(text)
+        if match:
+            price_str = match.group(1)
+            try:
+                price = int(price_str)
+                return price
+            except ValueError:
+                self.logger.warning(f"가격 변환 실패: {price_str}")
+        
+        # 단순 숫자 추출 시도 (위 정규식으로 찾지 못한 경우)
+        # 숫자만 추출하여 가장 큰 값을 선택
+        nums = re.findall(r'\d+', text)
+        if nums:
+            try:
+                # 연속된 숫자 문자열을 합쳐서 처리
+                # 예: "18" "000" -> "18000"
+                combined_nums = []
+                i = 0
+                while i < len(nums):
+                    if i < len(nums)-1 and len(nums[i+1]) == 3:  # 천 단위 숫자일 가능성
+                        combined_nums.append(nums[i] + nums[i+1])
+                        i += 2
+                    else:
+                        combined_nums.append(nums[i])
+                        i += 1
+                
+                # 정수로 변환하여 가장 큰 값 선택
+                values = [int(num) for num in combined_nums]
+                if values:
+                    # 일반적인 가격 범위 내의 값 필터링 (1,000 ~ 1,000,000원)
+                    price_values = [v for v in values if 1000 <= v <= 1000000]
+                    if price_values:
+                        return max(price_values)
+                    return max(values)
+            except ValueError:
+                pass
         
         return None
     
