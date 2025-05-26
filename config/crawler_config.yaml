@@ -10,10 +10,17 @@ cafes:
   centercoffee:
     label: "센터커피"
     type: "shopify_rss"
-    url: "https://centercoffee.co.kr/collections/all.atom"
+    url: "https://centercoffee.co.kr/collections/coffee/rss.xml"
+    product_url: "https://centercoffee.co.kr/collections/coffee"
     schedule: "0 0 * * 1"  # 매주 월요일 자정
     active: true
-    
+    backup_method: "html"  # RSS 실패 시 HTML 크롤링 시도
+    selectors:
+      products: ".product-item"
+      name: ".product-title"
+      price: ".product-price"
+      image: "img.product-image"
+
   fritz:
     label: "프릳츠커피"
     type: "html"
