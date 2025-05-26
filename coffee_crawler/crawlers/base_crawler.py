@@ -7,6 +7,7 @@
 import os
 import logging
 import time
+import traceback
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
@@ -53,6 +54,13 @@ class BaseCrawler(ABC):
             if not self.exclude_keywords:
                 self.exclude_keywords = filters.get('exclude_keywords', [])
                 
+        # 재시도 설정
+        self.max_retries = config.get('max_retries', 3)
+        self.retry_delay = config.get('retry_delay', 2.0)
+        
+        # 테스트 모드 제한 수
+        self.test_limit = config.get('test_limit', 3)
+        
         self.logger.info(f"{self.cafe.name} 크롤러 초기화 완료")
         
     def crawl(self, test_mode: bool = False) -> List[Dict[str, Any]]:
@@ -90,8 +98,14 @@ class BaseCrawler(ABC):
             return filtered_results
             
         except Exception as e:
-            self.logger.error(f"{self.cafe.name} 크롤링 중 오류 발생: {e}", exc_info=True)
-            raise
+            elapsed_time = time.time() - start_time
+            self.logger.error(
+                f"{self.cafe.name} 크롤링 중 오류 발생: {e}\n"
+                f"소요시간: {elapsed_time:.2f}초\n"
+                f"스택 트레이스: {traceback.format_exc()}"
+            )
+            # 빈 결과 반환
+            return []
         finally:
             # HTTP 클라이언트 세션 종료
             self.http_client.close()
@@ -119,17 +133,27 @@ class BaseCrawler(ABC):
         Returns:
             필터링된 원두 정보 목록
         """
+        if not results:
+            self.logger.warning("필터링할 결과가 없습니다.")
+            return []
+            
         filtered = []
+        excluded_count = 0
         
         for item in results:
             # 제품명이 없으면 건너뜀
             if 'name' not in item or not item['name']:
+                self.logger.debug("제품명이 없는 항목 제외")
+                excluded_count += 1
                 continue
                 
             # 키워드 기반 필터링
             if self._should_include(item):
                 filtered.append(item)
+            else:
+                excluded_count += 1
                 
+        self.logger.info(f"필터링 결과: {len(filtered)}개 포함, {excluded_count}개 제외")
         return filtered
     
     def _should_include(self, item: Dict[str, Any]) -> bool:
@@ -147,14 +171,16 @@ class BaseCrawler(ABC):
         
         # 제외 키워드 확인
         for keyword in self.exclude_keywords:
-            if keyword.lower() in name or keyword.lower() in description:
+            keyword_lower = keyword.lower()
+            if keyword_lower in name or keyword_lower in description:
                 self.logger.debug(f"제외 키워드 '{keyword}' 포함: {name}")
                 return False
         
         # 포함 키워드 확인
         if self.include_keywords:
             for keyword in self.include_keywords:
-                if keyword.lower() in name or keyword.lower() in description:
+                keyword_lower = keyword.lower()
+                if keyword_lower in name or keyword_lower in description:
                     return True
             
             # 포함 키워드가 있는데 일치하는 것이 없으면 제외
@@ -175,27 +201,56 @@ class BaseCrawler(ABC):
         Returns:
             (이미지 바이트 데이터, 저장된 파일 경로) 튜플
         """
+        if not image_url:
+            self.logger.warning("이미지 URL이 없습니다.")
+            return None, None
+            
+        # URL 검증
         try:
-            response, success = self.http_client.get(image_url)
+            # URL 스키마가 없으면 기본 스키마 추가
+            if not image_url.startswith(('http://', 'https://')):
+                image_url = f"https:{image_url}" if image_url.startswith('//') else f"https://{image_url}"
+                
+            self.logger.debug(f"이미지 다운로드 시도: {image_url}")
             
-            if not success or response.status_code != 200:
-                self.logger.warning(f"이미지 다운로드 실패: {image_url}, 상태 코드: {response.status_code}")
-                return None, None
-            
-            image_data = response.content
-            
-            # 파일로 저장
-            if save_path:
-                os.makedirs(os.path.dirname(save_path), exist_ok=True)
-                with open(save_path, 'wb') as f:
-                    f.write(image_data)
-                self.logger.debug(f"이미지 저장 완료: {save_path}")
-                return image_data, save_path
-            
-            return image_data, None
-            
+            # 최대 재시도 횟수만큼 시도
+            for attempt in range(1, self.max_retries + 1):
+                try:
+                    response, success = self.http_client.get(image_url)
+                    
+                    if not success or response.status_code != 200:
+                        self.logger.warning(
+                            f"이미지 다운로드 실패 (시도 {attempt}/{self.max_retries}): "
+                            f"{image_url}, 상태 코드: {response.status_code}"
+                        )
+                        if attempt < self.max_retries:
+                            time.sleep(self.retry_delay)
+                            continue
+                        return None, None
+                    
+                    image_data = response.content
+                    
+                    # 파일로 저장
+                    if save_path:
+                        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                        with open(save_path, 'wb') as f:
+                            f.write(image_data)
+                        self.logger.debug(f"이미지 저장 완료: {save_path}")
+                        return image_data, save_path
+                    
+                    return image_data, None
+                    
+                except Exception as e:
+                    self.logger.error(
+                        f"이미지 다운로드 중 오류 발생 (시도 {attempt}/{self.max_retries}): {e}"
+                    )
+                    if attempt < self.max_retries:
+                        time.sleep(self.retry_delay)
+                    else:
+                        return None, None
+                        
         except Exception as e:
-            self.logger.error(f"이미지 다운로드 중 오류 발생: {e}")
+            self.logger.error(f"이미지 URL 처리 중 오류 발생: {e}")
             return None, None
     
     def _extract_bean_info(self, title: str) -> Dict[str, Any]:
@@ -223,7 +278,8 @@ class BaseCrawler(ABC):
         
         for origin in origins:
             if origin.lower() in title_lower:
-                info['origin'] = origin
+                info['origin'] = origin.title()
+                self.logger.debug(f"원산지 추출: {origin}")
                 break
         
         # 가공방식 추출
@@ -235,7 +291,8 @@ class BaseCrawler(ABC):
         
         for process in processes:
             if process.lower() in title_lower:
-                info['processing'] = process
+                info['processing'] = process.title()
+                self.logger.debug(f"가공방식 추출: {process}")
                 break
         
         # 품종 추출
@@ -247,7 +304,55 @@ class BaseCrawler(ABC):
         
         for variety in varieties:
             if variety.lower() in title_lower:
-                info['variety'] = variety
+                info['variety'] = variety.title()
+                self.logger.debug(f"품종 추출: {variety}")
                 break
+                
+        return info
         
-        return info 
+    def _safe_request(self, url: str, method: str = 'get', **kwargs) -> Tuple[Optional[Any], bool]:
+        """
+        안전한 HTTP 요청 (재시도 로직 포함)
+        
+        Args:
+            url: 요청 URL
+            method: HTTP 메소드 ('get' 또는 'post')
+            **kwargs: HTTP 클라이언트에 전달할 추가 인수
+            
+        Returns:
+            (응답 객체, 성공 여부) 튜플
+        """
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                self.logger.debug(f"{method.upper()} 요청 시도 ({attempt}/{self.max_retries}): {url}")
+                
+                if method.lower() == 'get':
+                    response, success = self.http_client.get(url, **kwargs)
+                elif method.lower() == 'post':
+                    response, success = self.http_client.post(url, **kwargs)
+                else:
+                    self.logger.error(f"지원하지 않는 HTTP 메소드: {method}")
+                    return None, False
+                
+                if not success or (response.status_code != 200 and response.status_code != 201):
+                    self.logger.warning(
+                        f"HTTP 요청 실패 (시도 {attempt}/{self.max_retries}): "
+                        f"{url}, 상태 코드: {response.status_code}"
+                    )
+                    if attempt < self.max_retries:
+                        time.sleep(self.retry_delay)
+                        continue
+                    return response, False
+                
+                return response, True
+                
+            except Exception as e:
+                self.logger.error(
+                    f"HTTP 요청 중 오류 발생 (시도 {attempt}/{self.max_retries}): {e}"
+                )
+                if attempt < self.max_retries:
+                    time.sleep(self.retry_delay)
+                else:
+                    return None, False
+        
+        return None, False 

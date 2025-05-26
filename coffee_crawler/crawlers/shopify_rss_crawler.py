@@ -51,33 +51,38 @@ class ShopifyRssCrawler(BaseCrawler):
         self.logger.info(f"Shopify RSS 피드 크롤링: {self.rss_url}")
         
         # RSS 피드 파싱
-        feed = feedparser.parse(self.rss_url)
-        
-        if not feed.entries:
-            self.logger.warning(f"RSS 피드에 항목이 없습니다: {self.rss_url}")
-            return []
+        try:
+            feed = feedparser.parse(self.rss_url)
             
-        self.logger.info(f"RSS 피드 항목 수: {len(feed.entries)}")
-        
-        # 테스트 모드인 경우 제한된 수만 처리
-        if test_mode:
-            feed.entries = feed.entries[:self.test_limit]
-            self.logger.info(f"테스트 모드: {self.test_limit}개 항목만 처리")
-        
-        # 결과 목록
-        results = []
-        
-        # 각 항목 처리
-        for entry in feed.entries:
-            try:
-                bean_info = self._parse_entry(entry)
-                if bean_info:
-                    results.append(bean_info)
-            except Exception as e:
-                self.logger.error(f"항목 파싱 중 오류 발생: {e}", exc_info=True)
-                continue
-        
-        return results
+            if not feed.entries:
+                self.logger.warning(f"RSS 피드에 항목이 없습니다: {self.rss_url}")
+                return []
+                
+            self.logger.info(f"RSS 피드 항목 수: {len(feed.entries)}")
+            
+            # 테스트 모드인 경우 제한된 수만 처리
+            if test_mode and len(feed.entries) > self.test_limit:
+                feed.entries = feed.entries[:self.test_limit]
+                self.logger.info(f"테스트 모드: {self.test_limit}개 항목만 처리")
+            
+            # 결과 목록
+            results = []
+            
+            # 각 항목 처리
+            for i, entry in enumerate(feed.entries):
+                try:
+                    self.logger.debug(f"항목 처리 중: {i+1}/{len(feed.entries)}")
+                    bean_info = self._parse_entry(entry)
+                    if bean_info:
+                        results.append(bean_info)
+                except Exception as e:
+                    self.logger.error(f"항목 파싱 중 오류 발생: {e}", exc_info=True)
+                    continue
+            
+            return results
+        except Exception as e:
+            self.logger.error(f"RSS 피드 파싱 중 오류 발생: {e}", exc_info=True)
+            return []
     
     def _parse_entry(self, entry) -> Optional[Dict[str, Any]]:
         """
@@ -169,31 +174,48 @@ class ShopifyRssCrawler(BaseCrawler):
         """
         image_urls = []
         
-        # 미디어 컨텐츠 확인
-        if hasattr(entry, 'media_content') and entry.media_content:
-            for media in entry.media_content:
-                if 'url' in media:
-                    image_urls.append(media['url'])
-        
-        # 이미지 링크 확인
-        if hasattr(entry, 'links'):
-            for link in entry.links:
-                if link.get('type', '').startswith('image/'):
-                    image_urls.append(link.get('href'))
-        
-        # HTML에서 이미지 추출
-        if hasattr(entry, 'summary'):
-            soup = BeautifulSoup(entry.summary, 'html.parser')
-            for img in soup.find_all('img'):
-                if 'src' in img.attrs:
-                    image_url = img['src']
-                    # 상대 경로인 경우 절대 경로로 변환
-                    if not image_url.startswith(('http://', 'https://')):
-                        image_url = urljoin(self.cafe.url or self.rss_url, image_url)
-                    image_urls.append(image_url)
-        
-        # 중복 제거
-        return list(dict.fromkeys(image_urls))
+        try:
+            # 미디어 컨텐츠 확인
+            if hasattr(entry, 'media_content') and entry.media_content:
+                for media in entry.media_content:
+                    if 'url' in media:
+                        image_urls.append(media['url'])
+            
+            # 이미지 링크 확인
+            if hasattr(entry, 'links'):
+                for link in entry.links:
+                    if link.get('type', '').startswith('image/'):
+                        image_urls.append(link.get('href'))
+            
+            # HTML에서 이미지 추출
+            if hasattr(entry, 'summary'):
+                soup = BeautifulSoup(entry.summary, 'html.parser')
+                for img in soup.find_all('img'):
+                    if 'src' in img.attrs:
+                        image_url = img['src']
+                        # 상대 경로인 경우 절대 경로로 변환
+                        if not image_url.startswith(('http://', 'https://')):
+                            base_url = self.cafe.url or self.rss_url
+                            if base_url:
+                                image_url = urljoin(base_url, image_url)
+                        image_urls.append(image_url)
+            
+            # 중복 제거
+            unique_urls = []
+            for url in image_urls:
+                if url and url not in unique_urls:
+                    unique_urls.append(url)
+                    
+            if unique_urls:
+                self.logger.debug(f"이미지 URL {len(unique_urls)}개 추출 성공")
+            else:
+                self.logger.debug("추출된 이미지 URL 없음")
+                
+            return unique_urls
+            
+        except Exception as e:
+            self.logger.error(f"이미지 URL 추출 중 오류 발생: {e}")
+            return []
     
     def _extract_weight(self, title: str, summary: str) -> Optional[int]:
         """
