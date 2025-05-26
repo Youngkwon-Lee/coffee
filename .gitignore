@@ -42,12 +42,25 @@ next-env.d.ts
 
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-venv/
-.env
-.DS_Store
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -77,3 +90,39 @@ your-service-account-key.json
 
 # Backend
 /coffee-backend/
+
+# 가상 환경
+venv/
+ENV/
+.env
+
+# 로그 파일
+*.log
+logs/
+
+# 테스트 관련
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Firebase 관련
+secret/
+*serviceAccountKey.json
+*firebase-adminsdk*.json
+
+# 설정 파일 (템플릿은 버전 관리, 실제 설정은 제외)
+config/*_local.yaml
+config/*_prod.yaml
+
+# 임시 파일
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# 크롤링 결과 임시 파일
+*.html
+*.json
+temp/
+cache/

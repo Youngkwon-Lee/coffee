@@ -1,0 +1,25 @@
+# 크롤링 관련
+requests==2.31.0
+beautifulsoup4==4.12.2
+feedparser==6.0.10
+lxml==4.9.3
+playwright==1.36.0
+
+# 데이터 처리
+pyyaml==6.0.1
+python-dateutil==2.8.2
+
+# Firebase 관련
+firebase-admin==6.2.0
+
+# 유틸리티
+pillow==10.0.0  # 이미지 처리
+python-dotenv==1.0.0  # 환경 변수
+tqdm==4.66.1  # 진행률 표시
+
+# 테스트
+pytest==7.4.0
+pytest-cov==4.1.0
+
+# 로깅 및 디버깅
+colorlog==6.7.0 

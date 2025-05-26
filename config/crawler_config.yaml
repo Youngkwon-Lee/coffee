@@ -1,0 +1,43 @@
+# 크롤러 기본 설정
+crawler:
+  user_agent: "Coffee Bean Crawler/0.1.0"
+  request_timeout: 30
+  retry_count: 3
+  retry_delay: 5
+
+# 카페별 크롤러 설정
+cafes:
+  centercoffee:
+    label: "센터커피"
+    type: "shopify_rss"
+    url: "https://centercoffee.co.kr/collections/all.atom"
+    schedule: "0 0 * * 1"  # 매주 월요일 자정
+    active: true
+    
+  fritz:
+    label: "프릳츠커피"
+    type: "html"
+    url: "https://fritz.co.kr/shop/beans"
+    schedule: "0 0 1 * *"  # 매월 1일 자정
+    active: true
+    selectors:
+      products: ".product-item"
+      name: ".product-title"
+      price: ".product-price"
+      image: "img.product-image"
+
+# 기본 필터링 설정
+filters:
+  # 원두만 포함 (티백, 캡슐, 굿즈 등 제외)
+  include_keywords:
+    - "원두"
+    - "커피"
+    - "coffee"
+    - "bean"
+  
+  exclude_keywords:
+    - "티백"
+    - "캡슐"
+    - "drip"
+    - "굿즈"
+    - "머그" 
