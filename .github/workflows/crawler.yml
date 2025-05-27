@@ -2,8 +2,13 @@ name: Coffee Bean Crawler
 
 on:
   schedule:
-    - cron: '0 3 * * 1'  # 매주 월요일 03:00 UTC (한국시간 12:00)
+    - cron: '0 3 * * 1-5'  # 월-금 03:00 UTC (한국시간 12:00)
   workflow_dispatch:  # 수동 실행 옵션
+    inputs:
+      cafe:
+        description: '크롤링할 카페 (비워두면 모든 카페)'
+        required: false
+        default: ''
 
 jobs:
   crawl:
@@ -29,20 +34,72 @@ jobs:
       - name: Set up Chrome
         uses: browser-actions/setup-chrome@latest
 
+      - name: Get day of week
+        id: day
+        run: |
+          DAY_OF_WEEK=$(date +%u)
+          echo "day_of_week=$DAY_OF_WEEK" >> $GITHUB_OUTPUT
+          
+      - name: Decide cafe to crawl
+        id: cafe
+        run: |
+          if [ "${{ github.event.inputs.cafe }}" != "" ]; then
+            CAFE="${{ github.event.inputs.cafe }}"
+            echo "cafe=$CAFE" >> $GITHUB_OUTPUT
+            echo "크롤링할 카페: $CAFE (수동 지정)"
+          else
+            case "${{ steps.day.outputs.day_of_week }}" in
+              1)
+                CAFE="centercoffee"
+                ;;
+              2)
+                CAFE="fritz"
+                ;;
+              3)
+                CAFE="namusairo"
+                ;;
+              4)
+                CAFE="somacoffee"
+                ;;
+              5)
+                CAFE="anthracite,terarosa"
+                ;;
+              *)
+                CAFE="all"
+                ;;
+            esac
+            echo "cafe=$CAFE" >> $GITHUB_OUTPUT
+            echo "크롤링할 카페: $CAFE (요일 기반 자동 선택)"
+          fi
+
       - name: Run crawler
         id: crawler
         run: |
           echo "start_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
-          python scripts/run_crawler.py --all --output data/beans_$(date +%Y%m%d).json
+          
+          if [ "${{ steps.cafe.outputs.cafe }}" == "all" ]; then
+            python scripts/run_crawler.py --all --output data/beans_$(date +%Y%m%d).json
+          elif [[ "${{ steps.cafe.outputs.cafe }}" == *","* ]]; then
+            # 여러 카페가 쉼표로 구분된 경우
+            IFS=',' read -ra CAFES <<< "${{ steps.cafe.outputs.cafe }}"
+            for CAFE in "${CAFES[@]}"; do
+              echo "크롤링: $CAFE"
+              python scripts/run_crawler.py --cafe $CAFE --output data/${CAFE}_$(date +%Y%m%d).json
+            done
+          else
+            # 단일 카페
+            python scripts/run_crawler.py --cafe ${{ steps.cafe.outputs.cafe }} --output data/${{ steps.cafe.outputs.cafe }}_$(date +%Y%m%d).json
+          fi
+          
           echo "end_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
-          echo "bean_count=$(grep -o '"name":' data/beans_$(date +%Y%m%d).json | wc -l)" >> $GITHUB_OUTPUT
+          echo "bean_count=$(grep -o '"name":' data/*_$(date +%Y%m%d).json | wc -l)" >> $GITHUB_OUTPUT
         
       - name: Save results
         uses: actions/upload-artifact@v2
         with:
           name: crawling-results-${{ github.run_number }}
           path: |
-            data/beans_*.json
+            data/*.json
             logs/
 
       # 이전 결과와 비교 (선택 사항)
@@ -60,22 +117,44 @@ jobs:
           
       - name: Compare with previous results
         id: compare
-        if: success() && hashFiles('previous-data/data/beans_*.json') != ''
+        if: success() && hashFiles('previous-data/data/*.json') != ''
         run: |
           echo "이전 결과와 비교 중..."
-          PREV_FILE=$(ls -t previous-data/data/beans_*.json 2>/dev/null | head -1)
-          CURR_FILE=$(ls -t data/beans_*.json 2>/dev/null | head -1)
-          if [ -f "$PREV_FILE" ] && [ -f "$CURR_FILE" ]; then
-            PREV_COUNT=$(grep -o '"name":' "$PREV_FILE" | wc -l)
-            CURR_COUNT=$(grep -o '"name":' "$CURR_FILE" | wc -l)
-            DIFF=$(($CURR_COUNT - $PREV_COUNT))
-            echo "prev_count=$PREV_COUNT" >> $GITHUB_OUTPUT
-            echo "curr_count=$CURR_COUNT" >> $GITHUB_OUTPUT
-            echo "diff=$DIFF" >> $GITHUB_OUTPUT
-            echo "has_comparison=true" >> $GITHUB_OUTPUT
-          else
+          
+          CURRENT_FILES=$(ls -1 data/*_$(date +%Y%m%d).json 2>/dev/null || echo "")
+          if [ -z "$CURRENT_FILES" ]; then
             echo "has_comparison=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
+          
+          TOTAL_PREV=0
+          TOTAL_CURR=0
+          
+          for CURR_FILE in $CURRENT_FILES; do
+            CAFE_NAME=$(basename $CURR_FILE | cut -d'_' -f1)
+            echo "카페: $CAFE_NAME"
+            
+            # 이전 파일 찾기 (정확한 날짜 상관없이 같은 카페)
+            PREV_FILE=$(ls -t previous-data/data/${CAFE_NAME}_*.json 2>/dev/null | head -1 || echo "")
+            
+            if [ -f "$PREV_FILE" ] && [ -f "$CURR_FILE" ]; then
+              PREV_COUNT=$(grep -o '"name":' "$PREV_FILE" | wc -l)
+              CURR_COUNT=$(grep -o '"name":' "$CURR_FILE" | wc -l)
+              DIFF=$(($CURR_COUNT - $PREV_COUNT))
+              
+              echo "$CAFE_NAME - 이전: $PREV_COUNT, 현재: $CURR_COUNT, 변화: $DIFF"
+              
+              TOTAL_PREV=$(($TOTAL_PREV + $PREV_COUNT))
+              TOTAL_CURR=$(($TOTAL_CURR + $CURR_COUNT))
+            fi
+          done
+          
+          TOTAL_DIFF=$(($TOTAL_CURR - $TOTAL_PREV))
+          
+          echo "prev_count=$TOTAL_PREV" >> $GITHUB_OUTPUT
+          echo "curr_count=$TOTAL_CURR" >> $GITHUB_OUTPUT
+          echo "diff=$TOTAL_DIFF" >> $GITHUB_OUTPUT
+          echo "has_comparison=true" >> $GITHUB_OUTPUT
 
       # 슬랙 알림 전송
       - name: Send Slack notification
@@ -89,6 +168,7 @@ jobs:
             
             *상태:* ${{ job.status == 'success' && '✅ 성공' || '❌ 실패' }}
             *실행 번호:* #${{ github.run_number }}
+            *크롤링한 카페:* ${{ steps.cafe.outputs.cafe }}
             *시작 시간:* ${{ steps.crawler.outputs.start_time }}
             *종료 시간:* ${{ steps.crawler.outputs.end_time }}
             *수집된 원두 수:* ${{ steps.crawler.outputs.bean_count || '알 수 없음' }}

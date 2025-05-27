@@ -47,6 +47,98 @@ cafes:
       product_price: ".price"
       product_image: ".thumb img"
 
+  namusairo:
+    label: "나무사이로"
+    type: "selenium"
+    url: "https://www.namusairo.com/product/list.html?cate_no=84"
+    schedule: "0 3 * * 3"  # 매주 수요일 03:00
+    active: true
+    headless: true
+    wait_timeout: 10
+    page_load_delay: 2
+    selectors:
+      product_list_container: ".prdList"
+      product_item: ".item"
+      product_link: ".thumbnail a"
+      product_title: ".name"
+      product_price: ".price"
+      product_image: ".thumbnail img"
+      pagination_container: ".ec-base-paginate"
+      next_page: "a.next"
+      fetch_product_detail: true
+      product_detail_container: ".detail_area"
+      product_description: "#prdDetail"
+      product_detail_images: ".detail_area img"
+      
+  somacoffee:
+    label: "소마커피"
+    type: "selenium"
+    url: "https://www.somacoffee.co.kr/product/list.html?cate_no=29"
+    schedule: "0 4 * * 4"  # 매주 목요일 04:00
+    active: true
+    headless: true
+    wait_timeout: 10
+    page_load_delay: 2
+    selectors:
+      product_list_container: ".xans-product-normalmenu"
+      product_item: ".xans-record-"
+      product_link: ".name a"
+      product_title: ".name"
+      product_price: ".price"
+      product_image: ".thumbnail img"
+      pagination_container: ".xans-product-normalpaging"
+      next_page: "a.next"
+      fetch_product_detail: true
+      product_detail_container: ".detailArea"
+      product_description: "#prdDetail"
+      product_detail_images: "#prdDetail img"
+      
+  anthracite:
+    label: "앤트러사이트"
+    type: "selenium"
+    url: "https://www.anthracitecoffee.com/product/category/58"
+    schedule: "0 5 * * 5"  # 매주 금요일 05:00
+    active: true
+    headless: true
+    wait_timeout: 15
+    page_load_delay: 3
+    selectors:
+      product_list_container: ".product-grid"
+      product_item: ".grid-item"
+      product_link: ".product-name a"
+      product_title: ".product-name"
+      product_price: ".product-price"
+      product_image: ".img-container img"
+      pagination_container: ".pagination"
+      next_page: ".pagination-next"
+      fetch_product_detail: true
+      product_detail_container: ".product-detail"
+      product_description: ".product-description"
+      product_detail_images: ".product-images img"
+      
+  terarosa:
+    label: "테라로사"
+    type: "selenium"
+    url: "https://terarosa.com/collections/coffee"
+    schedule: "0 6 * * 6"  # 매주 토요일 06:00
+    active: true
+    headless: true
+    wait_timeout: 15
+    page_load_delay: 3
+    selectors:
+      product_list_container: ".ProductList"
+      product_item: ".ProductItem"
+      product_link: ".ProductItem__Title a"
+      product_title: ".ProductItem__Title"
+      product_price: ".ProductItem__Price"
+      product_image: ".ProductItem__Image img"
+      pagination_container: ".Pagination"
+      next_page: ".Pagination__Next"
+      fetch_product_detail: true
+      product_detail_container: ".Product__Info"
+      product_description: ".ProductMeta__Description"
+      product_detail_images: ".Product__SlideItem img"
+
 # 기본 필터링 설정
 filters:
   # 원두만 포함 (티백, 캡슐, 굿즈 등 제외)
