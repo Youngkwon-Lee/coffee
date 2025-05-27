@@ -30,8 +30,12 @@ jobs:
         uses: browser-actions/setup-chrome@latest
 
       - name: Run crawler
+        id: crawler
         run: |
+          echo "start_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
           python scripts/run_crawler.py --all --output data/beans_$(date +%Y%m%d).json
+          echo "end_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "bean_count=$(grep -o '"name":' data/beans_$(date +%Y%m%d).json | wc -l)" >> $GITHUB_OUTPUT
         
       - name: Save results
         uses: actions/upload-artifact@v2
@@ -55,19 +59,44 @@ jobs:
           workflow: crawler.yml
           
       - name: Compare with previous results
+        id: compare
         if: success() && hashFiles('previous-data/data/beans_*.json') != ''
         run: |
           echo "이전 결과와 비교 중..."
           PREV_FILE=$(ls -t previous-data/data/beans_*.json 2>/dev/null | head -1)
           CURR_FILE=$(ls -t data/beans_*.json 2>/dev/null | head -1)
           if [ -f "$PREV_FILE" ] && [ -f "$CURR_FILE" ]; then
-            echo "이전 파일: $PREV_FILE ($(stat -c%s "$PREV_FILE") bytes)"
-            echo "현재 파일: $CURR_FILE ($(stat -c%s "$CURR_FILE") bytes)"
             PREV_COUNT=$(grep -o '"name":' "$PREV_FILE" | wc -l)
             CURR_COUNT=$(grep -o '"name":' "$CURR_FILE" | wc -l)
-            echo "이전 원두 수: $PREV_COUNT"
-            echo "현재 원두 수: $CURR_COUNT"
-            echo "변화: $(($CURR_COUNT - $PREV_COUNT))"
+            DIFF=$(($CURR_COUNT - $PREV_COUNT))
+            echo "prev_count=$PREV_COUNT" >> $GITHUB_OUTPUT
+            echo "curr_count=$CURR_COUNT" >> $GITHUB_OUTPUT
+            echo "diff=$DIFF" >> $GITHUB_OUTPUT
+            echo "has_comparison=true" >> $GITHUB_OUTPUT
           else
-            echo "비교할 파일이 없습니다."
-          fi 
+            echo "has_comparison=false" >> $GITHUB_OUTPUT
+          fi
+
+      # 슬랙 알림 전송
+      - name: Send Slack notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,workflow,job,took
+          text: |
+            *커피 원두 크롤링 결과*
+            
+            *상태:* ${{ job.status == 'success' && '✅ 성공' || '❌ 실패' }}
+            *실행 번호:* #${{ github.run_number }}
+            *시작 시간:* ${{ steps.crawler.outputs.start_time }}
+            *종료 시간:* ${{ steps.crawler.outputs.end_time }}
+            *수집된 원두 수:* ${{ steps.crawler.outputs.bean_count || '알 수 없음' }}
+            
+            ${{ steps.compare.outputs.has_comparison == 'true' && format('*이전 원두 수:* {0}', steps.compare.outputs.prev_count) || '' }}
+            ${{ steps.compare.outputs.has_comparison == 'true' && format('*변경:* {0}', steps.compare.outputs.diff) || '' }}
+            
+            ${{ job.status == 'success' && format('[결과 다운로드](https://github.com/Youngkwon-Lee/coffee-crawler/actions/runs/{0})', github.run_id) || '' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          MATRIX_CONTEXT: ${{ toJson(matrix) }} 
