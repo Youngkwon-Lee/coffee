@@ -119,7 +119,7 @@ jobs:
         
       - name: Save results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.2
         with:
           name: crawling-results-${{ github.run_number }}
           path: |
