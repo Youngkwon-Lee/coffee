@@ -17,23 +17,59 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Debug environment
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "List files: $(ls -la)"
+          echo "Python version: $(python --version)"
+          echo "System info: $(uname -a)"
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
 
+      - name: Check Python setup
+        run: |
+          python --version
+          pip --version
+          echo "Python path: $(which python)"
+          echo "Pip path: $(which pip)"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          echo "Installing requirements.txt..."
+          cat requirements.txt
           pip install -r requirements.txt
+          echo "Installing additional packages..."
           pip install selenium webdriver-manager beautifulsoup4 requests
 
+      - name: Check if setup_directories.py exists
+        run: |
+          ls -la
+          if [ -f "setup_directories.py" ]; then
+            echo "setup_directories.py exists"
+            cat setup_directories.py
+          else
+            echo "setup_directories.py does NOT exist!"
+            # 파일이 없으면 기본 디렉토리 생성
+            mkdir -p data logs
+          fi
+
       - name: Create directories
-        run: python setup_directories.py
+        run: |
+          if [ -f "setup_directories.py" ]; then
+            python setup_directories.py
+          else
+            echo "Creating directories manually"
+            mkdir -p data logs secret
+          fi
+          ls -la
 
       - name: Set up Chrome
         uses: browser-actions/setup-chrome@latest
-
+        
       # 카페 선택 로직 간소화 - 기본적으로 모든 카페 크롤링
       - name: Decide cafe to crawl
         id: cafe
@@ -53,6 +89,15 @@ jobs:
         run: |
           echo "start_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
           
+          # 스크립트 존재 여부 확인
+          if [ ! -f "scripts/run_crawler.py" ]; then
+            echo "Error: scripts/run_crawler.py not found!"
+            echo "Current directory: $(pwd)"
+            echo "Files in scripts directory (if exists):"
+            ls -la scripts/ || echo "scripts directory does not exist"
+            exit 1
+          fi
+          
           if [ "${{ steps.cafe.outputs.cafe }}" == "all" ]; then
             echo "모든 카페 크롤링 시작"
             python scripts/run_crawler.py --all --output data/beans_all_$(date +%Y%m%d).json
@@ -70,9 +115,10 @@ jobs:
           fi
           
           echo "end_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
-          echo "bean_count=$(grep -o '"name":' data/*_$(date +%Y%m%d).json | wc -l)" >> $GITHUB_OUTPUT
+          echo "bean_count=$(grep -o '"name":' data/*_$(date +%Y%m%d).json 2>/dev/null | wc -l || echo 0)" >> $GITHUB_OUTPUT
         
       - name: Save results
+        if: always()
         uses: actions/upload-artifact@v2
         with:
           name: crawling-results-${{ github.run_number }}
@@ -82,10 +128,12 @@ jobs:
 
       # 이전 결과와 비교 (선택 사항)
       - name: Set previous run number
+        if: success()
         id: prev_run
         run: echo "prev_run_number=$((${{ github.run_number }} - 1))" >> $GITHUB_OUTPUT
 
       - name: Download previous results
+        if: success()
         uses: dawidd6/action-download-artifact@v2
         with:
           name: crawling-results-${{ steps.prev_run.outputs.prev_run_number }}
@@ -147,9 +195,9 @@ jobs:
             *상태:* ${{ job.status == 'success' && '✅ 성공' || '❌ 실패' }}
             *실행 번호:* #${{ github.run_number }}
             *크롤링한 카페:* ${{ steps.cafe.outputs.cafe }}
-            *시작 시간:* ${{ steps.crawler.outputs.start_time }}
-            *종료 시간:* ${{ steps.crawler.outputs.end_time }}
-            *수집된 원두 수:* ${{ steps.crawler.outputs.bean_count || '알 수 없음' }}
+            *시작 시간:* ${{ steps.crawler.outputs.start_time || 'N/A' }}
+            *종료 시간:* ${{ steps.crawler.outputs.end_time || 'N/A' }}
+            *수집된 원두 수:* ${{ steps.crawler.outputs.bean_count || '0' }}
             
             ${{ steps.compare.outputs.has_comparison == 'true' && format('*이전 원두 수:* {0}', steps.compare.outputs.prev_count) || '' }}
             ${{ steps.compare.outputs.has_comparison == 'true' && format('*변경:* {0}', steps.compare.outputs.diff) || '' }}
