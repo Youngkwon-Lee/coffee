@@ -7,5 +7,6 @@
 from coffee_crawler.crawlers.base_crawler import BaseCrawler
 from coffee_crawler.crawlers.shopify_rss_crawler import ShopifyRssCrawler
 from coffee_crawler.crawlers.html_crawler import HtmlCrawler
+from coffee_crawler.crawlers.selenium_crawler import SeleniumCrawler
 
-__all__ = ['BaseCrawler', 'ShopifyRssCrawler', 'HtmlCrawler'] 
+__all__ = ['BaseCrawler', 'ShopifyRssCrawler', 'HtmlCrawler', 'SeleniumCrawler'] 

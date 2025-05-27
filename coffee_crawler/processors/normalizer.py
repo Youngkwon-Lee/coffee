@@ -98,6 +98,9 @@ class BeanNormalizer:
         
         # 가격 패턴
         self.price_pattern = re.compile(r'(\d{1,3}(?:,\d{3})*|\d+)(?:\s*원|\s*₩)?')
+        
+        # 한글 정규식 패턴
+        self.korean_pattern = re.compile(r'[가-힣]+')
     
     def normalize(self, bean_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -121,6 +124,9 @@ class BeanNormalizer:
             logger.warning("브랜드 이름이 없습니다")
             normalized['brand'] = "알 수 없는 브랜드"
         
+        # 한글 인코딩 문제 해결
+        normalized = self._fix_encoding(normalized)
+        
         # 가격 정규화
         normalized = self._normalize_price(normalized)
         
@@ -143,6 +149,83 @@ class BeanNormalizer:
         normalized = self._normalize_flavors(normalized)
         
         return normalized
+    
+    def _fix_encoding(self, bean_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        한글 인코딩 문제 해결
+        
+        Args:
+            bean_data: 원두 데이터
+            
+        Returns:
+            인코딩 문제가 해결된 원두 데이터
+        """
+        result = bean_data.copy()
+        
+        # 인코딩 문제 확인 함수
+        def has_encoding_issue(text):
+            if not text or not isinstance(text, str):
+                return False
+            
+            # 한글이 포함되어 있지만 깨진 문자가 있는지 확인
+            return (
+                self.korean_pattern.search(text) is None and 
+                any(ord(c) > 127 for c in text)
+            )
+        
+        # 텍스트 인코딩 수정 함수
+        def fix_text(text):
+            if not text or not isinstance(text, str):
+                return text
+            
+            # 인코딩 문제가 있는 경우 다양한 인코딩으로 시도
+            if has_encoding_issue(text):
+                encodings_to_try = ['utf-8', 'euc-kr', 'cp949', 'latin1']
+                
+                for encoding in encodings_to_try:
+                    try:
+                        # 바이트로 변환 후 다시 디코딩
+                        binary = text.encode('latin1')
+                        decoded = binary.decode(encoding)
+                        
+                        # 한글이 제대로 복원되었는지 확인
+                        if self.korean_pattern.search(decoded):
+                            logger.info(f"인코딩 수정 성공: {encoding}")
+                            return decoded
+                    except (UnicodeEncodeError, UnicodeDecodeError):
+                        continue
+            
+            return text
+        
+        # 이름 수정
+        if 'name' in result:
+            result['name'] = fix_text(result['name'])
+        
+        # 설명 수정
+        if 'description' in result:
+            result['description'] = fix_text(result['description'])
+        
+        # 원산지 수정
+        if 'origin' in result:
+            result['origin'] = fix_text(result['origin'])
+        
+        # 가공방식 수정
+        if 'processing' in result:
+            result['processing'] = fix_text(result['processing'])
+        
+        # 품종 수정
+        if 'variety' in result:
+            result['variety'] = fix_text(result['variety'])
+        
+        # 로스팅 수정
+        if 'roasting' in result:
+            result['roasting'] = fix_text(result['roasting'])
+        
+        # 향미 노트 수정
+        if 'flavor_note' in result:
+            result['flavor_note'] = fix_text(result['flavor_note'])
+        
+        return result
     
     def _normalize_price(self, bean_data: Dict[str, Any]) -> Dict[str, Any]:
         """

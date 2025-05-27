@@ -125,3 +125,43 @@ npm run start
 
 ## 라이선스
 이 프로젝트는 MIT 라이선스를 따릅니다.
+
+# 커피 원두 크롤러
+
+GitHub Actions를 사용하여 자동으로 커피 원두 정보를 수집하는 크롤러입니다.
+
+## 기능
+
+- 매주 월요일 UTC 03:00 (한국시간 12:00)에 자동으로 실행
+- 주요 커피 사이트에서 원두 정보 수집
+- 수집한 데이터는 JSON 형식으로 저장
+- 이전 데이터와 비교하여 변경사항 확인
+
+## 수동 실행 방법
+
+1. GitHub 저장소의 "Actions" 탭으로 이동
+2. "Coffee Bean Crawler" 워크플로우 선택
+3. "Run workflow" 버튼 클릭
+4. "Run workflow" 확인
+
+## 데이터 확인 방법
+
+1. GitHub 저장소의 "Actions" 탭으로 이동
+2. 실행된 워크플로우 선택
+3. "Artifacts" 섹션에서 "crawling-results-{번호}" 다운로드
+4. 압축 파일 해제 후 `data` 폴더 내 JSON 파일 확인
+
+## 로컬 환경에서 실행 방법
+
+```bash
+# 의존성 설치
+pip install -r requirements.txt
+
+# 크롤러 실행
+python scripts/run_crawler.py --all --output data/beans_manual.json
+```
+
+## 주의사항
+
+- 크롤링은 해당 웹사이트의 이용약관을 준수하여 사용해야 합니다.
+- 과도한 요청은 IP 차단의 원인이 될 수 있습니다.

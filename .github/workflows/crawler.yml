@@ -1,0 +1,73 @@
+name: Coffee Bean Crawler
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # 매주 월요일 03:00 UTC (한국시간 12:00)
+  workflow_dispatch:  # 수동 실행 옵션
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install selenium webdriver-manager beautifulsoup4 requests
+
+      - name: Create directories
+        run: python setup_directories.py
+
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@latest
+
+      - name: Run crawler
+        run: |
+          python scripts/run_crawler.py --all --output data/beans_$(date +%Y%m%d).json
+        
+      - name: Save results
+        uses: actions/upload-artifact@v2
+        with:
+          name: crawling-results-${{ github.run_number }}
+          path: |
+            data/beans_*.json
+            logs/
+
+      # 이전 결과와 비교 (선택 사항)
+      - name: Set previous run number
+        id: prev_run
+        run: echo "prev_run_number=$((${{ github.run_number }} - 1))" >> $GITHUB_OUTPUT
+
+      - name: Download previous results
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: crawling-results-${{ steps.prev_run.outputs.prev_run_number }}
+          path: previous-data
+          if_no_artifact_found: ignore
+          workflow: crawler.yml
+          
+      - name: Compare with previous results
+        if: success() && hashFiles('previous-data/data/beans_*.json') != ''
+        run: |
+          echo "이전 결과와 비교 중..."
+          PREV_FILE=$(ls -t previous-data/data/beans_*.json 2>/dev/null | head -1)
+          CURR_FILE=$(ls -t data/beans_*.json 2>/dev/null | head -1)
+          if [ -f "$PREV_FILE" ] && [ -f "$CURR_FILE" ]; then
+            echo "이전 파일: $PREV_FILE ($(stat -c%s "$PREV_FILE") bytes)"
+            echo "현재 파일: $CURR_FILE ($(stat -c%s "$CURR_FILE") bytes)"
+            PREV_COUNT=$(grep -o '"name":' "$PREV_FILE" | wc -l)
+            CURR_COUNT=$(grep -o '"name":' "$CURR_FILE" | wc -l)
+            echo "이전 원두 수: $PREV_COUNT"
+            echo "현재 원두 수: $CURR_COUNT"
+            echo "변화: $(($CURR_COUNT - $PREV_COUNT))"
+          else
+            echo "비교할 파일이 없습니다."
+          fi 

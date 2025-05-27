@@ -3,13 +3,13 @@
 
 firebase:
   # 프로젝트 정보
-  project_id: "your-firebase-project-id"
+  project_id: "coffee-sync-app"
   
   # 인증 방법 (환경 변수 또는 키 파일)
   auth_method: "key_file"  # 'env_var' 또는 'key_file'
   
   # 키 파일 경로 (auth_method가 'key_file'일 경우)
-  key_file_path: "secret/serviceAccountKey.json"
+  key_file_path: "your-service-account-key.json"
   
   # 환경 변수 이름 (auth_method가 'env_var'일 경우)
   credentials_env_var: "FIREBASE_CREDENTIALS"
@@ -22,5 +22,5 @@ firebase:
   
   # Storage 설정 (이미지 저장용)
   storage:
-    bucket_name: "your-firebase-storage-bucket"
+    bucket_name: "coffee-sync-app.appspot.com"
     image_path: "bean_images" 

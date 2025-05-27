@@ -1,6 +1,6 @@
 # 크롤러 기본 설정
 crawler:
-  user_agent: "Coffee Bean Crawler/0.1.0"
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
   request_timeout: 30
   retry_count: 3
   retry_delay: 5
@@ -9,29 +9,43 @@ crawler:
 cafes:
   centercoffee:
     label: "센터커피"
-    type: "shopify_rss"
-    url: "https://centercoffee.co.kr/collections/coffee/rss.xml"
-    product_url: "https://centercoffee.co.kr/collections/coffee"
+    type: "selenium"
+    url: "https://centercoffee.co.kr/shop"
+    product_url: "https://centercoffee.co.kr/shop"
     schedule: "0 0 * * 1"  # 매주 월요일 자정
     active: true
-    backup_method: "html"  # RSS 실패 시 HTML 크롤링 시도
+    headless: true
+    wait_timeout: 10
+    page_load_delay: 2
+    pagination: true  # 페이지네이션 활성화
+    max_pages: 5  # 최대 5페이지까지 탐색
     selectors:
-      products: ".product-item"
-      name: ".product-title"
-      price: ".product-price"
-      image: "img.product-image"
+      product_list_container: "div.shop-content"
+      product_item: ".shop-item"
+      product_link: "a"
+      product_title: ".item-title"
+      product_price: ".item-pay"
+      product_image: "img"
+      pagination_container: ".paging-block"
+      next_page: "a"  # 페이지 번호 링크
+      fetch_product_detail: true
+      product_detail_container: "#prod_detail"
+      product_description: ".product_detail"
+      product_detail_images: "img"
 
   fritz:
     label: "프릳츠커피"
     type: "html"
-    url: "https://fritz.co.kr/shop/beans"
+    url: "https://m.fritz.co.kr/product/list.html?cate_no=48"
     schedule: "0 0 1 * *"  # 매월 1일 자정
     active: true
     selectors:
-      products: ".product-item"
-      name: ".product-title"
-      price: ".product-price"
-      image: "img.product-image"
+      product_list_container: ".column2"
+      product_item: "li"
+      product_link: ".box a"
+      product_title: ".name"
+      product_price: ".price"
+      product_image: ".thumb img"
 
 # 기본 필터링 설정
 filters:
@@ -41,10 +55,56 @@ filters:
     - "커피"
     - "coffee"
     - "bean"
+    - "200g"
+    - "500g"
+    - "1kg"
+    - "Costa Rica"
+    - "Colombia"
+    - "Ethiopia"
+    - "Kenya"
+    - "Brazil"
+    - "Honey"
+    - "Washed"
+    - "Natural"
+    - "Peru"
+    - "Ecuador"
+    - "Guatemala"
+    - "Panama"
+    - "El Salvador"
+    - "Honduras"
+    - "Geisha"
+    - "Typica"
+    - "Bourbon"
+    - "Decaf"
+    - "Decaffeinated"
+    - "디카페인"
+    - "Santos"
+    - "Yirgacheffe"
+    - "Swiss Water"
+    - "Mountain Water"
   
   exclude_keywords:
     - "티백"
     - "캡슐"
     - "drip"
+    - "드립백"
     - "굿즈"
-    - "머그" 
+    - "머그"
+    - "컵"
+    - "키홀더"
+    - "액세서리"
+    - "패키지"
+    - "선물세트"
+    - "기프트"
+    - "로고"
+    - "콜드브루"
+    - "Badge"
+    - "배지"
+    - "뱃지"
+    - "Poppy"
+    - "스티커"
+    - "Sticker"
+    - "홀더"
+    - "Holder"
+    - "Tumbler"
+    - "텀블러" 
