@@ -45,26 +45,10 @@ jobs:
           echo "Installing additional packages..."
           pip install selenium webdriver-manager beautifulsoup4 requests
 
-      - name: Check if setup_directories.py exists
-        run: |
-          ls -la
-          if [ -f "setup_directories.py" ]; then
-            echo "setup_directories.py exists"
-            cat setup_directories.py
-          else
-            echo "setup_directories.py does NOT exist!"
-            # 파일이 없으면 기본 디렉토리 생성
-            mkdir -p data logs
-          fi
-
       - name: Create directories
         run: |
-          if [ -f "setup_directories.py" ]; then
-            python setup_directories.py
-          else
-            echo "Creating directories manually"
-            mkdir -p data logs secret
-          fi
+          echo "Creating directories manually"
+          mkdir -p data logs secret
           ls -la
 
       - name: Set up Chrome
@@ -98,89 +82,54 @@ jobs:
             exit 1
           fi
           
+          # 날짜 형식의 결과 파일명 설정
+          TODAY=$(date +%Y%m%d)
+          echo "date=$TODAY" >> $GITHUB_OUTPUT
+          
           if [ "${{ steps.cafe.outputs.cafe }}" == "all" ]; then
             echo "모든 카페 크롤링 시작"
-            python scripts/run_crawler.py --all --output data/beans_all_$(date +%Y%m%d).json
+            python scripts/run_crawler.py --all --output data/beans_all_${TODAY}.json
           elif [[ "${{ steps.cafe.outputs.cafe }}" == *","* ]]; then
             # 여러 카페가 쉼표로 구분된 경우
             IFS=',' read -ra CAFES <<< "${{ steps.cafe.outputs.cafe }}"
             for CAFE in "${CAFES[@]}"; do
               echo "크롤링: $CAFE"
-              python scripts/run_crawler.py --cafe $CAFE --output data/${CAFE}_$(date +%Y%m%d).json
+              python scripts/run_crawler.py --cafe $CAFE --output data/${CAFE}_${TODAY}.json
             done
           else
             # 단일 카페
             echo "크롤링: ${{ steps.cafe.outputs.cafe }}"
-            python scripts/run_crawler.py --cafe ${{ steps.cafe.outputs.cafe }} --output data/${{ steps.cafe.outputs.cafe }}_$(date +%Y%m%d).json
+            python scripts/run_crawler.py --cafe ${{ steps.cafe.outputs.cafe }} --output data/${{ steps.cafe.outputs.cafe }}_${TODAY}.json
           fi
           
           echo "end_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
-          echo "bean_count=$(grep -o '"name":' data/*_$(date +%Y%m%d).json 2>/dev/null | wc -l || echo 0)" >> $GITHUB_OUTPUT
-        
-      - name: Save results
-        if: always()
-        uses: actions/upload-artifact@v3.1.2
-        with:
-          name: crawling-results-${{ github.run_number }}
-          path: |
-            data/*.json
-            logs/
-
-      # 이전 결과와 비교 (선택 사항)
-      - name: Set previous run number
-        if: success()
-        id: prev_run
-        run: echo "prev_run_number=$((${{ github.run_number }} - 1))" >> $GITHUB_OUTPUT
-
-      - name: Download previous results
-        if: success()
-        uses: dawidd6/action-download-artifact@v2
-        with:
-          name: crawling-results-${{ steps.prev_run.outputs.prev_run_number }}
-          path: previous-data
-          if_no_artifact_found: ignore
-          workflow: crawler.yml
           
-      - name: Compare with previous results
-        id: compare
-        if: success() && hashFiles('previous-data/data/*.json') != ''
-        run: |
-          echo "이전 결과와 비교 중..."
+          # 결과 파일 목록 및 통계 확인
+          echo "크롤링 결과 파일 목록:"
+          ls -la data/ || echo "No data files found"
           
-          CURRENT_FILES=$(ls -1 data/*_$(date +%Y%m%d).json 2>/dev/null || echo "")
-          if [ -z "$CURRENT_FILES" ]; then
-            echo "has_comparison=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          # 원두 수 계산
+          BEAN_COUNT=$(grep -o '"name":' data/*_${TODAY}.json 2>/dev/null | wc -l || echo 0)
+          echo "bean_count=$BEAN_COUNT" >> $GITHUB_OUTPUT
+          echo "총 수집된 원두 수: $BEAN_COUNT"
           
-          TOTAL_PREV=0
-          TOTAL_CURR=0
-          
-          for CURR_FILE in $CURRENT_FILES; do
-            CAFE_NAME=$(basename $CURR_FILE | cut -d'_' -f1)
-            echo "카페: $CAFE_NAME"
-            
-            # 이전 파일 찾기 (정확한 날짜 상관없이 같은 카페)
-            PREV_FILE=$(ls -t previous-data/data/${CAFE_NAME}_*.json 2>/dev/null | head -1 || echo "")
-            
-            if [ -f "$PREV_FILE" ] && [ -f "$CURR_FILE" ]; then
-              PREV_COUNT=$(grep -o '"name":' "$PREV_FILE" | wc -l)
-              CURR_COUNT=$(grep -o '"name":' "$CURR_FILE" | wc -l)
-              DIFF=$(($CURR_COUNT - $PREV_COUNT))
-              
-              echo "$CAFE_NAME - 이전: $PREV_COUNT, 현재: $CURR_COUNT, 변화: $DIFF"
-              
-              TOTAL_PREV=$(($TOTAL_PREV + $PREV_COUNT))
-              TOTAL_CURR=$(($TOTAL_CURR + $CURR_COUNT))
+          # 결과 파일 내용 요약 (처음 10개 원두만)
+          for file in data/*_${TODAY}.json; do
+            if [ -f "$file" ]; then
+              echo "=== $file 내용 요약 ==="
+              grep -o '"name":"[^"]*"' "$file" | head -10
             fi
           done
-          
-          TOTAL_DIFF=$(($TOTAL_CURR - $TOTAL_PREV))
-          
-          echo "prev_count=$TOTAL_PREV" >> $GITHUB_OUTPUT
-          echo "curr_count=$TOTAL_CURR" >> $GITHUB_OUTPUT
-          echo "diff=$TOTAL_DIFF" >> $GITHUB_OUTPUT
-          echo "has_comparison=true" >> $GITHUB_OUTPUT
+
+      # 결과를 저장소에 커밋
+      - name: Save results to repository
+        if: success()
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add data/*.json || echo "No JSON files to add"
+          git commit -m "크롤링 결과 추가 (자동 실행 #${{ github.run_number }})" || echo "No changes to commit"
+          git push || echo "Push failed"
 
       # 슬랙 알림 전송
       - name: Send Slack notification
@@ -199,10 +148,7 @@ jobs:
             *종료 시간:* ${{ steps.crawler.outputs.end_time || 'N/A' }}
             *수집된 원두 수:* ${{ steps.crawler.outputs.bean_count || '0' }}
             
-            ${{ steps.compare.outputs.has_comparison == 'true' && format('*이전 원두 수:* {0}', steps.compare.outputs.prev_count) || '' }}
-            ${{ steps.compare.outputs.has_comparison == 'true' && format('*변경:* {0}', steps.compare.outputs.diff) || '' }}
-            
-            ${{ job.status == 'success' && format('[결과 다운로드](https://github.com/Youngkwon-Lee/coffee-crawler/actions/runs/{0})', github.run_id) || '' }}
+            *결과 확인:* https://github.com/Youngkwon-Lee/coffee-crawler/tree/main/data
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           MATRIX_CONTEXT: ${{ toJson(matrix) }} 
