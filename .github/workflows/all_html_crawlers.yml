@@ -1,17 +1,12 @@
-name: Coffee Bean Crawler
+name: HTML Only Coffee Bean Crawlers
 
 on:
   schedule:
-    - cron: '0 3 * * 1'  # 매주 월요일 03:00 UTC (한국시간 12:00)
+    - cron: '0 2 * * 1'  # 매주 월요일 02:00 UTC (한국시간 11:00)
   workflow_dispatch:
-    inputs:
-      cafe:
-        description: '크롤링할 카페 (비워두면 모든 HTML 카페 실행)'
-        required: false
-        default: 'all'
 
 jobs:
-  crawl:
+  crawl_html_only:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -30,19 +25,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Install Chrome and ChromeDriver
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-          CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d. -f1)
-          CHROME_DRIVER_VERSION=$(wget -q "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION" -O -)
-          echo "Chrome Version: $CHROME_VERSION, ChromeDriver Version: $CHROME_DRIVER_VERSION"
-          wget -q "https://chromedriver.storage.googleapis.com/$CHROME_DRIVER_VERSION/chromedriver_linux64.zip"
-          unzip chromedriver_linux64.zip
-          chmod +x chromedriver
-          sudo mv chromedriver /usr/local/bin/
-          chromedriver --version
-      
       - name: Create dummy Firebase config
         run: |
           echo 'firebase:' > config/firebase_config.yaml
@@ -54,35 +36,30 @@ jobs:
       - name: Set environment variables
         run: |
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "USE_SELENIUM=false" >> $GITHUB_ENV
           echo "DISABLE_FIREBASE=true" >> $GITHUB_ENV
-          echo "USE_SELENIUM=true" >> $GITHUB_ENV
           echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
-          echo "SELENIUM_DRIVER_PATH=/usr/local/bin/chromedriver" >> $GITHUB_ENV
       
       - name: Create directories
         run: |
           mkdir -p data logs
       
-      - name: Run crawler
+      - name: Run HTML-only crawlers
         id: crawler
         run: |
+          # 시작 시간 기록
           echo "start_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
           
-          # 실행할 카페 설정
-          CAFE="all"
-          if [ "${{ github.event.inputs.cafe }}" != "" ]; then
-            CAFE="${{ github.event.inputs.cafe }}"
-          fi
+          # HTML 기반 크롤러 카페 목록
+          HTML_CAFES="fritz,terarosa,momoscoffee,tailorcoffee,elcafe,bonanza"
+          echo "cafes=$HTML_CAFES" >> $GITHUB_OUTPUT
           
-          echo "크롤링할 카페: $CAFE"
-          echo "cafe=$CAFE" >> $GITHUB_OUTPUT
-          
-          # 날짜 형식 설정
+          # 오늘 날짜 설정
           TODAY=$(date +%Y%m%d)
           echo "date=$TODAY" >> $GITHUB_OUTPUT
           
-          # 크롤링 실행 (--dry-run 옵션으로 Firebase 저장 방지)
-          python -m scripts.run_crawler --cafe "$CAFE" --dry-run
+          # 크롤링 실행
+          python -m scripts.run_crawler --cafe "$HTML_CAFES" --dry-run
           
           # 결과 확인
           TOTAL_BEAN_COUNT=0
@@ -111,7 +88,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "변경사항 없음"
           else
-            git commit -m "크롤링 결과 추가 (자동 실행 #${{ github.run_number }})" || echo "No changes to commit"
+            git commit -m "HTML 크롤러 결과 추가 (자동 실행 #${{ github.run_number }})" || echo "No changes to commit"
             git push || echo "Push failed"
           fi
       
@@ -119,7 +96,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: crawler-logs-${{ steps.crawler.outputs.date }}
+          name: html-crawler-logs-${{ steps.crawler.outputs.date }}
           path: logs/*.log
           retention-days: 14
       
@@ -130,11 +107,11 @@ jobs:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,workflow,job,took
           text: |
-            *커피 원두 크롤링 결과*
+            *HTML 기반 커피 원두 크롤링 결과*
             
             *상태:* ${{ job.status == 'success' && '✅ 성공' || '❌ 실패' }}
             *실행 번호:* #${{ github.run_number }}
-            *크롤링한 카페:* ${{ steps.crawler.outputs.cafe }}
+            *크롤링한 카페:* ${{ steps.crawler.outputs.cafes }}
             *시작 시간:* ${{ steps.crawler.outputs.start_time }}
             *종료 시간:* ${{ steps.crawler.outputs.end_time }}
             *수집된 원두 수:* ${{ steps.crawler.outputs.bean_count }}

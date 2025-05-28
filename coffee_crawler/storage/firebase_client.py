@@ -14,6 +14,8 @@ from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 
+from coffee_crawler.utils.config_loader import load_firebase_config
+
 # 로거 설정
 logger = logging.getLogger(__name__)
 
@@ -27,15 +29,56 @@ class FirebaseClient:
         Args:
             config_path: Firebase 설정 파일 경로
         """
-        self.config = self._load_config(config_path)
-        self.app = self._initialize_firebase()
-        self.db = firestore.client()
-        self.bucket = None
-        
-        if self.config.get('firebase', {}).get('storage', {}).get('bucket_name'):
-            self.bucket = storage.bucket(self.config['firebase']['storage']['bucket_name'])
-        
-        logger.info("Firebase 클라이언트 초기화 완료")
+        try:
+            # 환경 변수 확인 - DISABLE_FIREBASE가 'true'이면 초기화 건너뛰기
+            if os.environ.get('DISABLE_FIREBASE', '').lower() == 'true':
+                logger.info("환경 변수 DISABLE_FIREBASE=true로 설정되어 Firebase 초기화 건너뜀")
+                self.disabled = True
+                self.app = None
+                self.db = None
+                self.bucket = None
+                self.config = {'firebase': {}}
+                return
+                
+            self.config = self._load_config(config_path)
+            self.disabled = self.config.get('firebase', {}).get('disabled', False)
+            
+            if self.disabled:
+                logger.info("Firebase 비활성화 설정으로 초기화 건너뜀")
+                self.app = None
+                self.db = None
+                self.bucket = None
+                return
+            
+            if not firebase_admin._apps:
+                logger.warning("Firebase 패키지를 찾을 수 없음. Firebase 기능 비활성화.")
+                self.disabled = True
+                self.app = None
+                self.db = None
+                self.bucket = None
+                return
+            
+            self.app = self._initialize_firebase()
+            
+            # 앱 초기화가 성공한 경우에만 DB와 버킷 초기화
+            if self.app:
+                self.db = firestore.client()
+                self.bucket = None
+                
+                if self.config.get('firebase', {}).get('storage', {}).get('bucket_name'):
+                    self.bucket = storage.bucket(self.config['firebase']['storage']['bucket_name'])
+                
+                logger.info("Firebase 클라이언트 초기화 완료")
+            else:
+                logger.warning("Firebase 앱 초기화에 실패하여 일부 기능을 사용할 수 없습니다.")
+                self.db = None
+                self.bucket = None
+        except Exception as e:
+            logger.error(f"Firebase 클라이언트 초기화 중 오류 발생: {e}")
+            self.app = None
+            self.db = None
+            self.bucket = None
+            self.config = {'firebase': {}}
     
     def _load_config(self, config_path: str) -> Dict:
         """
@@ -51,41 +94,89 @@ class FirebaseClient:
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
             return config
+        except FileNotFoundError:
+            logger.warning(f"Firebase 설정 파일을 찾을 수 없음: {config_path}")
+            return {'firebase': {}}
         except Exception as e:
             logger.error(f"설정 파일 로드 실패: {e}")
-            raise
+            return {'firebase': {}}
     
-    def _initialize_firebase(self) -> firebase_admin.App:
+    def _initialize_firebase(self) -> Optional[firebase_admin.App]:
         """
         Firebase 초기화
         
         Returns:
-            Firebase 앱 인스턴스
+            Firebase 앱 인스턴스 또는 초기화 실패 시 None
         """
         # 이미 초기화된 경우
-        if firebase_admin._apps:
-            return firebase_admin._apps[0]
+        try:
+            if firebase_admin._apps:
+                logger.info("기존 Firebase 앱 인스턴스 재사용")
+                # KeyError 방지를 위한 안전한 접근 방식으로 변경
+                if None in firebase_admin._apps:
+                    return firebase_admin._apps[None]
+                elif len(firebase_admin._apps) > 0:
+                    # 첫 번째 앱 반환
+                    app_key = list(firebase_admin._apps.keys())[0]
+                    return firebase_admin._apps[app_key]
+                else:
+                    logger.warning("Firebase 앱이 있지만 접근할 수 없습니다.")
+                    return None
+        except Exception as e:
+            logger.error(f"Firebase 앱 인스턴스 접근 중 오류: {e}")
+            return None
         
         try:
-            auth_method = self.config['firebase']['auth_method']
+            # GitHub Actions 환경에서 환경변수 사용
+            if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("DISABLE_FIREBASE") == "true":
+                logger.info("GitHub Actions 환경 또는 Firebase 비활성화 모드에서 실행 중")
+                # 가짜 앱 반환
+                return None
             
+            # 일반 환경에서 설정 파일 사용
+            if not self.config.get('firebase'):
+                logger.warning("Firebase 설정이 없습니다.")
+                return None
+                
+            auth_method = self.config['firebase'].get('auth_method')
+            if not auth_method:
+                logger.warning("Firebase 인증 방식이 설정되지 않았습니다.")
+                return None
+                
             if auth_method == 'key_file':
-                key_path = self.config['firebase']['key_file_path']
+                key_path = self.config['firebase'].get('key_file_path')
+                if not key_path or not os.path.exists(key_path):
+                    logger.warning(f"Firebase 키 파일을 찾을 수 없음: {key_path}")
+                    return None
+                    
                 cred = credentials.Certificate(key_path)
             elif auth_method == 'env_var':
-                env_var = self.config['firebase']['credentials_env_var']
+                env_var = self.config['firebase'].get('credentials_env_var')
                 cred_json = os.environ.get(env_var)
                 if not cred_json:
-                    raise ValueError(f"환경 변수 {env_var}가 설정되지 않았습니다.")
+                    logger.warning(f"환경 변수 {env_var}가 설정되지 않았습니다.")
+                    return None
+                    
                 cred_dict = json.loads(cred_json)
                 cred = credentials.Certificate(cred_dict)
             else:
-                raise ValueError(f"지원하지 않는 인증 방식: {auth_method}")
+                logger.warning(f"지원하지 않는 인증 방식: {auth_method}")
+                return None
             
+            # Firebase 앱 초기화
             return firebase_admin.initialize_app(cred)
         except Exception as e:
             logger.error(f"Firebase 초기화 실패: {e}")
-            raise
+            return None
+    
+    def is_initialized(self) -> bool:
+        """
+        Firebase 클라이언트가 성공적으로 초기화되었는지 확인
+        
+        Returns:
+            초기화 여부
+        """
+        return self.app is not None and self.db is not None
     
     def get_bean(self, bean_id: str) -> Optional[Dict]:
         """
@@ -97,6 +188,10 @@ class FirebaseClient:
         Returns:
             원두 정보 딕셔너리
         """
+        if not self.is_initialized():
+            logger.warning("Firebase가 초기화되지 않아 원두 정보를 조회할 수 없습니다.")
+            return None
+            
         try:
             collection = self.config['firebase']['firestore']['collection_beans']
             doc_ref = self.db.collection(collection).document(bean_id)
@@ -107,7 +202,7 @@ class FirebaseClient:
             return None
         except Exception as e:
             logger.error(f"원두 정보 조회 실패: {e}")
-            raise
+            return None
     
     def get_beans(self, filter_dict: Optional[Dict] = None) -> List[Dict]:
         """
@@ -143,6 +238,16 @@ class FirebaseClient:
         Returns:
             생성된, 또는 업데이트된 원두 ID
         """
+        # Firebase가 초기화되지 않은 경우
+        if not self.is_initialized():
+            logger.warning("Firebase가 초기화되지 않아 원두 정보를 추가할 수 없습니다.")
+            # ID만 반환하고 추가는 실패
+            brand = bean_data.get('brand', '').replace(' ', '_')
+            name = bean_data.get('name', '').replace(' ', '_')
+            doc_id = f"{brand}_{name}"
+            doc_id = ''.join(c for c in doc_id if c.isalnum() or c == '_')
+            return doc_id
+            
         try:
             collection = self.config['firebase']['firestore']['collection_beans']
             
