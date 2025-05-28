@@ -1,0 +1,244 @@
+name: Fritz Coffee Crawler
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # 매주 월요일 03:00 UTC (한국시간 12:00)
+  workflow_dispatch:  # 수동 실행 옵션
+
+jobs:
+  crawl_fritz:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 pyyaml
+      
+      - name: Create directories
+        run: |
+          mkdir -p data logs
+      
+      - name: Run Fritz crawler
+        id: crawler
+        run: |
+          # 시작 시간 기록
+          echo "start_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+          
+          # 오늘 날짜 설정
+          TODAY=$(date +%Y%m%d)
+          echo "date=$TODAY" >> $GITHUB_OUTPUT
+          
+          # Fritz 카페 크롤러 스크립트 생성
+          cat > fritz_crawler.py << 'EOF'
+import requests
+from bs4 import BeautifulSoup
+import json
+import re
+import os
+import logging
+from datetime import datetime
+import sys
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(f"logs/fritz_crawler_{datetime.now().strftime('%Y%m%d')}.log")
+    ]
+)
+logger = logging.getLogger("fritz_crawler")
+
+class FritzCrawler:
+    def __init__(self):
+        self.url = "https://m.fritz.co.kr/product/list.html?cate_no=48"
+        self.name = "fritz"
+        self.label = "프릳츠커피"
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+    def crawl(self):
+        logger.info(f"{self.label} 크롤링 시작...")
+        
+        try:
+            # 웹 페이지 요청
+            response = requests.get(self.url, headers=self.headers)
+            response.raise_for_status()
+            
+            # HTML 파싱
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # 상품 목록 컨테이너 찾기
+            product_container = soup.select_one('.column2')
+            if not product_container:
+                logger.warning("상품 컨테이너를 찾을 수 없습니다.")
+                return []
+            
+            # 각 상품 항목 찾기
+            product_items = product_container.select('li')
+            logger.info(f"상품 항목 수: {len(product_items)}")
+            
+            # 결과 저장 리스트
+            results = []
+            
+            # 각 상품 정보 추출
+            for item in product_items:
+                try:
+                    # 상품 링크 찾기
+                    link_tag = item.select_one('.box a')
+                    if not link_tag:
+                        continue
+                    
+                    # 상품 ID 추출
+                    product_id = None
+                    link = link_tag.get('href', '')
+                    id_match = re.search(r'product_no=(\d+)', link)
+                    if id_match:
+                        product_id = id_match.group(1)
+                    
+                    # 상품 제목
+                    title_tag = item.select_one('.name')
+                    title = title_tag.get_text(strip=True) if title_tag else "제목 없음"
+                    
+                    # 가격 정보
+                    price_tag = item.select_one('.price')
+                    price_text = price_tag.get_text(strip=True) if price_tag else ""
+                    # 가격에서 숫자만 추출
+                    price = re.sub(r'[^\d]', '', price_text) if price_text else None
+                    
+                    # 이미지 URL
+                    img_tag = item.select_one('.thumb img')
+                    img_url = img_tag.get('src', '') if img_tag else ""
+                    
+                    # 원두 정보인지 확인 (필터링)
+                    if self._is_coffee_bean(title):
+                        bean_info = {
+                            'id': f"{self.name}_{product_id}" if product_id else f"{self.name}_{len(results)}",
+                            'cafe_id': self.name,
+                            'name': title,
+                            'price': price,
+                            'image_url': img_url,
+                            'product_url': f"https://m.fritz.co.kr{link}" if link.startswith('/') else link,
+                            'crawled_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        results.append(bean_info)
+                
+                except Exception as e:
+                    logger.error(f"상품 파싱 중 오류 발생: {e}")
+                    continue
+            
+            # 필터링 결과 로깅
+            filtered_count = len(results)
+            excluded_count = len(product_items) - filtered_count
+            logger.info(f"필터링 결과: {filtered_count}개 포함, {excluded_count}개 제외")
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"크롤링 중 오류 발생: {e}")
+            return []
+    
+    def _is_coffee_bean(self, title):
+        """원두 상품인지 확인하는 함수"""
+        # 제외할 키워드
+        exclude_keywords = ['머그', '텀블러', '드리퍼', '필터', '서버', '용품', '세트', '티백', '선물세트', '선물 세트', '콜드브루', '더치']
+        
+        # 포함할 키워드 (적어도 하나 포함)
+        include_keywords = ['블렌드', '원두', '에스프레소', '싱글오리진', '싱글 오리진', '게이샤', '예가체프', '디카페인', '커피 원두', '커피원두']
+        
+        # 제외 키워드 확인
+        for keyword in exclude_keywords:
+            if keyword in title:
+                return False
+        
+        # 포함 키워드 확인
+        for keyword in include_keywords:
+            if keyword in title:
+                return True
+        
+        # 기본값: 원두가 아닌 것으로 판단
+        return False
+
+def main():
+    # 크롤러 인스턴스 생성
+    crawler = FritzCrawler()
+    
+    # 크롤링 실행
+    beans = crawler.crawl()
+    
+    # 결과 저장
+    today = datetime.now().strftime('%Y%m%d')
+    output_path = f"data/fritz_beans_{today}.json"
+    
+    # 디렉토리 생성
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # JSON 파일로 저장
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(beans, f, ensure_ascii=False, indent=2)
+    
+    logger.info(f"{len(beans)}개의 원두 정보를 {output_path}에 저장했습니다.")
+    
+    return len(beans)
+
+if __name__ == "__main__":
+    main()
+EOF
+          
+          # 크롤러 실행
+          python fritz_crawler.py
+          
+          # 결과 확인
+          TODAY=$(date +%Y%m%d)
+          BEAN_FILE="data/fritz_beans_${TODAY}.json"
+          
+          if [ -f "$BEAN_FILE" ]; then
+            BEAN_COUNT=$(grep -o '"name":' "$BEAN_FILE" | wc -l || echo 0)
+            echo "bean_count=$BEAN_COUNT" >> $GITHUB_OUTPUT
+            echo "총 수집된 원두 수: $BEAN_COUNT"
+            
+            echo "=== 수집된 원두 목록 요약 ==="
+            grep -o '"name":"[^"]*"' "$BEAN_FILE" | head -10 || echo "내용 없음"
+            echo "--------------------------------------"
+          else
+            echo "bean_count=0" >> $GITHUB_OUTPUT
+            echo "수집된 원두가 없습니다."
+          fi
+          
+          echo "end_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+      
+      - name: Save results to repository
+        if: success() || failure()
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          
+          git add data/*.json logs/*.log || echo "No files to add"
+          
+          if git diff --staged --quiet; then
+            echo "변경사항 없음"
+          else
+            git commit -m "Fritz 커피 크롤링 결과 추가 (자동 실행 #${{ github.run_number }})" || echo "No changes to commit"
+            git push || echo "Push failed"
+          fi
+      
+      - name: Upload logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: fritz-crawler-logs-${{ steps.crawler.outputs.date }}
+          path: logs/*.log
+          retention-days: 14 
