@@ -31,14 +31,6 @@ jobs:
           pip install -r requirements.txt
           pip install webdriver-manager==4.0.2
       
-      - name: Setup Chrome and ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-      
-      - name: Check ChromeDriver
-        run: |
-          chromedriver --version
-          which chromedriver
-      
       - name: Create dummy Firebase config
         run: |
           echo 'firebase:' > config/firebase_config.yaml
@@ -51,9 +43,8 @@ jobs:
         run: |
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
           echo "DISABLE_FIREBASE=true" >> $GITHUB_ENV
-          echo "USE_SELENIUM=true" >> $GITHUB_ENV
+          echo "USE_SELENIUM=false" >> $GITHUB_ENV
           echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
-          echo "SELENIUM_DRIVER_PATH=$(which chromedriver)" >> $GITHUB_ENV
       
       - name: Create directories
         run: |
@@ -62,10 +53,6 @@ jobs:
       - name: Run crawler
         id: crawler
         run: |
-          export DISPLAY=:99
-          chromedriver --url-base=/wd/hub &
-          sudo Xvfb -ac :99 -screen 0 1280x1024x24 > /dev/null 2>&1 &
-          
           echo "start_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
           
           # 실행할 카페 설정
@@ -82,6 +69,7 @@ jobs:
           echo "date=$TODAY" >> $GITHUB_OUTPUT
           
           # 크롤링 실행 (--dry-run 옵션으로 Firebase 저장 방지)
+          # USE_SELENIUM=false 환경 변수로 인해 HTML 크롤링만 실행됨
           python -m scripts.run_crawler --cafe "$CAFE" --dry-run
           
           # 결과 확인

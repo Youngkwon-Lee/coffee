@@ -15,9 +15,13 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
 
-# GitHub Actions 환경에서는 Selenium 대신 requests와 BeautifulSoup 사용
-import os
+# 전역 변수: GitHub Actions 환경 여부
 is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
+use_selenium = os.environ.get('USE_SELENIUM', '').lower() != 'false'
+
+# GitHub Actions 환경에서는 항상 Selenium 사용 비활성화
+if is_github_actions:
+    use_selenium = False
 
 if not is_github_actions:
     from selenium import webdriver
@@ -33,7 +37,12 @@ from coffee_crawler.crawlers.base_crawler import BaseCrawler
 from coffee_crawler.models.bean import Bean
 
 class SeleniumCrawler(BaseCrawler):
-    """Selenium을 사용한 크롤러 기본 클래스"""
+    """
+    Selenium을 사용하여 웹사이트에서 원두 정보를 수집하는 크롤러
+    
+    HTML 크롤링이 가능한 경우 requests와 BeautifulSoup으로 대체하여 사용 가능
+    GitHub Actions 환경에서는 항상 requests와 BeautifulSoup 사용
+    """
 
     def __init__(self, cafe_id: str, config: Dict[str, Any]):
         """
@@ -101,9 +110,9 @@ class SeleniumCrawler(BaseCrawler):
         """
         self.start_time = time.time()  # 시간 측정 시작
         
-        # GitHub Actions 환경 또는 Selenium 비활성화 환경에서는 무조건 requests와 BeautifulSoup 사용
-        if os.environ.get('GITHUB_ACTIONS') == 'true' or os.environ.get('USE_SELENIUM') == 'false':
-            self.logger.info("GitHub Actions 환경 또는 Selenium 비활성화 설정으로 requests/BeautifulSoup 사용")
+        # GitHub Actions 환경이거나 USE_SELENIUM=false 설정이면 requests와 BeautifulSoup 사용
+        if is_github_actions or not use_selenium:
+            self.logger.info("GitHub Actions 환경 또는 USE_SELENIUM=false 설정으로 requests/BeautifulSoup 사용")
             return self._crawl_with_requests(test_mode)
         
         self.logger.info(f"Selenium 크롤링 시작: {self.url}")
@@ -326,11 +335,16 @@ class SeleniumCrawler(BaseCrawler):
         Returns:
             초기화된 WebDriver 객체
         """
+        # GitHub Actions 환경에서는 항상 None 반환
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            self.logger.info("GitHub Actions 환경에서는 WebDriver 초기화를 건너뜁니다")
+            return None
+        
         # 환경 변수 확인 - USE_SELENIUM이 'false'이면 초기화 건너뛰기
         if os.environ.get('USE_SELENIUM', '').lower() == 'false':
             self.logger.info("환경 변수 USE_SELENIUM=false로 설정되어 Selenium 초기화 건너뜀")
             return None
-            
+        
         # 드라이버 경로 설정
         try:
             # chrome driver manager 사용
@@ -347,7 +361,7 @@ class SeleniumCrawler(BaseCrawler):
             
             # 헤드리스 모드 설정
             if self.headless:
-                chrome_options.add_argument('--headless')
+                chrome_options.add_argument('--headless=new')  # 최신 헤드리스 모드 사용
                 chrome_options.add_argument('--no-sandbox')
                 chrome_options.add_argument('--disable-dev-shm-usage')
                 chrome_options.add_argument('--disable-gpu')
@@ -358,30 +372,35 @@ class SeleniumCrawler(BaseCrawler):
             chrome_options.add_argument('--disable-popup-blocking')
             chrome_options.add_argument(f'user-agent={self.user_agent}')
             
-            # GitHub Actions 환경인 경우 전역 설치된 ChromeDriver 사용
-            if os.environ.get('GITHUB_ACTIONS') == 'true':
-                self.logger.info("GitHub Actions 환경에서 실행 중, 시스템 ChromeDriver 사용")
-                # GitHub Actions에서 설치한 ChromeDriver 사용
-                service = Service('/usr/local/bin/chromedriver')
-            elif os.environ.get('SELENIUM_DRIVER_PATH'):
-                # 환경 변수로 지정된 ChromeDriver 경로 사용
+            # 환경 변수로 지정된 ChromeDriver 경로 사용
+            if os.environ.get('SELENIUM_DRIVER_PATH'):
                 driver_path = os.environ.get('SELENIUM_DRIVER_PATH')
                 self.logger.info(f"환경 변수에서 지정된 ChromeDriver 사용: {driver_path}")
                 service = Service(driver_path)
             else:
                 # 자동 설치된 ChromeDriver 사용
-                if is_windows:
-                    # Windows 환경에서는 win32 버전의 ChromeDriver 사용
-                    driver_path = ChromeDriverManager().install()
-                    # driver_path가 THIRD_PARTY_NOTICES.chromedriver를 가리키는 경우 경로 수정
-                    if "THIRD_PARTY_NOTICES.chromedriver" in driver_path:
-                        driver_dir = os.path.dirname(driver_path)
-                        if os.path.exists(os.path.join(driver_dir, "chromedriver.exe")):
-                            driver_path = os.path.join(driver_dir, "chromedriver.exe")
-                    service = Service(driver_path)
-                else:
-                    # Linux/Mac 환경
-                    service = Service(ChromeDriverManager().install())
+                chrome_path = ChromeDriverManager().install()
+                
+                # THIRD_PARTY_NOTICES.chromedriver 파일 대신 실제 chromedriver 실행 파일 사용
+                if "THIRD_PARTY_NOTICES.chromedriver" in chrome_path:
+                    self.logger.warning(f"잘못된 ChromeDriver 경로 감지: {chrome_path}")
+                    
+                    if is_windows:
+                        # Windows 환경에서는 chromedriver.exe 파일 찾기
+                        driver_dir = os.path.dirname(chrome_path)
+                        chromedriver_exe = os.path.join(driver_dir, "chromedriver.exe")
+                        if os.path.exists(chromedriver_exe):
+                            chrome_path = chromedriver_exe
+                            self.logger.info(f"ChromeDriver 경로 수정: {chrome_path}")
+                    else:
+                        # Linux/Mac 환경에서 chromedriver 파일 찾기
+                        driver_dir = os.path.dirname(os.path.dirname(chrome_path))
+                        chromedriver_bin = os.path.join(driver_dir, "chromedriver")
+                        if os.path.exists(chromedriver_bin):
+                            chrome_path = chromedriver_bin
+                            self.logger.info(f"ChromeDriver 경로 수정: {chrome_path}")
+                
+                service = Service(chrome_path)
             
             # 드라이버 초기화
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
@@ -393,12 +412,15 @@ class SeleniumCrawler(BaseCrawler):
             
         except Exception as e:
             self.logger.error(f"WebDriver 초기화 중 오류 발생: {e}")
+            import traceback
+            self.logger.error(f"상세 오류: {traceback.format_exc()}")
             return None
 
     def _close_driver(self):
         """WebDriver 종료"""
-        if is_github_actions:
-            return  # GitHub Actions에서는 WebDriver 종료 스킵
+        if is_github_actions or not use_selenium:
+            self.logger.info("GitHub Actions 또는 USE_SELENIUM=false 환경에서는 WebDriver 종료 건너뜀")
+            return
             
         if self.driver:
             try:
@@ -419,9 +441,11 @@ class SeleniumCrawler(BaseCrawler):
         Returns:
             추출된 원두 정보 또는 None
         """
-        if is_github_actions:
-            return None  # GitHub Actions에서는 사용하지 않음
-            
+        # GitHub Actions이나 USE_SELENIUM=false 환경에서는 사용하지 않음
+        if is_github_actions or not use_selenium:
+            self.logger.info("GitHub Actions 또는 USE_SELENIUM=false 환경에서는 Selenium 정보 추출 건너뜀")
+            return None
+        
         try:
             # 제품 링크 추출
             link_element = None
