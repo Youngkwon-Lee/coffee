@@ -126,3 +126,5 @@ config/*_prod.yaml
 *.json
 temp/
 cache/
+
+config/firebase_config.yaml
