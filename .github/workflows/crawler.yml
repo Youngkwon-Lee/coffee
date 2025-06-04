@@ -31,18 +31,40 @@ jobs:
           pip install -r requirements.txt
           pip install webdriver-manager==4.0.2
       
-      - name: Create dummy Firebase config
+      - name: Set up Firebase credentials
         run: |
-          echo 'firebase:' > config/firebase_config.yaml
-          echo '  credential_file: "your-service-account-key.json"' >> config/firebase_config.yaml
-          echo '  database_url: "https://dummy-project.firebaseio.com"' >> config/firebase_config.yaml
-          echo '  collection: "coffee_beans"' >> config/firebase_config.yaml
-          echo '  disabled: true' >> config/firebase_config.yaml
+          cat > config/firebase_config.yaml << EOL
+          firebase:
+            project_id: "coffee-37b81"
+            auth_method: "key_file"
+            key_file_path: "config/serviceAccountKey.json"
+            firestore:
+              collection_beans: "beans"
+              collection_cafes: "cafes"
+              collection_logs: "crawl_logs"
+            storage:
+              bucket_name: "coffee-37b81.appspot.com"
+              image_path: "bean_images"
+          EOL
+          
+          cat > config/serviceAccountKey.json << EOL
+          {
+            "type": "service_account",
+            "project_id": "coffee-37b81",
+            "private_key_id": "${{ secrets.FIREBASE_PRIVATE_KEY_ID }}",
+            "private_key": "${{ secrets.FIREBASE_PRIVATE_KEY }}",
+            "client_email": "${{ secrets.FIREBASE_CLIENT_EMAIL }}",
+            "client_id": "${{ secrets.FIREBASE_CLIENT_ID }}",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": "${{ secrets.FIREBASE_CLIENT_CERT_URL }}"
+          }
+          EOL
       
       - name: Set environment variables
         run: |
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
-          echo "DISABLE_FIREBASE=true" >> $GITHUB_ENV
           echo "USE_SELENIUM=false" >> $GITHUB_ENV
           echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
       
@@ -68,9 +90,8 @@ jobs:
           TODAY=$(date +%Y%m%d)
           echo "date=$TODAY" >> $GITHUB_OUTPUT
           
-          # 크롤링 실행 (--dry-run 옵션으로 Firebase 저장 방지)
-          # USE_SELENIUM=false 환경 변수로 인해 HTML 크롤링만 실행됨
-          python -m scripts.run_crawler --cafe "$CAFE" --dry-run
+          # 크롤링 실행 (Firebase에 직접 저장)
+          python -m scripts.run_crawler --cafe "$CAFE"
           
           # 결과 확인
           TOTAL_BEAN_COUNT=0
@@ -88,24 +109,24 @@ jobs:
           
           echo "end_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
       
-      - name: Save results to repository
+      - name: Save logs to repository
         if: success() || failure()
         run: |
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
           
-          git add data/*.json logs/*.log || echo "No files to add"
+          git add logs/*.log || echo "No files to add"
           
           if git diff --staged --quiet; then
             echo "변경사항 없음"
           else
-            git commit -m "크롤링 결과 추가 (자동 실행 #${{ github.run_number }})" || echo "No changes to commit"
+            git commit -m "크롤링 로그 추가 (자동 실행 #${{ github.run_number }})" || echo "No changes to commit"
             git push || echo "Push failed"
           fi
       
       - name: Upload logs as artifacts
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: crawler-logs-${{ steps.crawler.outputs.date }}
           path: logs/*.log
@@ -127,6 +148,8 @@ jobs:
             *종료 시간:* ${{ steps.crawler.outputs.end_time }}
             *수집된 원두 수:* ${{ steps.crawler.outputs.bean_count }}
             
-            *결과 확인:* ${{ github.server_url }}/${{ github.repository }}/tree/main/data
+            *결과 확인:* 
+            - Firebase: https://console.firebase.google.com/project/coffee-37b81/firestore
+            - 로그: ${{ github.server_url }}/${{ github.repository }}/tree/main/logs
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 
+          SLACK_WEBHOOK_URL: https://hooks.slack.com/services/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 
