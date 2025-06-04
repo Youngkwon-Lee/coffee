@@ -39,8 +39,7 @@ jobs:
           echo "project_id: ${{ secrets.FIREBASE_PROJECT_ID }}" >> config/firebase_config.yaml
           echo "private_key_id: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}" >> config/firebase_config.yaml
           echo "private_key: |" >> config/firebase_config.yaml
-          echo "${{ secrets.FIREBASE_PRIVATE_KEY }}" | sed 's/\\n/\
-/g' | sed 's/^/  /' >> config/firebase_config.yaml
+          echo "${{ secrets.FIREBASE_PRIVATE_KEY }}" | awk '{gsub(/\\n/,"\n")}1' | sed 's/^/  /' >> config/firebase_config.yaml
           echo "client_email: ${{ secrets.FIREBASE_CLIENT_EMAIL }}" >> config/firebase_config.yaml
           echo "client_id: ${{ secrets.FIREBASE_CLIENT_ID }}" >> config/firebase_config.yaml
           echo "auth_uri: https://accounts.google.com/o/oauth2/auth" >> config/firebase_config.yaml
