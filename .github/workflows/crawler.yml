@@ -85,11 +85,7 @@ jobs:
           echo "date=$TODAY" >> $GITHUB_OUTPUT
           
           # 크롤링 실행 (Firebase에 직접 저장)
-          if [ "$CAFE" = "all" ]; then
-            python -m scripts.run_crawler --cafe centercoffee --cafe fritz --cafe terarosa
-          else
-            python -m scripts.run_crawler --cafe "$CAFE"
-          fi
+          python -m scripts.run_crawler --all
           
           # 결과 확인
           TOTAL_BEAN_COUNT=0
