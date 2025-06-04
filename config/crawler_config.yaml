@@ -119,16 +119,16 @@ cafes:
   terarosa:
     label: "테라로사"
     type: "html"
-    url: "https://terarosa.com/market/product/list?categoryId=5"
+    url: "https://www.terarosa.com/market/product/list?categoryId=482"
     schedule: "0 0 * * *"
     active: true
     selectors:
-      product_list_container: "div.product-list"
-      product_item: "div.product-item"
-      product_link: "a.product-link"
-      product_title: "div.product-name"
-      product_price: "div.product-price"
-      product_image: "img.product-image"
+      product_list_container: ".listWrap"
+      product_item: "li"
+      product_link: "a"
+      product_title: ".title"
+      product_price: ".price"
+      product_image: "img"
       pagination_container: "div.pagination"
       next_page: "a.next"
 
