@@ -57,19 +57,19 @@ cafes:
     wait_timeout: 10
     page_load_delay: 2
     selectors:
-      product_list_container: ".prdList"
-      product_item: ".item"
-      product_link: ".thumbnail a"
+      product_list_container: ".xans-product-normalpackage"
+      product_item: ".prdList > li"
+      product_link: ".name a"
       product_title: ".name"
       product_price: ".price"
       product_image: ".thumbnail img"
-      pagination_container: ".ec-base-paginate"
-      next_page: "a.next"
+      pagination_container: ".xans-product-normalpaging"
+      next_page: ".xans-product-normalpaging a.next"
       fetch_product_detail: true
-      product_detail_container: ".detail_area"
-      product_description: "#prdDetail"
-      product_detail_images: ".detail_area img"
-      
+      product_detail_container: ".xans-product-detail"
+      product_description: ".detail_description"
+      product_detail_images: ".detail_image img"
+
   somacoffee:
     label: "소마커피"
     type: "selenium"
@@ -80,19 +80,19 @@ cafes:
     wait_timeout: 10
     page_load_delay: 2
     selectors:
-      product_list_container: ".xans-product-normalmenu"
-      product_item: ".xans-record-"
+      product_list_container: ".xans-product-normalpackage"
+      product_item: ".prdList > li"
       product_link: ".name a"
       product_title: ".name"
       product_price: ".price"
       product_image: ".thumbnail img"
       pagination_container: ".xans-product-normalpaging"
-      next_page: "a.next"
+      next_page: ".xans-product-normalpaging a.next"
       fetch_product_detail: true
-      product_detail_container: ".detailArea"
-      product_description: "#prdDetail"
-      product_detail_images: "#prdDetail img"
-      
+      product_detail_container: ".xans-product-detail"
+      product_description: ".detail_description"
+      product_detail_images: ".detail_image img"
+
   anthracite:
     label: "앤트러사이트"
     type: "selenium"
@@ -100,8 +100,8 @@ cafes:
     schedule: "0 0 * * 1"  # 매주 월요일 자정
     active: true
     headless: true
-    wait_timeout: 15
-    page_load_delay: 3
+    wait_timeout: 10
+    page_load_delay: 2
     selectors:
       product_list_container: ".product-grid"
       product_item: ".grid-item"
@@ -118,85 +118,216 @@ cafes:
       
   terarosa:
     label: "테라로사"
-    type: "selenium"
+    type: "html"
     url: "https://terarosa.com/collections/coffee"
     schedule: "0 0 * * 1"  # 매주 월요일 자정
     active: true
-    headless: true
-    wait_timeout: 15
-    page_load_delay: 3
+    encoding: "utf-8"
+    page_delay: 3
     selectors:
-      product_list_container: ".ProductList"
-      product_item: ".ProductItem"
-      product_link: ".ProductItem__Title a"
-      product_title: ".ProductItem__Title"
-      product_price: ".ProductItem__Price"
-      product_image: ".ProductItem__Image img"
-      pagination_container: ".Pagination"
-      next_page: ".Pagination__Next"
-      fetch_product_detail: true
-      product_detail_container: ".Product__Info"
-      product_description: ".ProductMeta__Description"
-      product_detail_images: ".Product__SlideItem img"
+      product_list_container: ".product-list"
+      product_item: ".product-item"
+      product_link: ".product-link"
+      product_title: ".product-name"
+      product_price: ".product-price"
+      product_image: ".product-image img"
+
+  momoscoffee:
+    label: "모모스커피"
+    type: "html"
+    url: "https://momos.co.kr/category/%EC%9B%90%EB%91%90/42/"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: ".prdList"
+      product_item: ".prdList > li"
+      product_link: ".thumbnail a"
+      product_title: ".name"
+      product_price: ".price"
+      product_image: ".thumbnail img"
+
+  tailorcoffee:
+    label: "테일러커피"
+    type: "html"
+    url: "https://tailorcoffee.com/product/list.html?cate_no=4"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: ".prdList"
+      product_item: ".prdList > li.xans-record-"
+      product_link: "a"
+      product_title: ".prd_name span"
+      product_price: ".price"
+      product_image: "img"
+
+  elcafe:
+    label: "엘카페커피로스터스"
+    type: "html"
+    url: "https://elcafe.co.kr/category/%EC%9B%90%EB%91%90/49/"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: ".xans-product-listnormal"
+      product_item: ".sp-product-item.xans-record-"
+      product_link: "a.sp-product-item-thumb-href"
+      product_title: ".sp-product-name"
+      product_price: ".sp-product-spec"
+      product_image: "img"
+
+  defaultvalue:
+    label: "디폴트벨류"
+    type: "html"
+    url: "https://defaultvalue.kr/"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: "div.shop-list"
+      product_item: "div.shop-list li"
+      product_link: "li a"
+      product_title: "li .prod-name"
+      product_price: "li .prod-price"
+      product_image: "li img"
+
+  deepbluelake:
+    label: "딥블루레이크"
+    type: "html"
+    url: "https://dblcoffee.com/"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: "ul.product-list"
+      product_item: "ul.product-list li"
+      product_link: "li a"
+      product_title: "li .product-title"
+      product_price: "li .product-price"
+      product_image: "li img"
+
+  bunkercompany:
+    label: "벙커컴퍼니"
+    type: "html"
+    url: "https://bunkercompany.co.kr/"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: "ul.shop-products"
+      product_item: "ul.shop-products li"
+      product_link: "li a"
+      product_title: "li .title"
+      product_price: "li .price"
+      product_image: "li img"
+
+  lowkey:
+    label: "로우키"
+    type: "html"
+    url: "https://lowkeycoffee.com/"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: "ul.product-list"
+      product_item: "ul.product-list li"
+      product_link: "li a"
+      product_title: "li .product-name"
+      product_price: "li .price"
+      product_image: "li img"
+
+  gimisacoffee:
+    label: "기미사"
+    type: "html"
+    url: "https://gimisa-coffee.com/"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: "ul.products"
+      product_item: "ul.products li"
+      product_link: "li a"
+      product_title: "li .product-name"
+      product_price: "li .price"
+      product_image: "li img"
+
+  bonanza:
+    label: "보난자"
+    type: "html"
+    url: "https://bonanzacoffee.kr/53"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: ".shop-content"
+      product_item: ".shop-item"
+      product_link: "a"
+      product_title: ".item-detail"
+      product_price: ".item-pay"
+      product_image: "img"
 
 # 기본 필터링 설정
 filters:
-  # 원두만 포함 (티백, 캡슐, 굿즈 등 제외)
-  include_keywords:
-    - "원두"
-    - "커피"
-    - "coffee"
-    - "bean"
-    - "200g"
-    - "500g"
-    - "1kg"
-    - "Costa Rica"
-    - "Colombia"
-    - "Ethiopia"
-    - "Kenya"
-    - "Brazil"
-    - "Honey"
-    - "Washed"
-    - "Natural"
-    - "Peru"
-    - "Ecuador"
-    - "Guatemala"
-    - "Panama"
-    - "El Salvador"
-    - "Honduras"
-    - "Geisha"
-    - "Typica"
-    - "Bourbon"
-    - "Decaf"
-    - "Decaffeinated"
-    - "디카페인"
-    - "Santos"
-    - "Yirgacheffe"
-    - "Swiss Water"
-    - "Mountain Water"
-  
-  exclude_keywords:
-    - "티백"
-    - "캡슐"
-    - "drip"
-    - "드립백"
-    - "굿즈"
-    - "머그"
-    - "컵"
-    - "키홀더"
-    - "액세서리"
-    - "패키지"
-    - "선물세트"
+  exclude:
+    - "키트"
+    - "박스"
+    - "선물"
+    - "세트"
     - "기프트"
-    - "로고"
+    - "gift"
+    - "capsule"
+    - "캡슐"
+    - "드립백"
+    - "드립 백"
+    - "드립 페이퍼"
+    - "핸드드립"
+    - "accessories"
+    - "악세사리"
+    - "액세서리"
+    - "커피용품"
+    - "더치"
     - "콜드브루"
-    - "Badge"
-    - "배지"
-    - "뱃지"
-    - "Poppy"
-    - "스티커"
-    - "Sticker"
-    - "홀더"
-    - "Holder"
-    - "Tumbler"
-    - "텀블러" 
+    - "cold brew"
+    - "티백"
+    - "tea bag"
+    - "분쇄"
+    - "비정기"
+    - "원두정기"
+    - "드립 팩"
+    - "텀블러"
+    - "머그"
+    - "mug"
+    # - "디카페인"
+    # - "decaf"
+    # - "디카페인"
+
+# 데이터 저장 설정
+storage:
+  type: "firebase"  # firebase 또는 local
+  local:
+    output_dir: "data"
+    image_dir: "data/images"
+  firebase:
+    collection_beans: "beans"
+    collection_cafes: "cafes"
+    collection_logs: "crawl_logs"
+    storage_bucket: "trusty-bearing-428402-a7.appspot.com"
+    image_path: "bean_images"
+
+# 로깅 설정
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/crawler.log"
+  max_size: 10485760  # 10MB
+  backup_count: 5 

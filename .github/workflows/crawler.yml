@@ -35,32 +35,17 @@ jobs:
       - name: Set up Firebase credentials
         run: |
           cat > config/firebase_config.yaml << EOL
-          firebase:
-            project_id: "coffee-37b81"
-            auth_method: "key_file"
-            key_file_path: "config/serviceAccountKey.json"
-            firestore:
-              collection_beans: "beans"
-              collection_cafes: "cafes"
-              collection_logs: "crawl_logs"
-            storage:
-              bucket_name: "coffee-37b81.appspot.com"
-              image_path: "bean_images"
-          EOL
-          
-          cat > config/serviceAccountKey.json << EOL
-          {
-            "type": "service_account",
-            "project_id": "coffee-37b81",
-            "private_key_id": "${{ secrets.FIREBASE_PRIVATE_KEY_ID }}",
-            "private_key": "${{ secrets.FIREBASE_PRIVATE_KEY }}",
-            "client_email": "${{ secrets.FIREBASE_CLIENT_EMAIL }}",
-            "client_id": "${{ secrets.FIREBASE_CLIENT_ID }}",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": "${{ secrets.FIREBASE_CLIENT_CERT_URL }}"
-          }
+          type: service_account
+          project_id: trusty-bearing-428402-a7
+          private_key_id: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
+          private_key: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          client_email: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          client_id: ${{ secrets.FIREBASE_CLIENT_ID }}
+          auth_uri: https://accounts.google.com/o/oauth2/auth
+          token_uri: https://oauth2.googleapis.com/token
+          auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
+          client_x509_cert_url: ${{ secrets.FIREBASE_CLIENT_CERT_URL }}
+          universe_domain: googleapis.com
           EOL
       
       - name: Set environment variables
@@ -93,7 +78,7 @@ jobs:
           
           # 크롤링 실행 (Firebase에 직접 저장)
           if [ "$CAFE" = "all" ]; then
-            python -m scripts.run_crawler --all
+            python -m scripts.run_crawler --cafe centercoffee --cafe fritz --cafe terarosa
           else
             python -m scripts.run_crawler --cafe "$CAFE"
           fi
