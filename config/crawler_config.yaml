@@ -9,66 +9,51 @@ crawler:
 cafes:
   centercoffee:
     label: "센터커피"
-    type: "selenium"
-    url: "https://centercoffee.co.kr/shop"
-    product_url: "https://centercoffee.co.kr/shop"
-    schedule: "0 0 * * 1"  # 매주 월요일 자정
+    type: "html"
+    url: "https://centercoffee.co.kr/67"
+    schedule: "0 0 * * 1"
     active: true
-    headless: true
-    wait_timeout: 10
-    page_load_delay: 2
-    pagination: true  # 페이지네이션 활성화
-    max_pages: 5  # 최대 5페이지까지 탐색
     selectors:
-      product_list_container: "div.shop-content"
-      product_item: ".shop-item"
-      product_link: "a"
-      product_title: ".item-title"
-      product_price: ".item-pay"
-      product_image: "img"
-      pagination_container: ".paging-block"
-      next_page: "a"  # 페이지 번호 링크
-      fetch_product_detail: true
-      product_detail_container: "#prod_detail"
-      product_description: ".product_detail"
-      product_detail_images: "img"
+      product_list_container: ".prdList"  # 실제 상품 리스트 ul
+      product_item: ".prdList > li"      # 각 상품 li
+      product_link: ".thumbnail a"
+      product_title: ".name"
+      product_price: ".price"
+      product_image: ".thumbnail img"
+      pagination_container: ".paging"
+      next_page: ".next"
 
   fritz:
     label: "프릳츠커피"
     type: "html"
     url: "https://m.fritz.co.kr/product/list.html?cate_no=48"
-    schedule: "0 0 * * 1"  # 매주 월요일 자정
+    schedule: "0 0 * * 1"
     active: true
     selectors:
-      product_list_container: ".column2"
-      product_item: "li"
-      product_link: ".box a"
-      product_title: ".name"
-      product_price: ".price"
-      product_image: ".thumb img"
-
-  namusairo:
-    label: "나무사이로"
-    type: "selenium"
-    url: "https://www.namusairo.com/product/list.html?cate_no=84"
-    schedule: "0 0 * * 1"  # 매주 월요일 자정
-    active: true
-    headless: true
-    wait_timeout: 10
-    page_load_delay: 2
-    selectors:
-      product_list_container: ".xans-product-normalpackage"
+      product_list_container: ".prdList"
       product_item: ".prdList > li"
-      product_link: ".name a"
+      product_link: ".thumbnail a"
       product_title: ".name"
       product_price: ".price"
       product_image: ".thumbnail img"
-      pagination_container: ".xans-product-normalpaging"
-      next_page: ".xans-product-normalpaging a.next"
-      fetch_product_detail: true
-      product_detail_container: ".xans-product-detail"
-      product_description: ".detail_description"
-      product_detail_images: ".detail_image img"
+      pagination_container: ".paging"
+      next_page: ".next"
+
+  namusairo:
+    label: "나무사이로"
+    type: "html"
+    url: "https://m.namusairo.com/category/$1/25/"
+    schedule: "0 0 * * 1"
+    active: true
+    selectors:
+      product_list_container: ".prdList"
+      product_item: ".prdList > li"
+      product_link: ".thumbnail a"
+      product_title: ".name"
+      product_price: ".price"
+      product_image: ".thumbnail img"
+      pagination_container: ".paging"
+      next_page: ".next"
 
   somacoffee:
     label: "소마커피"
@@ -135,11 +120,9 @@ cafes:
   momoscoffee:
     label: "모모스커피"
     type: "html"
-    url: "https://momos.co.kr/category/%EC%9B%90%EB%91%90/42/"
+    url: "https://m.momos.co.kr/custom/sub/product_category/sd_shop_roasted_bean.html"
     schedule: "0 0 * * 1"
     active: true
-    encoding: "utf-8"
-    page_delay: 3
     selectors:
       product_list_container: ".prdList"
       product_item: ".prdList > li"
@@ -147,6 +130,8 @@ cafes:
       product_title: ".name"
       product_price: ".price"
       product_image: ".thumbnail img"
+      pagination_container: ".paging"
+      next_page: ".next"
 
   tailorcoffee:
     label: "테일러커피"
