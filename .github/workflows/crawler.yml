@@ -34,17 +34,20 @@ jobs:
       
       - name: Set up Firebase config
         run: |
-          echo "type: service_account" > config/firebase_config.yaml
-          echo "project_id: ${{ secrets.FIREBASE_PROJECT_ID }}" >> config/firebase_config.yaml
-          echo "private_key_id: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}" >> config/firebase_config.yaml
-          echo "private_key: ${{ secrets.FIREBASE_PRIVATE_KEY }}" >> config/firebase_config.yaml
-          echo "client_email: ${{ secrets.FIREBASE_CLIENT_EMAIL }}" >> config/firebase_config.yaml
-          echo "client_id: ${{ secrets.FIREBASE_CLIENT_ID }}" >> config/firebase_config.yaml
-          echo "auth_uri: https://accounts.google.com/o/oauth2/auth" >> config/firebase_config.yaml
-          echo "token_uri: https://oauth2.googleapis.com/token" >> config/firebase_config.yaml
-          echo "auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs" >> config/firebase_config.yaml
-          echo "client_x509_cert_url: ${{ secrets.FIREBASE_CLIENT_CERT_URL }}" >> config/firebase_config.yaml
-          echo "universe_domain: googleapis.com" >> config/firebase_config.yaml
+          cat > config/firebase_config.yaml << 'EOL'
+          type: service_account
+          project_id: ${{ secrets.FIREBASE_PROJECT_ID }}
+          private_key_id: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
+          private_key: |
+            ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          client_email: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          client_id: ${{ secrets.FIREBASE_CLIENT_ID }}
+          auth_uri: https://accounts.google.com/o/oauth2/auth
+          token_uri: https://oauth2.googleapis.com/token
+          auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs
+          client_x509_cert_url: ${{ secrets.FIREBASE_CLIENT_CERT_URL }}
+          universe_domain: googleapis.com
+          EOL
       
       - name: Set environment variables
         run: |

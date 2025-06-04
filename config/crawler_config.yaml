@@ -121,13 +121,16 @@ cafes:
     type: "html"
     url: "https://terarosa.com/market/product/list?categoryId=5"
     schedule: "0 0 * * *"
+    active: true
     selectors:
       product_list_container: "div.product-list"
       product_item: "div.product-item"
       product_link: "a.product-link"
-      product_title: "div.product-title"
+      product_title: "div.product-name"
       product_price: "div.product-price"
       product_image: "img.product-image"
+      pagination_container: "div.pagination"
+      next_page: "a.next"
 
   momoscoffee:
     label: "모모스커피"
