@@ -30,6 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install webdriver-manager==4.0.2
+          pip install firebase-admin
       
       - name: Set up Firebase credentials
         run: |
@@ -91,7 +92,11 @@ jobs:
           echo "date=$TODAY" >> $GITHUB_OUTPUT
           
           # 크롤링 실행 (Firebase에 직접 저장)
-          python -m scripts.run_crawler --all
+          if [ "$CAFE" = "all" ]; then
+            python -m scripts.run_crawler --all
+          else
+            python -m scripts.run_crawler --cafe "$CAFE"
+          fi
           
           # 결과 확인
           TOTAL_BEAN_COUNT=0
