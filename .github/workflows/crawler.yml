@@ -134,22 +134,56 @@ jobs:
       
       - name: Send Slack notification
         if: always()
-        uses: 8398a7/action-slack@v3
+        uses: slackapi/slack-github-action@v1.25.0
         with:
-          status: ${{ job.status }}
-          fields: repo,message,commit,author,action,eventName,workflow,job,took
-          text: |
-            *커피 원두 크롤링 결과*
-            
-            *상태:* ${{ job.status == 'success' && '✅ 성공' || '❌ 실패' }}
-            *실행 번호:* #${{ github.run_number }}
-            *크롤링한 카페:* ${{ steps.crawler.outputs.cafe }}
-            *시작 시간:* ${{ steps.crawler.outputs.start_time }}
-            *종료 시간:* ${{ steps.crawler.outputs.end_time }}
-            *수집된 원두 수:* ${{ steps.crawler.outputs.bean_count }}
-            
-            *결과 확인:* 
-            - Firebase: https://console.firebase.google.com/project/coffee-37b81/firestore
-            - 로그: ${{ github.server_url }}/${{ github.repository }}/tree/main/logs
+          payload: |
+            {
+              "text": "*커피 원두 크롤링 결과*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*커피 원두 크롤링 결과*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*상태:* ${{ job.status == 'success' && '✅ 성공' || '❌ 실패' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*실행 번호:* #${{ github.run_number }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*크롤링한 카페:* ${{ steps.crawler.outputs.cafe }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*시작 시간:* ${{ steps.crawler.outputs.start_time }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*종료 시간:* ${{ steps.crawler.outputs.end_time }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*수집된 원두 수:* ${{ steps.crawler.outputs.bean_count }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*결과 확인:*\n- Firebase: https://console.firebase.google.com/project/coffee-37b81/firestore\n- 로그: ${{ github.server_url }}/${{ github.repository }}/tree/main/logs"
+                  }
+                }
+              ]
+            }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
