@@ -34,7 +34,7 @@ jobs:
       
       - name: Set up Firebase config
         run: |
-          cat > config/firebase_config.yaml << EOL
+          cat > config/firebase_config.yaml << 'EOL'
           type: service_account
           project_id: ${{ secrets.FIREBASE_PROJECT_ID }}
           private_key_id: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
