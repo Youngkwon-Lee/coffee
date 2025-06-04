@@ -130,7 +130,7 @@ cafes:
     encoding: "utf-8"
     page_delay: 3
     selectors:
-      product_list_container: ".xans-product-listnormal"
+      product_list_container: ".prdList"
       product_item: "li.xans-record-"
       product_link: ".prdImg a"
       product_title: ".name span[style]"
