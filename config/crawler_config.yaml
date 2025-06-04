@@ -168,7 +168,7 @@ cafes:
   defaultvalue:
     label: "디폴트벨류"
     type: "html"
-    url: "https://defaultvalue.kr/"
+    url: "https://defaultvalue.kr/product/list.html?cate_no=23"
     schedule: "0 0 * * 1"
     active: true
     encoding: "utf-8"
@@ -184,7 +184,7 @@ cafes:
   deepbluelake:
     label: "딥블루레이크"
     type: "html"
-    url: "https://dblcoffee.com/"
+    url: "https://dblcoffee.com/product/list.html?cate_no=24"
     schedule: "0 0 * * 1"
     active: true
     encoding: "utf-8"
@@ -200,7 +200,7 @@ cafes:
   bunkercompany:
     label: "벙커컴퍼니"
     type: "html"
-    url: "https://bunkercompany.co.kr/"
+    url: "https://bunkercompany.co.kr/shop"
     schedule: "0 0 * * 1"
     active: true
     encoding: "utf-8"
@@ -216,7 +216,7 @@ cafes:
   lowkey:
     label: "로우키"
     type: "html"
-    url: "https://lowkeycoffee.com/"
+    url: "https://lowkeycoffee.com/shop/list-cf"
     schedule: "0 0 * * 1"
     active: true
     encoding: "utf-8"
@@ -224,22 +224,6 @@ cafes:
     selectors:
       product_list_container: "ul.product-list"
       product_item: "ul.product-list li"
-      product_link: "li a"
-      product_title: "li .product-name"
-      product_price: "li .price"
-      product_image: "li img"
-
-  gimisacoffee:
-    label: "기미사"
-    type: "html"
-    url: "https://gimisa-coffee.com/"
-    schedule: "0 0 * * 1"
-    active: true
-    encoding: "utf-8"
-    page_delay: 3
-    selectors:
-      product_list_container: "ul.products"
-      product_item: "ul.products li"
       product_link: "li a"
       product_title: "li .product-name"
       product_price: "li .price"
