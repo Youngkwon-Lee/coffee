@@ -59,6 +59,13 @@ jobs:
         run: |
           mkdir -p data logs
       
+      - name: Check Python and Firebase Admin
+        run: |
+          which python
+          python --version
+          pip show firebase-admin
+          python -c "import firebase_admin; print(firebase_admin.__file__)"
+      
       - name: Run crawler
         id: crawler
         run: |
