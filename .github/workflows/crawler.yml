@@ -91,7 +91,7 @@ jobs:
           echo "date=$TODAY" >> $GITHUB_OUTPUT
           
           # 크롤링 실행 (Firebase에 직접 저장)
-          python -m scripts.run_crawler --cafe "$CAFE"
+          python -m scripts.run_crawler --all
           
           # 결과 확인
           TOTAL_BEAN_COUNT=0
@@ -152,4 +152,4 @@ jobs:
             - Firebase: https://console.firebase.google.com/project/coffee-37b81/firestore
             - 로그: ${{ github.server_url }}/${{ github.repository }}/tree/main/logs
         env:
-          SLACK_WEBHOOK_URL: https://hooks.slack.com/services/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 
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
