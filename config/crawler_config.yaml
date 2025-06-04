@@ -55,52 +55,6 @@ cafes:
       pagination_container: ".paging"
       next_page: ".next"
 
-  somacoffee:
-    label: "소마커피"
-    type: "selenium"
-    url: "https://www.somacoffee.co.kr/product/list.html?cate_no=29"
-    schedule: "0 0 * * 1"  # 매주 월요일 자정
-    active: true
-    headless: true
-    wait_timeout: 10
-    page_load_delay: 2
-    selectors:
-      product_list_container: ".xans-product-normalpackage"
-      product_item: ".prdList > li"
-      product_link: ".name a"
-      product_title: ".name"
-      product_price: ".price"
-      product_image: ".thumbnail img"
-      pagination_container: ".xans-product-normalpaging"
-      next_page: ".xans-product-normalpaging a.next"
-      fetch_product_detail: true
-      product_detail_container: ".xans-product-detail"
-      product_description: ".detail_description"
-      product_detail_images: ".detail_image img"
-
-  anthracite:
-    label: "앤트러사이트"
-    type: "selenium"
-    url: "https://www.anthracitecoffee.com/product/category/58"
-    schedule: "0 0 * * 1"  # 매주 월요일 자정
-    active: true
-    headless: true
-    wait_timeout: 10
-    page_load_delay: 2
-    selectors:
-      product_list_container: ".product-grid"
-      product_item: ".grid-item"
-      product_link: ".product-name a"
-      product_title: ".product-name"
-      product_price: ".product-price"
-      product_image: ".img-container img"
-      pagination_container: ".pagination"
-      next_page: ".pagination-next"
-      fetch_product_detail: true
-      product_detail_container: ".product-detail"
-      product_description: ".product-description"
-      product_detail_images: ".product-images img"
-      
   terarosa:
     label: "테라로사"
     type: "html"
@@ -174,12 +128,12 @@ cafes:
     encoding: "utf-8"
     page_delay: 3
     selectors:
-      product_list_container: "ul.prdList"
+      product_list_container: ".xans-product-listnormal"
       product_item: "li.xans-record-"
-      product_link: ".thumbnail .prdImg a"
-      product_title: ".description .name span[style]"
-      product_price: ".description .xans-product-listitem span[style*='font-weight:bold']"
-      product_image: ".thumbnail .prdImg img"
+      product_link: ".prdImg a"
+      product_title: ".name span[style]"
+      product_price: ".xans-product-listitem span[style*='font-weight:bold']"
+      product_image: ".prdImg img"
       pagination_container: ".xans-product-normalpaging"
       next_page: ".xans-product-normalpaging a:not(.this)"
 

@@ -215,7 +215,8 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
                     # Firebase 저장
                     from coffee_crawler.storage.firebase_client import FirebaseClient
                     firebase_client = FirebaseClient()
-                    firebase_client.save_beans(unique_beans, cafe_id)
+                    for bean in unique_beans:
+                        firebase_client.add_bean(bean)
                 except Exception as e:
                     logger.error(f"크롤링 중 오류 발생: {e}")
                     # 파일 저장으로 대체
