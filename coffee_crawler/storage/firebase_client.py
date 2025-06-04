@@ -11,8 +11,18 @@ import logging
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 
-import firebase_admin
-from firebase_admin import credentials, firestore, storage
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore, storage
+except ImportError as e:
+    print("Firebase 패키지를 찾을 수 없음. Firebase 기능 비활성화.")
+    print("에러 메시지:", e)
+    import traceback
+    traceback.print_exc()
+    firebase_admin = None
+    credentials = None
+    firestore = None
+    storage = None
 
 from coffee_crawler.utils.config_loader import load_firebase_config
 
