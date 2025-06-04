@@ -32,11 +32,11 @@ jobs:
           pip install webdriver-manager==4.0.2
           pip install firebase-admin
       
-      - name: Set up Firebase credentials
+      - name: Set up Firebase config
         run: |
           cat > config/firebase_config.yaml << EOL
           type: service_account
-          project_id: trusty-bearing-428402-a7
+          project_id: ${{ secrets.FIREBASE_PROJECT_ID }}
           private_key_id: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
           private_key: ${{ secrets.FIREBASE_PRIVATE_KEY }}
           client_email: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
