@@ -187,7 +187,6 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
             # 프로세서 모듈 동적 임포트
             from coffee_crawler.processors.normalizer import normalize_beans
             from coffee_crawler.processors.duplicate_checker import deduplicate
-            from coffee_crawler.storage.firebase_client import FirebaseClient
             
             # 데이터 정규화
             normalized_beans = normalize_beans(results)
@@ -195,91 +194,167 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
             # 중복 검사
             unique_beans = deduplicate(normalized_beans)
             
-            # Firebase에 저장
-            firebase_client = FirebaseClient()
-            for bean in unique_beans:
-                firebase_client.add_bean(bean)
+            # GitHub Actions 환경 또는 Firebase 비활성화 설정이면 Firebase 저장 건너뛰기
+            is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true' 
+            is_firebase_disabled = os.environ.get('DISABLE_FIREBASE') == 'true'
+            
+            if is_github_actions and is_firebase_disabled:
+                logger.info("GitHub Actions 환경에서 Firebase 저장 건너뛰기")
+                # 파일 저장 경로 설정
+                if not output_path:
+                    today = datetime.now().strftime('%Y%m%d')
+                    output_path = f"data/beans_all_{today}_{cafe_id}.json"
+                
+                # 결과 파일 저장
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    json.dump(unique_beans, f, cls=DateTimeEncoder, ensure_ascii=False, indent=2)
+                logger.info(f"결과 저장 완료: {output_path}")
+            else:
+                try:
+                    # Firebase 저장
+                    from coffee_crawler.storage.firebase_client import FirebaseClient
+                    firebase_client = FirebaseClient()
+                    firebase_client.save_beans(unique_beans, cafe_id)
+                except Exception as e:
+                    logger.error(f"크롤링 중 오류 발생: {e}")
+                    # 파일 저장으로 대체
+                    if not output_path:
+                        today = datetime.now().strftime('%Y%m%d')
+                        output_path = f"data/beans_all_{today}_{cafe_id}.json"
+                    
+                    # 결과 파일 저장
+                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        json.dump(unique_beans, f, cls=DateTimeEncoder, ensure_ascii=False, indent=2)
+                    logger.info(f"결과 저장 완료: {output_path}")
             
             logger.info(f"'{cafe_id}' 데이터 저장 완료")
-        else:
-            logger.info("Dry run 모드: 데이터 저장 생략")
-        
-        # 출력 파일 저장
+            
+        # 파일 출력 옵션이 지정된 경우
         if output_path:
-            # 경로에 디렉토리가 있는지 확인
-            if os.path.dirname(output_path):
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                
-            try:
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    json.dump(results, f, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
-                logger.info(f"결과 저장 완료: {output_path}")
-            except Exception as e:
-                logger.error(f"JSON 저장 중 오류 발생: {e}")
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(results, f, cls=DateTimeEncoder, ensure_ascii=False, indent=2)
+            logger.info(f"결과 저장 완료: {output_path}")
         
         return True
-        
-    except ImportError as e:
-        error_message = f"크롤러 모듈 로드 실패: {e}"
-        logger.error(error_message)
-        if notify:
-            elapsed_time = time.time() - start_time
-            notification_system = get_notification_system()
-            notification_system.notify_failure(cafe_id, cafe_name, error_message, elapsed_time)
-    except Exception as e:
-        error_message = f"크롤링 중 오류 발생: {e}"
-        logger.error(error_message, exc_info=True)
-        if notify:
-            elapsed_time = time.time() - start_time
-            notification_system = get_notification_system()
-            notification_system.notify_failure(cafe_id, cafe_name, error_message, elapsed_time)
     
-    return False
+    except Exception as e:
+        logger.error(f"크롤링 중 오류 발생: {str(e)}", exc_info=True)
+        return False
 
 def main():
-    """
-    메인 함수
+    """스크립트 메인 함수"""
+    parser = argparse.ArgumentParser(description='커피 원두 크롤러 실행')
+    parser.add_argument('--cafe', type=str, help='크롤링할 카페 ID (쉼표로 구분, 비워두면 모든 카페)')
+    parser.add_argument('--test', action='store_true', help='테스트 모드 (일부 데이터만 크롤링)')
+    parser.add_argument('--dry-run', action='store_true', help='데이터 저장하지 않고 크롤링만 수행')
+    parser.add_argument('--output', type=str, help='결과를 저장할 파일 경로')
+    parser.add_argument('--notify', action='store_true', help='크롤링 결과 알림 활성화')
     
-    명령행 인수를 파싱하고 크롤러를 실행합니다.
+    args = parser.parse_args()
     
-    Returns:
-        종료 코드 (0: 성공, 1: 실패)
-    """
-    args = parse_args()
-    setup_logging(args)
+    # GitHub Actions 환경 확인
+    is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
     
-    logger.info("커피 원두 크롤러 시작")
+    # GitHub Actions 환경에서는 dry_run 자동 설정
+    if is_github_actions and not args.dry_run:
+        logger.info("GitHub Actions 환경 감지: dry_run 모드 자동 활성화")
+        args.dry_run = True
     
-    # 카페 ID 목록 결정
-    cafe_ids = []
-    if args.all:
-        cafe_ids = get_active_cafes()
-        logger.info(f"활성화된 모든 카페 크롤링: {', '.join(cafe_ids)}")
-    elif args.cafe:
-        cafe_ids = [args.cafe]
+    # 모든 카페 정보 로드
+    config = load_crawler_config()
     
-    # 각 카페별로 크롤러 실행
+    # 모든 카페 목록 (설정 파일에서 활성화된 카페만)
+    all_cafes = {cafe_id: cafe_info for cafe_id, cafe_info in config.get('cafes', {}).items() 
+                 if cafe_info.get('active', True)}
+    
+    # HTML 크롤러만 사용할 카페 목록
+    html_cafes = {cafe_id: cafe_info for cafe_id, cafe_info in all_cafes.items() 
+                 if cafe_info.get('type') == 'html'}
+    
+    # GitHub Actions 환경에서는 HTML 크롤러만 사용
+    if is_github_actions:
+        logger.info("GitHub Actions 환경 감지: HTML 크롤러만 사용")
+        cafes_to_run = html_cafes
+    else:
+        cafes_to_run = all_cafes
+    
+    # 크롤링할 카페 목록 결정
+    if args.cafe:
+        # 입력된 카페 ID 목록 (쉼표로 구분)
+        cafe_ids = [cafe_id.strip() for cafe_id in args.cafe.split(',')]
+        
+        # 존재하는 카페 ID만 필터링
+        valid_cafe_ids = [cafe_id for cafe_id in cafe_ids if cafe_id in cafes_to_run]
+        
+        if not valid_cafe_ids:
+            logger.error(f"유효한 카페 ID가 없습니다: {args.cafe}")
+            sys.exit(1)
+            
+        cafes_to_crawl = {cafe_id: cafes_to_run[cafe_id] for cafe_id in valid_cafe_ids}
+    else:
+        # 모든 활성화된 카페 크롤링
+        cafes_to_crawl = cafes_to_run
+    
+    if not cafes_to_crawl:
+        logger.error("크롤링할 카페가 없습니다.")
+        sys.exit(1)
+    
+    logger.info(f"활성화된 모든 카페 크롤링: {', '.join(cafes_to_crawl.keys())}")
+    
+    # 결과 저장을 위한 모든 원두 정보
+    all_beans = []
     success_count = 0
-    for cafe_id in cafe_ids:
+    
+    # 각 카페별로 크롤링 실행
+    for cafe_id, cafe_info in cafes_to_crawl.items():
         # 출력 파일 경로 설정
         output_path = None
         if args.output:
-            if len(cafe_ids) > 1:
-                # 여러 카페일 경우 파일명에 카페 ID 추가
-                base, ext = os.path.splitext(args.output)
-                output_path = f"{base}_{cafe_id}{ext}"
+            # 여러 카페를 크롤링할 경우 파일명에 카페 ID 추가
+            if len(cafes_to_crawl) > 1:
+                filename, ext = os.path.splitext(args.output)
+                output_path = f"{filename}_{cafe_id}{ext}"
             else:
                 output_path = args.output
-        
+                
         # 크롤러 실행
-        if run_crawler(cafe_id, args.dry_run, args.test, output_path, args.notify):
+        success = run_crawler(
+            cafe_id=cafe_id,
+            dry_run=args.dry_run,
+            test_mode=args.test,
+            output_path=output_path,
+            notify=args.notify
+        )
+        
+        if success:
             success_count += 1
+            
+            # 결과 파일에서 데이터 읽기
+            if output_path and os.path.exists(output_path):
+                try:
+                    with open(output_path, 'r', encoding='utf-8') as f:
+                        cafe_beans = json.load(f)
+                        all_beans.extend(cafe_beans)
+                except Exception as e:
+                    logger.error(f"결과 파일 읽기 오류: {e}")
     
-    # 결과 요약 출력
-    logger.info(f"크롤링 완료: {success_count}/{len(cafe_ids)} 성공")
+    # 통합 결과 저장
+    if args.output and len(cafes_to_crawl) > 1:
+        try:
+            with open(args.output, 'w', encoding='utf-8') as f:
+                json.dump(all_beans, f, cls=DateTimeEncoder, ensure_ascii=False, indent=2)
+            logger.info(f"통합 결과 저장 완료: {args.output}")
+        except Exception as e:
+            logger.error(f"통합 결과 저장 오류: {e}")
     
-    # 성공 여부에 따라 종료 코드 반환
-    return 0 if success_count == len(cafe_ids) else 1
+    logger.info(f"크롤링 완료: {success_count}/{len(cafes_to_crawl)} 성공")
+    
+    # 실패한 카페가 있으면 오류 코드 반환
+    if success_count < len(cafes_to_crawl):
+        sys.exit(1)
 
 if __name__ == "__main__":
     sys.exit(main()) 

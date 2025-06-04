@@ -20,21 +20,21 @@ class HtmlCrawler(BaseCrawler):
     
     def __init__(self, cafe_id: str, config: Dict[str, Any]):
         """
-        HtmlCrawler 초기화
+        HTML 크롤러 초기화
         
         Args:
             cafe_id: 카페 ID
-            config: 카페 설정 딕셔너리
+            config: 카페 설정
         """
         super().__init__(cafe_id, config)
         
-        # 크롤링 설정
-        self.product_list_url = config.get('url')
-        if not self.product_list_url:
-            raise ValueError(f"상품 목록 URL이 설정되지 않았습니다: {cafe_id}")
-        
-        # CSS 선택자 설정
+        # 기본 설정
+        self.product_list_url = config.get('url', '')
+        self.page_delay = config.get('page_delay', 1.0)
         self.selectors = config.get('selectors', {})
+        self.encoding = config.get('encoding', 'utf-8')  # 인코딩 설정 추가
+        
+        # 설정 검증
         self._validate_selectors()
         
         # 가격 정규식 패턴
@@ -42,9 +42,6 @@ class HtmlCrawler(BaseCrawler):
         
         # 테스트 모드 제한 수
         self.test_limit = 3
-        
-        # 페이지 지연 설정 (초)
-        self.page_delay = config.get('page_delay', 1.0)
         
     def _validate_selectors(self):
         """필수 CSS 선택자 검증"""
@@ -83,15 +80,18 @@ class HtmlCrawler(BaseCrawler):
         """
         self.logger.info(f"HTML 크롤링 시작: {self.product_list_url}")
         
-        # 상품 목록 페이지 요청
-        response, success = self._safe_request(self.product_list_url)
+        # 상품 목록 페이지 요청 (인코딩 설정 추가)
+        headers = {'Accept-Charset': self.encoding}
+        response, success = self._safe_request(self.product_list_url, headers=headers)
         
         if not success:
             self.logger.error("상품 목록 페이지 요청 실패")
             return []
         
-        # HTML 파싱
+        # HTML 파싱 (인코딩 명시)
         try:
+            # 명시적으로 인코딩 설정
+            response.encoding = self.encoding
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # 상품 항목 추출
@@ -234,15 +234,18 @@ class HtmlCrawler(BaseCrawler):
         """
         self.logger.debug(f"상품 상세 정보 가져오기: {product_url}")
         
-        # 상품 상세 페이지 요청
-        response, success = self._safe_request(product_url)
+        # 상품 상세 페이지 요청 (인코딩 설정 추가)
+        headers = {'Accept-Charset': self.encoding}
+        response, success = self._safe_request(product_url, headers=headers)
         
         if not success:
             self.logger.warning(f"상품 상세 페이지 요청 실패: {product_url}")
             return None
         
-        # HTML 파싱
+        # HTML 파싱 (인코딩 명시)
         try:
+            # 명시적으로 인코딩 설정
+            response.encoding = self.encoding
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # 상세 정보 딕셔너리
