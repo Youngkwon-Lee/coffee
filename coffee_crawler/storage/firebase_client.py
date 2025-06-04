@@ -60,22 +60,39 @@ class FirebaseClient:
                 self.bucket = None
                 return
             
-            if not firebase_admin._apps:
-                logger.warning("Firebase 패키지를 찾을 수 없음. Firebase 기능 비활성화.")
+            # firebase_admin이 None이면 패키지 없음 처리
+            if firebase_admin is None:
+                logger.warning("firebase_admin 패키지가 로드되지 않았습니다. Firebase 기능 비활성화.")
                 self.disabled = True
                 self.app = None
                 self.db = None
                 self.bucket = None
                 return
             
-            self.app = self._initialize_firebase()
+            # _apps 속성 접근도 try-except로 보호
+            try:
+                if hasattr(firebase_admin, '_apps') and firebase_admin._apps:
+                    logger.info("기존 Firebase 앱 인스턴스 재사용")
+                    if None in firebase_admin._apps:
+                        self.app = firebase_admin._apps[None]
+                    elif len(firebase_admin._apps) > 0:
+                        app_key = list(firebase_admin._apps.keys())[0]
+                        self.app = firebase_admin._apps[app_key]
+                    else:
+                        logger.warning("Firebase 앱이 있지만 접근할 수 없습니다.")
+                        self.app = None
+                else:
+                    self.app = self._initialize_firebase()
+            except Exception as e:
+                logger.error(f"firebase_admin._apps 접근 중 오류: {e}")
+                self.app = None
             
             # 앱 초기화가 성공한 경우에만 DB와 버킷 초기화
             if self.app:
-                self.db = firestore.client()
+                self.db = firestore.client() if firestore else None
                 self.bucket = None
                 
-                if self.config.get('firebase', {}).get('storage', {}).get('bucket_name'):
+                if self.config.get('firebase', {}).get('storage', {}).get('bucket_name') and storage:
                     self.bucket = storage.bucket(self.config['firebase']['storage']['bucket_name'])
                 
                 logger.info("Firebase 클라이언트 초기화 완료")
@@ -118,24 +135,6 @@ class FirebaseClient:
         Returns:
             Firebase 앱 인스턴스 또는 초기화 실패 시 None
         """
-        # 이미 초기화된 경우
-        try:
-            if firebase_admin._apps:
-                logger.info("기존 Firebase 앱 인스턴스 재사용")
-                # KeyError 방지를 위한 안전한 접근 방식으로 변경
-                if None in firebase_admin._apps:
-                    return firebase_admin._apps[None]
-                elif len(firebase_admin._apps) > 0:
-                    # 첫 번째 앱 반환
-                    app_key = list(firebase_admin._apps.keys())[0]
-                    return firebase_admin._apps[app_key]
-                else:
-                    logger.warning("Firebase 앱이 있지만 접근할 수 없습니다.")
-                    return None
-        except Exception as e:
-            logger.error(f"Firebase 앱 인스턴스 접근 중 오류: {e}")
-            return None
-        
         try:
             # GitHub Actions 환경에서 환경변수 사용
             if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("DISABLE_FIREBASE") == "true":
