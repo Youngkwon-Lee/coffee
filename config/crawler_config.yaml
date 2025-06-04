@@ -13,6 +13,8 @@ cafes:
     url: "https://centercoffee.co.kr/67"
     schedule: "0 0 * * 1"
     active: true
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    page_delay: 2
     selectors:
       product_list_container: ".shop-grid"
       product_item: ".shop-item"
@@ -198,7 +200,8 @@ cafes:
     schedule: "0 0 * * 1"
     active: true
     encoding: "utf-8"
-    page_delay: 3
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    page_delay: 2
     selectors:
       product_list_container: ".shop-content"
       product_item: ".shop-item"
