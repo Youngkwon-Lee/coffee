@@ -14,14 +14,14 @@ cafes:
     schedule: "0 0 * * 1"
     active: true
     selectors:
-      product_list_container: ".prdList"  # 실제 상품 리스트 ul
-      product_item: ".prdList > li"      # 각 상품 li
-      product_link: ".thumbnail a"
-      product_title: ".name"
-      product_price: ".price"
-      product_image: ".thumbnail img"
-      pagination_container: ".paging"
-      next_page: ".next"
+      product_list_container: ".shop-grid"
+      product_item: ".shop-item"
+      product_link: "a.shop-item-thumb"
+      product_title: ".shop-title"
+      product_price: ".pay"
+      product_image: "img.org_img"
+      pagination_container: "nav.paging-block"
+      next_page: "ul.pagination li:not(.active) a"
 
   fritz:
     label: "프릳츠커피"
@@ -30,14 +30,14 @@ cafes:
     schedule: "0 0 * * 1"
     active: true
     selectors:
-      product_list_container: ".prdList"
-      product_item: ".prdList > li"
-      product_link: ".thumbnail a"
-      product_title: ".name"
+      product_list_container: "ul.column2"
+      product_item: "li.item"
+      product_link: ".box > a"
+      product_title: ".name a"
       product_price: ".price"
-      product_image: ".thumbnail img"
-      pagination_container: ".paging"
-      next_page: ".next"
+      product_image: "img.thumb"
+      pagination_container: "ul.pagination"
+      next_page: "ul.pagination li:not(.active) a"
 
   namusairo:
     label: "나무사이로"
@@ -174,12 +174,14 @@ cafes:
     encoding: "utf-8"
     page_delay: 3
     selectors:
-      product_list_container: "div.shop-list"
-      product_item: "div.shop-list li"
-      product_link: "li a"
-      product_title: "li .prod-name"
-      product_price: "li .prod-price"
-      product_image: "li img"
+      product_list_container: "ul.prdList"
+      product_item: "li.xans-record-"
+      product_link: ".thumbnail .prdImg a"
+      product_title: ".description .name span[style]"
+      product_price: ".description .xans-product-listitem span[style*='font-weight:bold']"
+      product_image: ".thumbnail .prdImg img"
+      pagination_container: ".xans-product-normalpaging"
+      next_page: ".xans-product-normalpaging a:not(.this)"
 
   deepbluelake:
     label: "딥블루레이크"
@@ -190,12 +192,14 @@ cafes:
     encoding: "utf-8"
     page_delay: 3
     selectors:
-      product_list_container: "ul.product-list"
-      product_item: "ul.product-list li"
-      product_link: "li a"
-      product_title: "li .product-title"
-      product_price: "li .product-price"
-      product_image: "li img"
+      product_list_container: "ul.prdList.column3"
+      product_item: "li.item.xans-record-"
+      product_link: ".prdImg a"
+      product_title: ".name span[style]"
+      product_price: ".xans-product-listitem span[style]"
+      product_image: ".prdImg img"
+      pagination_container: ".xans-product-normalpaging"
+      next_page: ".xans-product-normalpaging a:not(.this)"
 
   bunkercompany:
     label: "벙커컴퍼니"
@@ -206,12 +210,14 @@ cafes:
     encoding: "utf-8"
     page_delay: 3
     selectors:
-      product_list_container: "ul.shop-products"
-      product_item: "ul.shop-products li"
-      product_link: "li a"
-      product_title: "li .title"
-      product_price: "li .price"
-      product_image: "li img"
+      product_list_container: "#productListWrapper42703510"
+      product_item: ".shopProductWrapper"
+      product_link: ".shopProductWrapper a"
+      product_title: ".shopProduct.productName"
+      product_price: ".shopProduct.price .productPriceSpan"
+      product_image: ".thumb.img"
+      pagination_container: ".productListPage"
+      next_page: ".productListPage:not(.now)"
 
   lowkey:
     label: "로우키"
@@ -222,12 +228,14 @@ cafes:
     encoding: "utf-8"
     page_delay: 3
     selectors:
-      product_list_container: "ul.product-list"
-      product_item: "ul.product-list li"
-      product_link: "li a"
-      product_title: "li .product-name"
-      product_price: "li .price"
-      product_image: "li img"
+      product_list_container: ".sct"
+      product_item: ".sct_li"
+      product_link: ".sct_img a"
+      product_title: ".sct_txt a"
+      product_price: ".sct_cost"
+      product_image: ".sct_img img"
+      pagination_container: ".pagination"
+      next_page: ".pagination .page-link"
 
   bonanza:
     label: "보난자"
