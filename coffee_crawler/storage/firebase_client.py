@@ -126,39 +126,47 @@ class FirebaseClient:
             Firebase 앱 인스턴스 또는 초기화 실패 시 None
         """
         try:
-            # 개별 환경 변수에서 Firebase 설정 구성
-            firebase_config = {
-                "type": "service_account",
-                "project_id": os.getenv('FIREBASE_PROJECT_ID'),
-                "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                "private_key": os.getenv('FIREBASE_PRIVATE_KEY').replace('\\n', '\n'),
-                "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
-                "client_id": os.getenv('FIREBASE_CLIENT_ID'),
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL')
+            # 필수 환경 변수 확인
+            required_vars = {
+                'FIREBASE_PROJECT_ID': os.getenv('FIREBASE_PROJECT_ID'),
+                'FIREBASE_PRIVATE_KEY_ID': os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+                'FIREBASE_PRIVATE_KEY': os.getenv('FIREBASE_PRIVATE_KEY'),
+                'FIREBASE_CLIENT_EMAIL': os.getenv('FIREBASE_CLIENT_EMAIL'),
+                'FIREBASE_CLIENT_ID': os.getenv('FIREBASE_CLIENT_ID'),
+                'FIREBASE_CLIENT_CERT_URL': os.getenv('FIREBASE_CLIENT_CERT_URL')
             }
             
-            # 필수 환경 변수 확인
-            required_vars = [
-                'FIREBASE_PROJECT_ID',
-                'FIREBASE_PRIVATE_KEY_ID',
-                'FIREBASE_PRIVATE_KEY',
-                'FIREBASE_CLIENT_EMAIL',
-                'FIREBASE_CLIENT_ID',
-                'FIREBASE_CLIENT_CERT_URL'
-            ]
-            
-            missing_vars = [var for var in required_vars if not os.getenv(var)]
+            # 누락된 환경 변수 확인
+            missing_vars = [var for var, value in required_vars.items() if not value]
             if missing_vars:
                 logger.warning(f"Firebase 설정이 없습니다. 누락된 환경 변수: {', '.join(missing_vars)}")
                 return None
             
+            # private_key 처리
+            private_key = required_vars['FIREBASE_PRIVATE_KEY']
+            if not private_key:
+                logger.warning("FIREBASE_PRIVATE_KEY가 비어있습니다.")
+                return None
+                
+            # Firebase 설정 구성
+            firebase_config = {
+                "type": "service_account",
+                "project_id": required_vars['FIREBASE_PROJECT_ID'],
+                "private_key_id": required_vars['FIREBASE_PRIVATE_KEY_ID'],
+                "private_key": private_key.replace('\\n', '\n'),
+                "client_email": required_vars['FIREBASE_CLIENT_EMAIL'],
+                "client_id": required_vars['FIREBASE_CLIENT_ID'],
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_x509_cert_url": required_vars['FIREBASE_CLIENT_CERT_URL']
+            }
+            
+            # Firebase 앱 초기화
             cred = credentials.Certificate(firebase_config)
-            firebase_admin.initialize_app(cred)
+            app = firebase_admin.initialize_app(cred)
             logger.info("Firebase 초기화 성공")
-            return True
+            return app
             
         except Exception as e:
             logger.error(f"Firebase 앱 초기화에 실패하여 일부 기능을 사용할 수 없습니다: {e}")
