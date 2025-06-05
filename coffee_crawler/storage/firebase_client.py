@@ -146,6 +146,19 @@ class FirebaseClient:
                 'FIREBASE_CLIENT_CERT_URL': os.getenv('FIREBASE_CLIENT_CERT_URL')
             }
             
+            # 디버그 로깅 추가
+            logger.info("Firebase 환경 변수 확인:")
+            for var_name, var_value in required_vars.items():
+                if var_value:
+                    # private_key는 보안을 위해 일부만 표시
+                    if var_name == 'FIREBASE_PRIVATE_KEY':
+                        masked_value = var_value[:20] + '...' + var_value[-20:] if len(var_value) > 40 else '***'
+                        logger.info(f"{var_name}: {masked_value}")
+                    else:
+                        logger.info(f"{var_name}: {var_value}")
+                else:
+                    logger.warning(f"{var_name}: 설정되지 않음")
+            
             # 누락된 환경 변수 확인
             missing_vars = [var for var, value in required_vars.items() if not value]
             if missing_vars:
