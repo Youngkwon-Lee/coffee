@@ -11,18 +11,8 @@ import logging
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 
-try:
-    import firebase_admin
-    from firebase_admin import credentials, firestore, storage
-except ImportError as e:
-    print("Firebase 패키지를 찾을 수 없음. Firebase 기능 비활성화.")
-    print("에러 메시지:", e)
-    import traceback
-    traceback.print_exc()
-    firebase_admin = None
-    credentials = None
-    firestore = None
-    storage = None
+import firebase_admin
+from firebase_admin import credentials, firestore, storage
 
 from coffee_crawler.utils.config_loader import load_firebase_config
 
@@ -136,46 +126,42 @@ class FirebaseClient:
             Firebase 앱 인스턴스 또는 초기화 실패 시 None
         """
         try:
-            # GitHub Actions 환경에서 환경변수 사용
-            if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("DISABLE_FIREBASE") == "true":
-                logger.info("GitHub Actions 환경 또는 Firebase 비활성화 모드에서 실행 중")
-                # 가짜 앱 반환
+            # 개별 환경 변수에서 Firebase 설정 구성
+            firebase_config = {
+                "type": "service_account",
+                "project_id": os.getenv('FIREBASE_PROJECT_ID'),
+                "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+                "private_key": os.getenv('FIREBASE_PRIVATE_KEY').replace('\\n', '\n'),
+                "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+                "client_id": os.getenv('FIREBASE_CLIENT_ID'),
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL')
+            }
+            
+            # 필수 환경 변수 확인
+            required_vars = [
+                'FIREBASE_PROJECT_ID',
+                'FIREBASE_PRIVATE_KEY_ID',
+                'FIREBASE_PRIVATE_KEY',
+                'FIREBASE_CLIENT_EMAIL',
+                'FIREBASE_CLIENT_ID',
+                'FIREBASE_CLIENT_CERT_URL'
+            ]
+            
+            missing_vars = [var for var in required_vars if not os.getenv(var)]
+            if missing_vars:
+                logger.warning(f"Firebase 설정이 없습니다. 누락된 환경 변수: {', '.join(missing_vars)}")
                 return None
             
-            # 일반 환경에서 설정 파일 사용
-            if not self.config.get('firebase'):
-                logger.warning("Firebase 설정이 없습니다.")
-                return None
-                
-            auth_method = self.config['firebase'].get('auth_method')
-            if not auth_method:
-                logger.warning("Firebase 인증 방식이 설정되지 않았습니다.")
-                return None
-                
-            if auth_method == 'key_file':
-                key_path = self.config['firebase'].get('key_file_path')
-                if not key_path or not os.path.exists(key_path):
-                    logger.warning(f"Firebase 키 파일을 찾을 수 없음: {key_path}")
-                    return None
-                    
-                cred = credentials.Certificate(key_path)
-            elif auth_method == 'env_var':
-                env_var = self.config['firebase'].get('credentials_env_var')
-                cred_json = os.environ.get(env_var)
-                if not cred_json:
-                    logger.warning(f"환경 변수 {env_var}가 설정되지 않았습니다.")
-                    return None
-                    
-                cred_dict = json.loads(cred_json)
-                cred = credentials.Certificate(cred_dict)
-            else:
-                logger.warning(f"지원하지 않는 인증 방식: {auth_method}")
-                return None
+            cred = credentials.Certificate(firebase_config)
+            firebase_admin.initialize_app(cred)
+            logger.info("Firebase 초기화 성공")
+            return True
             
-            # Firebase 앱 초기화
-            return firebase_admin.initialize_app(cred)
         except Exception as e:
-            logger.error(f"Firebase 초기화 실패: {e}")
+            logger.error(f"Firebase 앱 초기화에 실패하여 일부 기능을 사용할 수 없습니다: {e}")
             return None
     
     def is_initialized(self) -> bool:
@@ -260,11 +246,18 @@ class FirebaseClient:
         try:
             collection = self.config['firebase']['firestore']['collection_beans']
             
+            # 필수 필드 검증
+            required_fields = ['name', 'brand', 'price', 'origin']
+            missing_fields = [field for field in required_fields if field not in bean_data]
+            if missing_fields:
+                raise ValueError(f"필수 필드가 누락되었습니다: {', '.join(missing_fields)}")
+            
             # 기본 메타데이터 추가
             if 'createdAt' not in bean_data:
                 bean_data['createdAt'] = datetime.now()
             
-            bean_data['lastUpdated'] = datetime.now()
+            bean_data['updatedAt'] = datetime.now()
+            bean_data['active'] = bean_data.get('active', True)
             
             # 원두명+브랜드를 기반으로 문서 ID 생성
             brand = bean_data.get('brand', '').replace(' ', '_')
@@ -296,7 +289,7 @@ class FirebaseClient:
             doc_ref = self.db.collection(collection).document(bean_id)
             
             # 업데이트 시간 추가
-            bean_data['lastUpdated'] = datetime.now()
+            bean_data['updatedAt'] = datetime.now()
             
             doc_ref.update(bean_data)
             logger.info(f"원두 정보 업데이트 완료: {bean_id}")
@@ -306,7 +299,7 @@ class FirebaseClient:
     
     def deactivate_bean(self, bean_id: str) -> None:
         """
-        원두 비활성화 (isActive = False)
+        원두 비활성화 (active = False)
         
         Args:
             bean_id: 원두 ID
@@ -316,8 +309,8 @@ class FirebaseClient:
             doc_ref = self.db.collection(collection).document(bean_id)
             
             doc_ref.update({
-                'isActive': False,
-                'lastUpdated': datetime.now()
+                'active': False,
+                'updatedAt': datetime.now()
             })
             
             logger.info(f"원두 비활성화 완료: {bean_id}")
