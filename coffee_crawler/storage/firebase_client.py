@@ -37,7 +37,17 @@ class FirebaseClient:
                 self.app = None
                 self.db = None
                 self.bucket = None
-                self.config = {'firebase': {}}
+                self.config = {
+                    'firebase': {
+                        'firestore': {
+                            'collection_beans': 'beans',
+                            'collection_logs': 'crawl_logs'
+                        },
+                        'storage': {
+                            'image_path': 'bean_images'
+                        }
+                    }
+                }
                 return
                 
             # Firebase 앱 초기화
@@ -63,20 +73,51 @@ class FirebaseClient:
                     except Exception as e:
                         logger.error(f"Storage 버킷 초기화 실패: {e}")
                 
-                self.config = {'firebase': {}}
+                # 기본 설정
+                self.config = {
+                    'firebase': {
+                        'firestore': {
+                            'collection_beans': 'beans',
+                            'collection_logs': 'crawl_logs'
+                        },
+                        'storage': {
+                            'image_path': 'bean_images'
+                        }
+                    }
+                }
                 logger.info("Firebase 클라이언트 초기화 완료")
             else:
                 logger.warning("Firebase 앱 초기화에 실패하여 일부 기능을 사용할 수 없습니다.")
                 self.db = None
                 self.bucket = None
-                self.config = {'firebase': {}}
+                self.config = {
+                    'firebase': {
+                        'firestore': {
+                            'collection_beans': 'beans',
+                            'collection_logs': 'crawl_logs'
+                        },
+                        'storage': {
+                            'image_path': 'bean_images'
+                        }
+                    }
+                }
                 
         except Exception as e:
             logger.error(f"Firebase 클라이언트 초기화 중 오류 발생: {e}")
             self.app = None
             self.db = None
             self.bucket = None
-            self.config = {'firebase': {}}
+            self.config = {
+                'firebase': {
+                    'firestore': {
+                        'collection_beans': 'beans',
+                        'collection_logs': 'crawl_logs'
+                    },
+                    'storage': {
+                        'image_path': 'bean_images'
+                    }
+                }
+            }
     
     def _load_config(self, config_path: str) -> Dict:
         """
