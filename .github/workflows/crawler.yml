@@ -32,28 +32,17 @@ jobs:
           pip install webdriver-manager==4.0.2
           pip install firebase-admin
       
-      - name: Set up Firebase config
-        run: |
-          mkdir -p config
-          echo "type: service_account" > config/firebase_config.yaml
-          echo "project_id: ${{ secrets.FIREBASE_PROJECT_ID }}" >> config/firebase_config.yaml
-          echo "private_key_id: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}" >> config/firebase_config.yaml
-          echo "private_key: |" >> config/firebase_config.yaml
-          echo "${{ secrets.FIREBASE_PRIVATE_KEY }}" | awk '{gsub(/\\n/,"\n")}1' | sed 's/^/  /' >> config/firebase_config.yaml
-          echo "client_email: ${{ secrets.FIREBASE_CLIENT_EMAIL }}" >> config/firebase_config.yaml
-          echo "client_id: ${{ secrets.FIREBASE_CLIENT_ID }}" >> config/firebase_config.yaml
-          echo "auth_uri: https://accounts.google.com/o/oauth2/auth" >> config/firebase_config.yaml
-          echo "token_uri: https://oauth2.googleapis.com/token" >> config/firebase_config.yaml
-          echo "auth_provider_x509_cert_url: https://www.googleapis.com/oauth2/v1/certs" >> config/firebase_config.yaml
-          echo "client_x509_cert_url: ${{ secrets.FIREBASE_CLIENT_CERT_URL }}" >> config/firebase_config.yaml
-          echo "universe_domain: googleapis.com" >> config/firebase_config.yaml
-      
       - name: Set environment variables
         run: |
+          echo "FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "FIREBASE_PRIVATE_KEY_ID=${{ secrets.FIREBASE_PRIVATE_KEY_ID }}" >> $GITHUB_ENV
+          echo "FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}" >> $GITHUB_ENV
+          echo "FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}" >> $GITHUB_ENV
+          echo "FIREBASE_CLIENT_ID=${{ secrets.FIREBASE_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "FIREBASE_CLIENT_CERT_URL=${{ secrets.FIREBASE_CLIENT_CERT_URL }}" >> $GITHUB_ENV
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
           echo "USE_SELENIUM=false" >> $GITHUB_ENV
           echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
-          echo "FIREBASE_CONFIG_PATH=${{ github.workspace }}/config/firebase_config.yaml" >> $GITHUB_ENV
       
       - name: Create directories
         run: |
