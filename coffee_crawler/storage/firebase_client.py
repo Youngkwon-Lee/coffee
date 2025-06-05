@@ -40,66 +40,37 @@ class FirebaseClient:
                 self.config = {'firebase': {}}
                 return
                 
-            # 환경 변수로 Firebase 초기화 시도
+            # Firebase 앱 초기화
             self.app = self._initialize_firebase()
+            
             if self.app:
-                self.db = firestore.client() if firestore else None
+                # Firestore 클라이언트 초기화
+                try:
+                    self.db = firestore.client()
+                    logger.info("Firestore 클라이언트 초기화 완료")
+                except Exception as e:
+                    logger.error(f"Firestore 클라이언트 초기화 실패: {e}")
+                    self.db = None
+                
+                # Storage 버킷 초기화
                 self.bucket = None
+                if storage:
+                    try:
+                        bucket_name = os.getenv('FIREBASE_STORAGE_BUCKET')
+                        if bucket_name:
+                            self.bucket = storage.bucket(bucket_name)
+                            logger.info("Storage 버킷 초기화 완료")
+                    except Exception as e:
+                        logger.error(f"Storage 버킷 초기화 실패: {e}")
+                
                 self.config = {'firebase': {}}
-                logger.info("Firebase 클라이언트 초기화 완료 (환경 변수 사용)")
-                return
-                
-            # 환경 변수로 초기화 실패 시 YAML 파일 시도
-            self.config = self._load_config(config_path)
-            self.disabled = self.config.get('firebase', {}).get('disabled', False)
-            
-            if self.disabled:
-                logger.info("Firebase 비활성화 설정으로 초기화 건너뜀")
-                self.app = None
-                self.db = None
-                self.bucket = None
-                return
-            
-            # firebase_admin이 None이면 패키지 없음 처리
-            if firebase_admin is None:
-                logger.warning("firebase_admin 패키지가 로드되지 않았습니다. Firebase 기능 비활성화.")
-                self.disabled = True
-                self.app = None
-                self.db = None
-                self.bucket = None
-                return
-            
-            # _apps 속성 접근도 try-except로 보호
-            try:
-                if hasattr(firebase_admin, '_apps') and firebase_admin._apps:
-                    logger.info("기존 Firebase 앱 인스턴스 재사용")
-                    if None in firebase_admin._apps:
-                        self.app = firebase_admin._apps[None]
-                    elif len(firebase_admin._apps) > 0:
-                        app_key = list(firebase_admin._apps.keys())[0]
-                        self.app = firebase_admin._apps[app_key]
-                    else:
-                        logger.warning("Firebase 앱이 있지만 접근할 수 없습니다.")
-                        self.app = None
-                else:
-                    self.app = self._initialize_firebase()
-            except Exception as e:
-                logger.error(f"firebase_admin._apps 접근 중 오류: {e}")
-                self.app = None
-            
-            # 앱 초기화가 성공한 경우에만 DB와 버킷 초기화
-            if self.app:
-                self.db = firestore.client() if firestore else None
-                self.bucket = None
-                
-                if self.config.get('firebase', {}).get('storage', {}).get('bucket_name') and storage:
-                    self.bucket = storage.bucket(self.config['firebase']['storage']['bucket_name'])
-                
                 logger.info("Firebase 클라이언트 초기화 완료")
             else:
                 logger.warning("Firebase 앱 초기화에 실패하여 일부 기능을 사용할 수 없습니다.")
                 self.db = None
                 self.bucket = None
+                self.config = {'firebase': {}}
+                
         except Exception as e:
             logger.error(f"Firebase 클라이언트 초기화 중 오류 발생: {e}")
             self.app = None
@@ -136,6 +107,11 @@ class FirebaseClient:
             Firebase 앱 인스턴스 또는 초기화 실패 시 None
         """
         try:
+            # 이미 초기화된 앱이 있는지 확인
+            if firebase_admin._apps:
+                logger.info("기존 Firebase 앱 인스턴스 재사용")
+                return firebase_admin._apps.get(None) or list(firebase_admin._apps.values())[0]
+
             # 필수 환경 변수 확인
             required_vars = {
                 'FIREBASE_PROJECT_ID': os.getenv('FIREBASE_PROJECT_ID'),
@@ -145,19 +121,6 @@ class FirebaseClient:
                 'FIREBASE_CLIENT_ID': os.getenv('FIREBASE_CLIENT_ID'),
                 'FIREBASE_CLIENT_CERT_URL': os.getenv('FIREBASE_CLIENT_CERT_URL')
             }
-            
-            # 디버그 로깅 추가
-            logger.info("Firebase 환경 변수 확인:")
-            for var_name, var_value in required_vars.items():
-                if var_value:
-                    # private_key는 보안을 위해 일부만 표시
-                    if var_name == 'FIREBASE_PRIVATE_KEY':
-                        masked_value = var_value[:20] + '...' + var_value[-20:] if len(var_value) > 40 else '***'
-                        logger.info(f"{var_name}: {masked_value}")
-                    else:
-                        logger.info(f"{var_name}: {var_value}")
-                else:
-                    logger.warning(f"{var_name}: 설정되지 않음")
             
             # 누락된 환경 변수 확인
             missing_vars = [var for var, value in required_vars.items() if not value]
