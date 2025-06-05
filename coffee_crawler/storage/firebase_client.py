@@ -282,7 +282,7 @@ class FirebaseClient:
             collection = self.config['firebase']['firestore']['collection_beans']
             
             # 필수 필드 검증
-            required_fields = ['name', 'brand', 'price', 'origin']
+            required_fields = ['name', 'brand', 'price']  # origin 필드 제거
             missing_fields = [field for field in required_fields if field not in bean_data]
             if missing_fields:
                 raise ValueError(f"필수 필드가 누락되었습니다: {', '.join(missing_fields)}")
