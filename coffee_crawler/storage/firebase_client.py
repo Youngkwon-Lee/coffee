@@ -40,6 +40,16 @@ class FirebaseClient:
                 self.config = {'firebase': {}}
                 return
                 
+            # 환경 변수로 Firebase 초기화 시도
+            self.app = self._initialize_firebase()
+            if self.app:
+                self.db = firestore.client() if firestore else None
+                self.bucket = None
+                self.config = {'firebase': {}}
+                logger.info("Firebase 클라이언트 초기화 완료 (환경 변수 사용)")
+                return
+                
+            # 환경 변수로 초기화 실패 시 YAML 파일 시도
             self.config = self._load_config(config_path)
             self.disabled = self.config.get('firebase', {}).get('disabled', False)
             
