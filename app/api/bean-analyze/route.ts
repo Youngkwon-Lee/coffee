@@ -4,24 +4,30 @@ import beans from '@/data/beansList_sample.json';
 
 export const runtime = 'nodejs';
 
-// Vercel 등 서버리스 환경에서도 동작하도록 credentials 직접 파싱
+// 표준 Google Cloud 인증 방식
 let client: any;
 
 try {
-  if (process.env.GOOGLE_CLOUD_CREDENTIALS_JSON) {
+  // 1. 표준 환경변수 방식 (GOOGLE_APPLICATION_CREDENTIALS)
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    client = new vision.ImageAnnotatorClient();
+  }
+  // 2. JSON 문자열 방식 (Vercel 등 서버리스 환경)
+  else if (process.env.GOOGLE_CLOUD_CREDENTIALS_JSON) {
     client = new vision.ImageAnnotatorClient({
       credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS_JSON),
     });
-  } else {
-    // 로컬 환경에서는 파일 기반 인증 시도
+  }
+  // 3. 로컬 환경에서는 파일 기반 인증
+  else {
     client = new vision.ImageAnnotatorClient({
       keyFilename: './firebase_credentials.json',
     });
   }
 } catch (error) {
   console.log('Vision API 초기화 실패:', error);
-  // 더미 클라이언트 생성 (에러 방지)
-  client = new vision.ImageAnnotatorClient();
+  // API 키가 없으면 null로 설정
+  client = null;
 }
 
 // Bean 타입 정의
@@ -438,45 +444,51 @@ export async function POST(req: NextRequest) {
   const buffer = Buffer.from(arrayBuffer);
 
   try {
-  // Vision API로 이미지 분석
-  const [result] = await client.textDetection({ image: { content: buffer } });
-  const text = result.fullTextAnnotation?.text || "";
+    // API 클라이언트가 초기화되지 않은 경우
+    if (!client) {
+      throw new Error('Google Cloud Vision API 초기화 실패 - 환경변수를 확인하세요');
+    }
+    
+    // Vision API로 이미지 분석
+    const [result] = await client.textDetection({ image: { content: buffer } });
+    const text = result.fullTextAnnotation?.text || "";
 
-  // beans DB에서 가장 유사한 원두 찾기
-  const bestBean = findBestBean(text);
+    // beans DB에서 가장 유사한 원두 찾기
+    const bestBean = findBestBean(text);
 
-  if (bestBean) {
-    return NextResponse.json({
-      bean: bestBean.name,
-      cafe: bestBean.brand,
-      flavor: bestBean.flavors,
-      processing: extractProcessing(text),
-      raw_text: text
-    });
-  } else {
-    // beans DB 매칭 실패 시 OCR 텍스트에서 직접 추출
-    const bean = extractBean(text);
-    const cafe = extractCafe(text);
-    const flavor = extractFlavors(text);
-    const processing = extractProcessing(text);
-    return NextResponse.json({
-      bean,
-      cafe,
-      flavor,
-      processing,
-      raw_text: text
+    if (bestBean) {
+      return NextResponse.json({
+        bean: bestBean.name,
+        cafe: bestBean.brand,
+        flavor: bestBean.flavors,
+        processing: extractProcessing(text),
+        raw_text: text
+      });
+    } else {
+      // beans DB 매칭 실패 시 OCR 텍스트에서 직접 추출
+      const bean = extractBean(text);
+      const cafe = extractCafe(text);
+      const flavor = extractFlavors(text);
+      const processing = extractProcessing(text);
+      return NextResponse.json({
+        bean,
+        cafe,
+        flavor,
+        processing,
+        raw_text: text
+        });
+      }
+    } catch (error) {
+      console.error('Vision API 오류:', error);
+      
+      // API 실패 시 mock 데이터 반환 (에러 메시지 포함)
+      return NextResponse.json({
+        bean: "샘플 원두명",
+        cafe: "샘플 카페", 
+        flavor: ["Sour"],
+        processing: "Natural",
+        raw_text: `OCR 분석 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}. Google Cloud Vision API 환경변수(GOOGLE_APPLICATION_CREDENTIALS 또는 GOOGLE_CLOUD_CREDENTIALS_JSON)를 Vercel에 설정해주세요.`,
+        error: "API_KEY_MISSING"
       });
     }
-  } catch (error) {
-    console.error('Vision API 오류:', error);
-    
-    // API 실패 시 mock 데이터 반환
-    return NextResponse.json({
-      bean: "샘플 원두명",
-      cafe: "샘플 카페",
-      flavor: ["Chocolate", "Nutty"],
-      processing: "Natural",
-      raw_text: "OCR 분석이 일시적으로 불가능합니다. 수동으로 정보를 입력해주세요."
-    });
-  }
-} 
+  } 
