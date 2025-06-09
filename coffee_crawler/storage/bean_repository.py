@@ -94,7 +94,7 @@ class BeanRepository:
     
     def deactivate_bean(self, bean_id: str, user_id: str = "system") -> None:
         """
-        원두 비활성화 (isActive = False)
+        원두 비활성화 (active = False)
         
         Args:
             bean_id: 원두 ID
@@ -108,15 +108,15 @@ class BeanRepository:
                 raise ValueError(f"ID가 {bean_id}인 원두를 찾을 수 없습니다")
             
             # 이미 비활성화되어 있으면 건너뜀
-            if not existing_bean.get('isActive', True):
+            if not existing_bean.get('active', True):
                 logger.info(f"원두가 이미 비활성화되어 있음: {bean_id}")
                 return
             
             # 비활성화 및 업데이트 정보 추가
             update_data = {
-                'isActive': False,
-                'lastUpdated': datetime.now().isoformat(),
-                'lastUpdatedBy': user_id
+                'active': False,
+                'updatedAt': datetime.now().isoformat(),
+                'updatedBy': user_id
             }
             
             # 업데이트
@@ -155,7 +155,7 @@ class BeanRepository:
         try:
             filter_dict = None
             if active_only:
-                filter_dict = {'isActive': True}
+                filter_dict = {'active': True}
             
             return self.firebase_client.get_beans(filter_dict)
         except Exception as e:
@@ -164,7 +164,7 @@ class BeanRepository:
     
     def restore_bean(self, bean_id: str, user_id: str = "system") -> None:
         """
-        비활성화된 원두 복원 (isActive = True)
+        비활성화된 원두 복원 (active = True)
         
         Args:
             bean_id: 원두 ID
@@ -178,15 +178,15 @@ class BeanRepository:
                 raise ValueError(f"ID가 {bean_id}인 원두를 찾을 수 없습니다")
             
             # 이미 활성화되어 있으면 건너뜀
-            if existing_bean.get('isActive', False):
+            if existing_bean.get('active', False):
                 logger.info(f"원두가 이미 활성화되어 있음: {bean_id}")
                 return
             
             # 활성화 및 업데이트 정보 추가
             update_data = {
-                'isActive': True,
-                'lastUpdated': datetime.now().isoformat(),
-                'lastUpdatedBy': user_id
+                'active': True,
+                'updatedAt': datetime.now().isoformat(),
+                'updatedBy': user_id
             }
             
             # 업데이트

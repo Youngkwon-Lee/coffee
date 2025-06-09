@@ -31,6 +31,8 @@ cafes:
     url: "https://m.fritz.co.kr/product/list.html?cate_no=48"
     schedule: "0 0 * * 1"
     active: true
+    encoding: "utf-8"
+    page_delay: 2
     selectors:
       product_list_container: "ul.column2"
       product_item: "li.item"
@@ -40,11 +42,16 @@ cafes:
       product_image: "img.thumb"
       pagination_container: "ul.pagination"
       next_page: "ul.pagination li:not(.active) a"
+      fetch_product_detail: true
+      product_description: ".description2"
+      product_origin: "div[data-empty='true']"
+      product_processing: "div[data-empty='true']"
+      product_flavor_notes: "div.description2:-soup-contains('Flavor Notes')"
 
   namusairo:
     label: "나무사이로"
     type: "html"
-    url: "https://m.namusairo.com/category/$1/25/"
+    url: "https://m.namusairo.com/category/원두/25/"
     schedule: "0 0 * * 1"
     active: true
     selectors:
@@ -52,7 +59,7 @@ cafes:
       product_item: ".prdList > li"
       product_link: ".thumbnail a"
       product_title: ".name"
-      product_price: ".price"
+      product_price: ".description"
       product_image: ".thumbnail img"
       pagination_container: ".paging"
       next_page: ".next"
@@ -84,7 +91,7 @@ cafes:
       product_item: ".prdList > li"
       product_link: ".thumbnail a"
       product_title: ".name"
-      product_price: ".price"
+      product_price: "span:contains('원')"
       product_image: ".thumbnail img"
       pagination_container: ".paging"
       next_page: ".next"
@@ -102,13 +109,13 @@ cafes:
       product_item: ".prdList > li.xans-record-"
       product_link: "a"
       product_title: ".prd_name span"
-      product_price: ".price"
+      product_price: "span:contains('원')"
       product_image: "img"
 
   elcafe:
     label: "엘카페커피로스터스"
     type: "html"
-    url: "https://elcafe.co.kr/category/%EC%9B%90%EB%91%90/49/"
+    url: "https://elcafe.co.kr/category/원두/49/"
     schedule: "0 0 * * 1"
     active: true
     encoding: "utf-8"
@@ -120,6 +127,8 @@ cafes:
       product_title: ".sp-product-name"
       product_price: ".sp-product-spec"
       product_image: "img"
+      fetch_product_detail: true
+      product_description: ".sp-product-spec"
 
   defaultvalue:
     label: "디폴트벨류"
@@ -133,8 +142,8 @@ cafes:
       product_list_container: ".prdList"
       product_item: "li.xans-record-"
       product_link: ".prdImg a"
-      product_title: ".name span[style]"
-      product_price: ".xans-product-listitem span[style*='font-weight:bold']"
+      product_title: ".name"
+      product_price: ".prdPrice"
       product_image: ".prdImg img"
       pagination_container: ".xans-product-normalpaging"
       next_page: ".xans-product-normalpaging a:not(.this)"
@@ -151,8 +160,8 @@ cafes:
       product_list_container: "ul.prdList.column3"
       product_item: "li.item.xans-record-"
       product_link: ".prdImg a"
-      product_title: ".name span[style]"
-      product_price: ".xans-product-listitem span[style]"
+      product_title: ".name"
+      product_price: ".prdPrice"
       product_image: ".prdImg img"
       pagination_container: ".xans-product-normalpaging"
       next_page: ".xans-product-normalpaging a:not(.this)"
@@ -170,7 +179,7 @@ cafes:
       product_item: ".shopProductWrapper"
       product_link: ".shopProductWrapper a"
       product_title: ".shopProduct.productName"
-      product_price: ".shopProduct.price .productPriceSpan"
+      product_price: ".shopProduct.price"
       product_image: ".thumb.img"
       pagination_container: ".productListPage"
       next_page: ".productListPage:not(.now)"
@@ -207,7 +216,7 @@ cafes:
       product_item: ".shop-item"
       product_link: "a"
       product_title: ".item-detail"
-      product_price: ".item-pay"
+      product_price: ".item-detail"
       product_image: "img"
 
 # 기본 필터링 설정
@@ -257,6 +266,48 @@ storage:
     collection_logs: "crawl_logs"
     storage_bucket: "trusty-bearing-428402-a7.appspot.com"
     image_path: "bean_images"
+    bean_fields:
+      - name: "altitude"
+        type: "string"
+      - name: "brand"
+        type: "string"
+      - name: "category"
+        type: "string"
+        nullable: true
+      - name: "createdAt"
+        type: "timestamp"
+      - name: "flavor"
+        type: "string"
+      - name: "flavor_notes"
+        type: "string"
+        nullable: true
+      - name: "image"
+        type: "string"
+        nullable: true
+      - name: "link"
+        type: "string"
+        nullable: true
+      - name: "name"
+        type: "string"
+      - name: "origin"
+        type: "string"
+      - name: "price"
+        type: "string"
+      - name: "process"
+        type: "string"
+      - name: "producer"
+        type: "string"
+      - name: "region"
+        type: "string"
+      - name: "roast"
+        type: "string"
+      - name: "variety"
+        type: "string"
+      - name: "active"
+        type: "boolean"
+        default: true
+      - name: "updatedAt"
+        type: "timestamp"
 
 # 로깅 설정
 logging:

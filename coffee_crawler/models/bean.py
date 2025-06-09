@@ -7,6 +7,7 @@
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import hashlib
 
 @dataclass
 class Bean:
@@ -91,7 +92,6 @@ class Bean:
         Returns:
             해시 문자열
         """
-        import hashlib
         import json
         
         # 메타데이터 제외한 콘텐츠만 해시 계산
@@ -149,3 +149,140 @@ class Bean:
             self.createdAt = now
         if not self.lastUpdated:
             self.lastUpdated = now 
+
+    @property
+    def id(self) -> str:
+        """고유 ID 생성 (이름 + 브랜드 + URL 기반 해시)"""
+        if self._id is None:
+            # 이름, 브랜드, URL을 조합해서 고유 ID 생성
+            id_string = f"{self.name}_{self.brand}_{self.url}"
+            self._id = hashlib.md5(id_string.encode('utf-8')).hexdigest()[:16]
+        return self._id
+
+    def update_from(self, other: 'Bean') -> Dict[str, Any]:
+        """다른 Bean 객체로부터 업데이트하고 변경사항 반환"""
+        changes = {}
+        
+        # 가격 변경 확인
+        if self.price != other.price:
+            changes['price'] = {'old': self.price, 'new': other.price}
+            self.price = other.price
+        
+        # 이름 변경 확인
+        if self.name != other.name:
+            changes['name'] = {'old': self.name, 'new': other.name}
+            self.name = other.name
+        
+        # 이미지 변경 확인
+        if self.images != other.images:
+            changes['images'] = {'old': self.images, 'new': other.images}
+            self.images = other.images
+        
+        # 원산지 변경 확인
+        if self.origin != other.origin:
+            changes['origin'] = {'old': self.origin, 'new': other.origin}
+            self.origin = other.origin
+        
+        # 가공방식 변경 확인
+        if self.processing != other.processing:
+            changes['processing'] = {'old': self.processing, 'new': other.processing}
+            self.processing = other.processing
+        
+        # 향미 노트 변경 확인
+        if self.flavors != other.flavors:
+            changes['flavors'] = {'old': self.flavors, 'new': other.flavors}
+            self.flavors = other.flavors
+        
+        # 변경사항이 있으면 lastUpdated 업데이트
+        if changes:
+            self.lastUpdated = datetime.now()
+        
+        return changes
+    
+    def is_similar_to(self, other: 'Bean', similarity_threshold: float = 0.8) -> bool:
+        """다른 Bean과의 유사성 검사"""
+        # 이름 유사성 검사 (간단한 문자열 비교)
+        name_similarity = self._calculate_string_similarity(self.name, other.name)
+        brand_similarity = 1.0 if self.brand == other.brand else 0.0
+        
+        # 전체 유사성 계산 (이름 70%, 브랜드 30%)
+        total_similarity = (name_similarity * 0.7) + (brand_similarity * 0.3)
+        
+        return total_similarity >= similarity_threshold
+    
+    def _calculate_string_similarity(self, str1: str, str2: str) -> float:
+        """문자열 유사성 계산 (간단한 방법)"""
+        if not str1 or not str2:
+            return 0.0
+        
+        # 대소문자 무시하고 공백 제거
+        str1 = str1.lower().replace(' ', '')
+        str2 = str2.lower().replace(' ', '')
+        
+        if str1 == str2:
+            return 1.0
+        
+        # 포함 관계 확인
+        if str1 in str2 or str2 in str1:
+            return 0.8
+        
+        # 단순 글자 일치율
+        common_chars = set(str1) & set(str2)
+        total_chars = set(str1) | set(str2)
+        
+        if not total_chars:
+            return 0.0
+        
+        return len(common_chars) / len(total_chars)
+    
+    def get_price_formatted(self) -> str:
+        """포맷된 가격 문자열 반환"""
+        if self.price > 0:
+            return f"{self.price:,}원"
+        return "가격 정보 없음"
+    
+    def get_origin_display(self) -> str:
+        """표시용 원산지 정보"""
+        if self.origin:
+            return self.origin
+        return "원산지 정보 없음"
+    
+    def get_processing_display(self) -> str:
+        """표시용 가공방식 정보"""
+        if self.processing:
+            return self.processing
+        return "가공방식 정보 없음"
+    
+    def get_flavor_display(self) -> str:
+        """표시용 향미 노트"""
+        if self.flavors:
+            return ", ".join(self.flavors)
+        return "향미 정보 없음"
+    
+    def is_complete(self) -> bool:
+        """필수 정보가 모두 있는지 확인"""
+        return bool(
+            self.name and 
+            self.brand and 
+            self.price > 0 and 
+            self.url
+        )
+    
+    def get_quality_score(self) -> float:
+        """데이터 품질 점수 (0.0 ~ 1.0)"""
+        score = 0.0
+        total_fields = 8
+        
+        # 필수 필드
+        if self.name: score += 0.25
+        if self.brand: score += 0.25
+        if self.price > 0: score += 0.25
+        if self.url: score += 0.25
+        
+        # 추가 정보 필드
+        if self.origin: score += 0.125
+        if self.processing: score += 0.125
+        if self.flavors: score += 0.125
+        if self.images: score += 0.125
+        
+        return min(score, 1.0) 

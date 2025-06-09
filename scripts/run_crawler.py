@@ -121,14 +121,14 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
         notify: 알림 활성화 여부
         
     Returns:
-        성공 여부 (True/False)
+        크롤링된 원두 정보 목록
     """
     config = load_crawler_config()
     
     # 카페 설정 확인
     if cafe_id not in config.get('cafes', {}):
         logger.error(f"카페 ID '{cafe_id}'를 찾을 수 없습니다.")
-        return False
+        return None
     
     cafe_config = config['cafes'][cafe_id]
     cafe_name = cafe_config.get('label', cafe_id)
@@ -137,7 +137,7 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
     crawler_type = cafe_config.get('type')
     if not crawler_type:
         logger.error(f"카페 '{cafe_id}'의 크롤러 유형이 정의되지 않았습니다.")
-        return False
+        return None
     
     logger.info(f"카페 '{cafe_id}' ({cafe_name}) 크롤링 시작...")
     start_time = time.time()
@@ -194,69 +194,99 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
             # 중복 검사
             unique_beans = deduplicate(normalized_beans)
             
-            # GitHub Actions 환경 또는 Firebase 비활성화 설정이면 Firebase 저장 건너뛰기
-            is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true' 
+            # Firebase 비활성화 설정이면 Firebase 저장 건너뛰기
             is_firebase_disabled = os.environ.get('DISABLE_FIREBASE') == 'true'
             
-            if is_github_actions and is_firebase_disabled:
-                logger.info("GitHub Actions 환경에서 Firebase 저장 건너뛰기")
-                # 파일 저장 경로 설정
-                if not output_path:
-                    today = datetime.now().strftime('%Y%m%d')
-                    output_path = f"data/beans_all_{today}_{cafe_id}.json"
+            if not is_firebase_disabled:
+                # Firebase 저장
+                from coffee_crawler.storage.firebase_client import FirebaseClient
+                firebase_client = FirebaseClient()
                 
-                # 결과 파일 저장
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    json.dump(unique_beans, f, cls=DateTimeEncoder, ensure_ascii=False, indent=2)
-                logger.info(f"결과 저장 완료: {output_path}")
-            else:
-                try:
-                    # Firebase 저장
-                    from coffee_crawler.storage.firebase_client import FirebaseClient
-                    firebase_client = FirebaseClient()
+                if firebase_client.is_available():
+                    saved_count = 0
                     for bean in unique_beans:
-                        firebase_client.add_bean(bean)
-                except Exception as e:
-                    logger.error(f"크롤링 중 오류 발생: {e}")
-                    # 파일 저장으로 대체
-                    if not output_path:
-                        today = datetime.now().strftime('%Y%m%d')
-                        output_path = f"data/beans_all_{today}_{cafe_id}.json"
+                        try:
+                            if firebase_client.add_bean(bean):
+                                saved_count += 1
+                        except Exception as e:
+                            logger.error(f"원두 정보 저장 실패: {e}")
+                            continue
                     
-                    # 결과 파일 저장
-                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                    with open(output_path, 'w', encoding='utf-8') as f:
-                        json.dump(unique_beans, f, cls=DateTimeEncoder, ensure_ascii=False, indent=2)
-                    logger.info(f"결과 저장 완료: {output_path}")
-            
-            logger.info(f"'{cafe_id}' 데이터 저장 완료")
-            
-        # 파일 출력 옵션이 지정된 경우
-        if output_path:
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(results, f, cls=DateTimeEncoder, ensure_ascii=False, indent=2)
-            logger.info(f"결과 저장 완료: {output_path}")
+                    logger.info(f"'{cafe_id}' Firebase 저장 완료: {saved_count}개")
+                else:
+                    logger.warning("Firebase를 사용할 수 없어 로컬 저장만 수행됩니다")
         
-        return True
-    
+        return results
+        
     except Exception as e:
-        logger.error(f"크롤링 중 오류 발생: {str(e)}", exc_info=True)
-        return False
+        logger.error(f"크롤링 중 오류 발생: {e}")
+        if args.verbose:
+            logger.debug(traceback.format_exc())
+        return None
 
 def main():
-    """스크립트 메인 함수"""
+    """
+    메인 함수
+    """
     args = parse_args()
     setup_logging(args)
-
-    if args.all:
-        active_cafes = get_active_cafes()
-        logger.info(f"활성화된 모든 카페 크롤링: {', '.join(active_cafes)}")
-        for cafe_id in active_cafes:
-            run_crawler(cafe_id, dry_run=args.dry_run, test_mode=args.test, output_path=args.output, notify=args.notify)
-    else:
-        run_crawler(args.cafe, dry_run=args.dry_run, test_mode=args.test, output_path=args.output, notify=args.notify)
+    
+    # 시작 시간 기록
+    start_time = time.time()
+    
+    # 결과 저장용 변수
+    total_beans = 0
+    all_results = []
+    
+    try:
+        # 크롤링할 카페 목록 결정
+        if args.all:
+            cafe_ids = get_active_cafes()
+        else:
+            cafe_ids = [args.cafe]
+        
+        # 각 카페 크롤링 실행
+        for cafe_id in cafe_ids:
+            try:
+                results = run_crawler(
+                    cafe_id=cafe_id,
+                    dry_run=args.dry_run,
+                    test_mode=args.test,
+                    output_path=args.output,
+                    notify=args.notify
+                )
+                
+                if results:
+                    all_results.extend(results)
+                    total_beans += len(results)
+            except Exception as e:
+                logger.error(f"카페 '{cafe_id}' 크롤링 중 오류 발생: {e}")
+                if args.verbose:
+                    logger.debug(traceback.format_exc())
+                continue
+        
+        # 전체 소요 시간 계산
+        elapsed_time = time.time() - start_time
+        
+        # 결과 출력
+        if args.output:
+            # JSON 파일로 저장
+            with open(args.output, 'w', encoding='utf-8') as f:
+                json.dump(all_results, f, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
+            logger.info(f"크롤링 결과를 '{args.output}'에 저장했습니다.")
+        
+        # 최종 결과 출력
+        logger.info(f"총 {len(cafe_ids)}개 카페 크롤링 완료")
+        logger.info(f"총 수집된 원두 수: {total_beans}")
+        logger.info(f"전체 소요 시간: {elapsed_time:.2f}초")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"크롤링 중 오류 발생: {e}")
+        if args.verbose:
+            logger.debug(traceback.format_exc())
+        return False
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(0 if main() else 1) 

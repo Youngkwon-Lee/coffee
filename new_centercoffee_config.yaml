@@ -1,0 +1,22 @@
+# 센터커피 크롤러 설정
+centercoffee:
+  label: "센터커피"
+  type: "selenium"
+  url: "https://centercoffee.co.kr/shop"
+  product_url: "https://centercoffee.co.kr/shop"
+  schedule: "0 0 * * 1"
+  active: true
+  headless: true
+  wait_timeout: 10
+  page_load_delay: 2
+  selectors:
+    product_list_container: "div.shop-content"
+    product_item: ".shop-item"
+    product_link: "a"
+    product_title: ".item-title"
+    product_price: ".item-pay"
+    product_image: "img"
+    fetch_product_detail: "True"
+    product_detail_container: ".shop-detail"
+    product_description: ".shop-detail-desc"
+    product_detail_images: ".shop-detail img"

@@ -1,0 +1,198 @@
+name: Coffee Crawler Auto Update
+
+on:
+  # 2주마다 실행 (매월 1일, 15일 오전 9시 KST)
+  schedule:
+    - cron: '0 0 1,15 * *'
+  
+  # 수동 실행 가능
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode (only sample data)'
+        required: false
+        default: false
+        type: boolean
+      specific_cafe:
+        description: 'Run for specific cafe (optional)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  crawl-and-update:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1
+    
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Setup Firebase credentials
+      env:
+        FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+      run: |
+        echo "$FIREBASE_CREDENTIALS" > firebase_credentials.json
+        export GOOGLE_APPLICATION_CREDENTIALS="firebase_credentials.json"
+    
+    - name: Run coffee crawler (all cafes)
+      if: ${{ github.event.inputs.specific_cafe == '' }}
+      env:
+        GOOGLE_APPLICATION_CREDENTIALS: "firebase_credentials.json"
+        GITHUB_ACTIONS: "true"
+      run: |
+        if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
+          python scripts/run_crawler.py --all --test --notify --output data/beans_test.json
+        else
+          python scripts/run_crawler.py --all --notify --output data/beans_production.json
+        fi
+    
+    - name: Run coffee crawler (specific cafe)
+      if: ${{ github.event.inputs.specific_cafe != '' }}
+      env:
+        GOOGLE_APPLICATION_CREDENTIALS: "firebase_credentials.json"
+        GITHUB_ACTIONS: "true"
+      run: |
+        if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
+          python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --test --notify --output data/beans_${{ github.event.inputs.specific_cafe }}.json
+        else
+          python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --notify --output data/beans_${{ github.event.inputs.specific_cafe }}.json
+        fi
+    
+    - name: Generate summary report
+      run: |
+        python -c "
+        import json
+        import os
+        from datetime import datetime
+        
+        # 결과 파일 찾기
+        data_files = [f for f in os.listdir('data') if f.startswith('beans_') and f.endswith('.json')]
+        
+        total_beans = 0
+        cafe_stats = {}
+        
+        for file in data_files:
+            try:
+                with open(f'data/{file}', 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    count = len(data) if isinstance(data, list) else 0
+                    total_beans += count
+                    cafe_name = file.replace('beans_', '').replace('.json', '')
+                    cafe_stats[cafe_name] = count
+                    print(f'✅ {cafe_name}: {count}개 원두')
+            except Exception as e:
+                print(f'❌ {file} 처리 실패: {e}')
+        
+        print(f'📊 총 수집된 원두: {total_beans}개')
+        print(f'🏪 처리된 카페: {len(cafe_stats)}개')
+        
+        # 리포트 생성
+        report = {
+            'timestamp': datetime.now().isoformat(),
+            'total_beans': total_beans,
+            'cafe_breakdown': cafe_stats,
+            'github_actions': True
+        }
+        
+        os.makedirs('reports', exist_ok=True)
+        with open('reports/crawl_summary.json', 'w', encoding='utf-8') as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+        
+        print('📄 리포트 생성 완료: reports/crawl_summary.json')
+        "
+    
+    - name: Upload crawl results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: crawl-results-${{ github.run_number }}
+        path: |
+          data/
+          reports/
+          logs/
+        retention-days: 30
+    
+    - name: Send Discord notification
+      if: always()
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        if [ -n "$DISCORD_WEBHOOK" ] && [ -f "reports/crawl_summary.json" ]; then
+          python -c "
+          import json
+          import requests
+          import os
+          from datetime import datetime
+          
+          webhook_url = os.getenv('DISCORD_WEBHOOK')
+          
+          try:
+              with open('reports/crawl_summary.json', 'r', encoding='utf-8') as f:
+                  report = json.load(f)
+              
+              total = report.get('total_beans', 0)
+              cafes = report.get('cafe_breakdown', {})
+              
+              # 상태에 따른 색상
+              color = 0x00ff00 if total > 50 else (0xffff00 if total > 20 else 0xff0000)
+              
+              embed = {
+                  'title': '☕️ 커피 크롤러 자동 실행 완료',
+                  'description': f'2주 정기 업데이트가 완료되었습니다',
+                  'color': color,
+                  'timestamp': datetime.now().isoformat(),
+                  'fields': [
+                      {
+                          'name': '📊 수집 결과',
+                          'value': f'총 {total}개 원두 정보 수집',
+                          'inline': True
+                      },
+                      {
+                          'name': '🏪 처리된 카페',
+                          'value': '\n'.join([f'{cafe}: {count}개' for cafe, count in list(cafes.items())[:5]]),
+                          'inline': False
+                      }
+                  ],
+                  'footer': {
+                      'text': 'GitHub Actions로 자동 실행됨'
+                  }
+              }
+              
+              payload = {'embeds': [embed]}
+              response = requests.post(webhook_url, json=payload)
+              
+              if response.status_code == 204:
+                  print('✅ Discord 알림 전송 완료')
+              else:
+                  print(f'❌ Discord 알림 전송 실패: {response.status_code}')
+                  
+          except Exception as e:
+              print(f'❌ 알림 처리 중 오류: {e}')
+              # 오류 알림 전송
+              error_embed = {
+                  'title': '❌ 커피 크롤러 오류 발생',
+                  'description': f'```{str(e)}```',
+                  'color': 0xff0000,
+                  'timestamp': datetime.now().isoformat()
+              }
+              requests.post(webhook_url, json={'embeds': [error_embed]})
+          "
+        else
+          echo "Discord 웹훅이 설정되지 않았거나 리포트 파일이 없습니다."
+        fi

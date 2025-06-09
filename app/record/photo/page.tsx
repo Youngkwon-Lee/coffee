@@ -2,6 +2,8 @@
 
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { addDoc, collection } from "firebase/firestore";
+import { db, auth } from "@/firebase";
 
 type ChatMessage = {
   type: "bot" | "user";
@@ -405,6 +407,10 @@ export default function RecordPhotoPage() {
     setSubmitting(true);
     
     try {
+      if (!auth.currentUser) {
+        throw new Error("로그인이 필요합니다.");
+      }
+
       // 향미 목록에 기타 향미 추가 (콤마로 구분된 항목을 분리하여 추가)
       const otherFlavorsArray = form.otherFlavors
         .split(',')
@@ -413,14 +419,13 @@ export default function RecordPhotoPage() {
       
       const formData = {
         ...form,
-        allFlavors: [...form.flavor, ...otherFlavorsArray]
+        allFlavors: [...form.flavor, ...otherFlavorsArray],
+        createdAt: new Date().toISOString(),
+        userId: auth.currentUser.uid
       };
       
-      // 여기에 실제 데이터 저장 로직 추가 (Firebase, API 호출 등)
-      // 예시: await saveToDatabase(formData);
-      
-      // 테스트용 setTimeout (실제 저장 로직으로 대체 필요)
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Firebase에 저장
+      await addDoc(collection(db, `users/${auth.currentUser.uid}/records`), formData);
       
       // 성공 메시지 추가
       setChat(prev => [
@@ -430,9 +435,9 @@ export default function RecordPhotoPage() {
       
       setFormSubmitted(true);
       
-      // 3초 후 홈페이지로 이동 (선택사항)
+      // 3초 후 홈페이지로 이동
       setTimeout(() => {
-        router.push('/'); // 또는 다른 페이지로 리디렉션
+        router.push('/');
       }, 3000);
       
     } catch (error) {
@@ -441,7 +446,7 @@ export default function RecordPhotoPage() {
       // 오류 메시지 추가
       setChat(prev => [
         ...prev,
-        { type: "bot", text: "저장 중 오류가 발생했습니다. 다시 시도해주세요." }
+        { type: "bot", text: error instanceof Error ? error.message : "저장 중 오류가 발생했습니다. 다시 시도해주세요." }
       ]);
       
     } finally {
