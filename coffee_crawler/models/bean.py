@@ -6,84 +6,218 @@
 
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 
 @dataclass
 class Bean:
-    """원두 정보 데이터 클래스"""
+    """원두 정보 모델 - 기존 Firebase 구조와 호환"""
     
-    # 필수 필드
-    name: str                        # 원두명
-    brand: str                       # 브랜드(카페)명
-    price: int                       # 가격 (원)
+    # 기본 정보 (기존 구조 유지)
+    name: str
+    brand: str
+    price: str  # "12,000원" 형태로 저장
     
-    # 선택 필드
-    origin: Optional[str] = None     # 원산지
-    weight_g: Optional[int] = None   # 무게 (g)
-    roast_level: Optional[str] = None  # 로스팅 레벨
-    flavors: List[str] = field(default_factory=list)  # 향미 노트
-    processing: Optional[str] = None  # 가공방식
-    variety: Optional[str] = None    # 품종
-    
-    # 상품 정보
-    description: Optional[str] = None  # 설명
-    images: List[str] = field(default_factory=list)  # 이미지 URL 목록
-    url: Optional[str] = None        # 상품 URL
+    # 기존 필드들 (기존 구조와 동일)
+    origin: Optional[str] = None          # 원산지
+    roast: Optional[str] = None           # 로스팅 정도 (중배전, 라이트 등)
+    flavor: Optional[str] = None          # 플레이버 (쉼표로 구분된 문자열)
+    process: Optional[str] = None         # 가공방식
+    variety: Optional[str] = None         # 품종
+    producer: Optional[str] = None        # 생산자
+    region: Optional[str] = None          # 지역
+    altitude: Optional[str] = None        # 고도
+    category: Optional[str] = None        # 카테고리 (드립백, 원두 등)
     
     # 메타데이터
-    id: Optional[str] = None         # 고유 ID (생성 시 자동 할당)
-    cafe_id: Optional[str] = None    # 카페 식별자
-    isActive: bool = True            # 활성 상태
-    createdAt: Optional[datetime] = None  # 생성 시간
-    lastUpdated: Optional[datetime] = None  # 마지막 업데이트 시간
-    hash: Optional[str] = None       # 콘텐츠 해시 (변경 감지용)
+    image: Optional[str] = None           # 이미지 URL
+    link: Optional[str] = None            # 상품 링크
+    flavor_notes: Optional[str] = None    # 상세 플레이버 노트
+    
+    # 시스템 필드
+    createdAt: Optional[datetime] = None
+    lastUpdated: Optional[datetime] = None
+    isActive: bool = True
+    
+    # 추가 호환 필드들
+    images: List[str] = field(default_factory=list)     # 여러 이미지 지원
+    url: Optional[str] = None                           # link와 동일하지만 추가 호환성
+    cafe_id: Optional[str] = None                       # 카페 식별자
+    weight_g: Optional[int] = None                      # 중량(그램)
+    roast_level: Optional[str] = None                   # roast와 동일하지만 추가 호환성
+    processing: Optional[str] = None                    # process와 동일하지만 추가 호환성
+    description: Optional[str] = None                   # 상품 설명
+    flavors: List[str] = field(default_factory=list)   # flavor의 리스트 버전
+    
+    def __post_init__(self):
+        """초기화 후 처리"""
+        # 현재 시간 설정
+        if self.createdAt is None:
+            self.createdAt = datetime.now()
+        if self.lastUpdated is None:
+            self.lastUpdated = datetime.now()
+        
+        # 호환성 필드 동기화
+        self._sync_fields()
+    
+    def _sync_fields(self):
+        """호환성을 위한 필드 동기화"""
+        # link와 url 동기화
+        if self.link and not self.url:
+            self.url = self.link
+        elif self.url and not self.link:
+            self.link = self.url
+        
+        # roast와 roast_level 동기화
+        if self.roast and not self.roast_level:
+            self.roast_level = self.roast
+        elif self.roast_level and not self.roast:
+            self.roast = self.roast_level
+        
+        # process와 processing 동기화
+        if self.process and not self.processing:
+            self.processing = self.process
+        elif self.processing and not self.process:
+            self.process = self.processing
+        
+        # flavor와 flavors 동기화
+        if self.flavor and not self.flavors:
+            # 쉼표로 구분된 문자열을 리스트로 변환
+            self.flavors = [f.strip() for f in self.flavor.split(',') if f.strip()]
+        elif self.flavors and not self.flavor:
+            # 리스트를 쉼표로 구분된 문자열로 변환
+            self.flavor = ', '.join(self.flavors)
+        
+        # image와 images 동기화
+        if self.image and not self.images:
+            self.images = [self.image]
+        elif self.images and not self.image:
+            self.image = self.images[0] if self.images else None
+        
+        # cafe_id 자동 설정
+        if not self.cafe_id and self.brand:
+            # 브랜드명을 소문자로 변환하여 cafe_id로 사용
+            self.cafe_id = self.brand.lower().replace(' ', '').replace('커피', '')
+    
+    def generate_id(self) -> str:
+        """고유 ID 생성"""
+        id_string = f"{self.name}_{self.brand}_{self.url or ''}"
+        return hashlib.md5(id_string.encode('utf-8')).hexdigest()[:16]
     
     def to_dict(self) -> Dict[str, Any]:
-        """
-        Bean 객체를 딕셔너리로 변환
+        """딕셔너리로 변환 (Firebase 저장용)"""
+        # 기존 구조와 완전 호환되는 필드만 포함
+        result = {
+            'name': self.name,
+            'brand': self.brand,
+            'price': self.price,
+            'origin': self.origin,
+            'roast': self.roast,
+            'flavor': self.flavor,
+            'process': self.process,
+            'variety': self.variety,
+            'producer': self.producer,
+            'region': self.region,
+            'altitude': self.altitude,
+            'category': self.category,
+            'image': self.image,
+            'link': self.link,
+            'flavor_notes': self.flavor_notes,
+            'createdAt': self.createdAt,
+            'lastUpdated': self.lastUpdated,
+            'isActive': self.isActive
+        }
         
-        Returns:
-            딕셔너리 형태의 원두 데이터
-        """
-        bean_dict = asdict(self)
+        # None 값 제거 (기존 데이터와 동일하게)
+        return {k: v for k, v in result.items() if v is not None}
+    
+    def to_extended_dict(self) -> Dict[str, Any]:
+        """확장된 딕셔너리로 변환 (모든 필드 포함)"""
+        # 호환성 필드 동기화
+        self._sync_fields()
         
-        # None 값 필드 제거
-        bean_dict = {k: v for k, v in bean_dict.items() if v is not None}
-        
-        # 빈 리스트 제거
-        for k in list(bean_dict.keys()):
-            if isinstance(bean_dict[k], list) and len(bean_dict[k]) == 0:
-                del bean_dict[k]
-        
-        return bean_dict
+        # 모든 필드 포함
+        return {
+            'name': self.name,
+            'brand': self.brand,
+            'price': self.price,
+            'origin': self.origin,
+            'roast': self.roast,
+            'roast_level': self.roast_level,
+            'flavor': self.flavor,
+            'flavors': self.flavors,
+            'process': self.process,
+            'processing': self.processing,
+            'variety': self.variety,
+            'producer': self.producer,
+            'region': self.region,
+            'altitude': self.altitude,
+            'category': self.category,
+            'image': self.image,
+            'images': self.images,
+            'link': self.link,
+            'url': self.url,
+            'flavor_notes': self.flavor_notes,
+            'description': self.description,
+            'cafe_id': self.cafe_id,
+            'weight_g': self.weight_g,
+            'createdAt': self.createdAt,
+            'lastUpdated': self.lastUpdated,
+            'isActive': self.isActive
+        }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Bean':
-        """
-        딕셔너리에서 Bean 객체 생성
+        """딕셔너리에서 Bean 객체 생성"""
+        # 기본 필수 필드 확인
+        name = data.get('name', '')
+        brand = data.get('brand', '')
+        price = data.get('price', '0원')
         
-        Args:
-            data: 원두 데이터 딕셔너리
-            
-        Returns:
-            Bean 객체
-        """
-        # 날짜 필드 처리
-        for date_field in ['createdAt', 'lastUpdated']:
-            if date_field in data and not isinstance(data[date_field], datetime):
-                # Firestore 타임스탬프인 경우
-                if hasattr(data[date_field], 'timestamp'):
-                    data[date_field] = datetime.fromtimestamp(data[date_field].timestamp())
-                # ISO 문자열인 경우
-                elif isinstance(data[date_field], str):
-                    data[date_field] = datetime.fromisoformat(data[date_field].replace('Z', '+00:00'))
+        # Bean 객체 생성
+        bean = cls(
+            name=name,
+            brand=brand,
+            price=price,
+            origin=data.get('origin'),
+            roast=data.get('roast'),
+            flavor=data.get('flavor'),
+            process=data.get('process'),
+            variety=data.get('variety'),
+            producer=data.get('producer'),
+            region=data.get('region'),
+            altitude=data.get('altitude'),
+            category=data.get('category'),
+            image=data.get('image'),
+            link=data.get('link'),
+            flavor_notes=data.get('flavor_notes'),
+            createdAt=data.get('createdAt'),
+            lastUpdated=data.get('lastUpdated'),
+            isActive=data.get('isActive', True)
+        )
         
-        # 알 수 없는 필드 필터링
-        known_fields = {f.name for f in cls.__dataclass_fields__.values()}
-        filtered_data = {k: v for k, v in data.items() if k in known_fields}
+        # 확장 필드 설정
+        if data.get('images'):
+            bean.images = data['images']
+        if data.get('url'):
+            bean.url = data['url']
+        if data.get('cafe_id'):
+            bean.cafe_id = data['cafe_id']
+        if data.get('weight_g'):
+            bean.weight_g = data['weight_g']
+        if data.get('roast_level'):
+            bean.roast_level = data['roast_level']
+        if data.get('processing'):
+            bean.processing = data['processing']
+        if data.get('description'):
+            bean.description = data['description']
+        if data.get('flavors'):
+            bean.flavors = data['flavors']
         
-        return cls(**filtered_data)
+        return bean
+    
+    def __str__(self) -> str:
+        return f"{self.brand} - {self.name} ({self.price})"
     
     def compute_hash(self) -> str:
         """
@@ -119,26 +253,6 @@ class Bean:
         """해시 값 업데이트"""
         self.hash = self.compute_hash()
         
-    def __post_init__(self):
-        """초기화 후 처리"""
-        # 해시 생성
-        if not self.hash:
-            self.update_hash()
-        
-        # ID 생성 (없는 경우)
-        if not self.id:
-            if self.name and self.brand:
-                # 이름, 브랜드, URL을 조합해서 고유 ID 생성
-                id_string = f"{self.name}_{self.brand}_{self.url or ''}"
-                self.id = hashlib.md5(id_string.encode('utf-8')).hexdigest()[:16]
-            
-        # 현재 시간 설정
-        now = datetime.now()
-        if not self.createdAt:
-            self.createdAt = now
-        if not self.lastUpdated:
-            self.lastUpdated = now
-
     def update_from(self, other: 'Bean') -> Dict[str, Any]:
         """다른 Bean 객체로부터 업데이트하고 변경사항 반환"""
         changes = {}
@@ -168,10 +282,10 @@ class Bean:
             changes['processing'] = {'old': self.processing, 'new': other.processing}
             self.processing = other.processing
         
-        # 향미 노트 변경 확인
-        if self.flavors != other.flavors:
-            changes['flavors'] = {'old': self.flavors, 'new': other.flavors}
-            self.flavors = other.flavors
+ #        # 향미 노트 변경 확인
+ #        if self.flavors != other.flavors:
+ #            changes['flavors'] = {'old': self.flavors, 'new': other.flavors}
+ #            self.flavors = other.flavors
         
         # 변경사항이 있으면 lastUpdated 업데이트
         if changes:

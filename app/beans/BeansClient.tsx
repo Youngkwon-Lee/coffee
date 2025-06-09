@@ -18,6 +18,8 @@ type Bean = {
   brand?: string;
   link?: string;
   category?: string;
+  createdAt?: string;
+  lastUpdated?: string;
 };
 
 type Recommendation = {

@@ -13,7 +13,8 @@ type Bean = {
   brand?: string;
   link?: string;
   category?: string;
-  createdAt?: Date;
+  createdAt?: string;
+  lastUpdated?: string;
 };
 
 export default async function BeansPage() {
@@ -21,11 +22,32 @@ export default async function BeansPage() {
   const beanSnapshot = await getDocs(beansCol);
   const beans = beanSnapshot.docs.map(doc => {
     const data = doc.data();
+    
+    // Timestamp 객체들을 안전하게 문자열로 변환
+    const convertTimestamp = (timestamp: any) => {
+      if (timestamp && typeof timestamp === 'object' && timestamp.toDate) {
+        return timestamp.toDate().toISOString();
+      }
+      if (timestamp instanceof Date) {
+        return timestamp.toISOString();
+      }
+      return timestamp || null;
+    };
+
     return {
       id: doc.id,
-      ...data,
-      // Timestamp를 Date 객체로 변환
-      createdAt: data.createdAt?.toDate() || new Date()
+      name: data.name || '',
+      flavor: data.flavor || data.flavors || '',
+      price: data.price || '',
+      image: data.image || '',
+      desc: data.desc || data.description || '',
+      roast: data.roast || '',
+      brand: data.brand || '',
+      link: data.link || '',
+      category: data.category || '',
+      // 모든 timestamp 필드 변환
+      createdAt: convertTimestamp(data.createdAt),
+      lastUpdated: convertTimestamp(data.lastUpdated),
     };
   }) as Bean[];
 

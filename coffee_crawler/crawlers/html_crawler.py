@@ -468,7 +468,7 @@ class HtmlCrawler(BaseCrawler):
         # None이거나 빈 문자열이면 0 반환
         if not price_text:
             return 0
-        
+            
         # 다양한 가격 패턴 처리
         # 1. ₩16,000 형태
         won_pattern = re.compile(r'₩\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)')
