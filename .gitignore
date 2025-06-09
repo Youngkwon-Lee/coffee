@@ -128,3 +128,62 @@ temp/
 cache/
 
 config/firebase_config.yaml
+
+# Firebase 인증 (실제 키 파일)
+firebase_credentials.json
+coffee-37b81-firebase-adminsdk-*.json
+
+# 크롤링 결과 및 로그
+data/*.json
+logs/*.log
+reports/*.json
+
+# 빌드 결과물
+.next/
+out/
+.vercel/
+.firebase/
+dist/
+build/
+
+# 캐시 및 임시 파일
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# 환경설정
+.env
+.env.local
+.env.production
+.env.development
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS 파일
+.DS_Store
+Thumbs.db
+
+# 노드 모듈
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 가상환경
+venv/
+env/
+ENV/
+
+# 기타
+*.bak
+*.tmp
+temp/

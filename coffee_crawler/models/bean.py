@@ -126,38 +126,18 @@ class Bean:
             self.update_hash()
         
         # ID 생성 (없는 경우)
-        if not self.id and self.brand and self.name:
-            import re
-            # 브랜드명과 원두명으로 ID 생성
-            brand = re.sub(r'[^\w]', '_', self.brand.lower())
-            name = re.sub(r'[^\w]', '_', self.name.lower())
-            self.id = f"{brand}_{name}"
-            
-            # 특수문자 제거
-            self.id = ''.join(c for c in self.id if c.isalnum() or c == '_')
-            
-            # 중복 언더스코어 제거
-            while '__' in self.id:
-                self.id = self.id.replace('__', '_')
-            
-            # 앞뒤 언더스코어 제거
-            self.id = self.id.strip('_')
+        if not self.id:
+            if self.name and self.brand:
+                # 이름, 브랜드, URL을 조합해서 고유 ID 생성
+                id_string = f"{self.name}_{self.brand}_{self.url or ''}"
+                self.id = hashlib.md5(id_string.encode('utf-8')).hexdigest()[:16]
             
         # 현재 시간 설정
         now = datetime.now()
         if not self.createdAt:
             self.createdAt = now
         if not self.lastUpdated:
-            self.lastUpdated = now 
-
-    @property
-    def id(self) -> str:
-        """고유 ID 생성 (이름 + 브랜드 + URL 기반 해시)"""
-        if self._id is None:
-            # 이름, 브랜드, URL을 조합해서 고유 ID 생성
-            id_string = f"{self.name}_{self.brand}_{self.url}"
-            self._id = hashlib.md5(id_string.encode('utf-8')).hexdigest()[:16]
-        return self._id
+            self.lastUpdated = now
 
     def update_from(self, other: 'Bean') -> Dict[str, Any]:
         """다른 Bean 객체로부터 업데이트하고 변경사항 반환"""
