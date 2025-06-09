@@ -27,6 +27,14 @@ interface Cafe {
     dessert?: boolean;
     instagrammable?: boolean;
   };
+  crawlConfig?: {
+    enabled: boolean;
+    successRate: number;
+    crawlInterval: number;
+    lastCrawled?: string;
+  };
+  createdAt?: string;
+  lastUpdated?: string;
 }
 
 const FLAVOR_OPTIONS = ["Floral", "Chocolate", "Nutty", "Fruity", "Earthy", "Sweet"];

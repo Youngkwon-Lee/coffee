@@ -43,7 +43,34 @@ async function getWeather() {
 
 async function getCafes(): Promise<Cafe[]> {
   const snap = await getDocs(collection(db, "cafes"));
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cafe));
+  return snap.docs.map(doc => {
+    const data = doc.data();
+    
+    // Timestamp 객체들을 안전하게 문자열로 변환
+    const convertTimestamp = (timestamp: any) => {
+      if (timestamp && typeof timestamp === 'object' && timestamp.toDate) {
+        return timestamp.toDate().toISOString();
+      }
+      if (timestamp instanceof Date) {
+        return timestamp.toISOString();
+      }
+      return timestamp || null;
+    };
+
+    // crawlConfig 내의 timestamp 처리
+    const crawlConfig = data.crawlConfig ? {
+      ...data.crawlConfig,
+      lastCrawled: convertTimestamp(data.crawlConfig.lastCrawled)
+    } : undefined;
+
+    return {
+      id: doc.id,
+      ...data,
+      crawlConfig,
+      createdAt: convertTimestamp(data.createdAt),
+      lastUpdated: convertTimestamp(data.lastUpdated)
+    } as Cafe;
+  });
 }
 
 function getRandomElement<T>(arr: T[]): T | null {
