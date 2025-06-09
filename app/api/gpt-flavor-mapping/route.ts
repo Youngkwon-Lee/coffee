@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-});
+}) : null;
 
 export async function POST(req: NextRequest) {
   try {
+    // API 키가 없으면 기본 매핑 반환
+    if (!openai) {
+      return NextResponse.json({
+        flavor: 'Unknown',
+        confidence: 0,
+        error: 'OpenAI API key not configured'
+      });
+    }
+
     const { text, availableFlavors, existingFlavors } = await req.json();
 
     if (!text) {
