@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 type Bean = {
   id?: string;
   name: string;
-  flavor: string;
+  flavor: string | string[];
   price: string;
   image: string;
   desc?: string;
@@ -50,6 +50,10 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
   const [beans] = useState<Bean[]>(initialBeans);
   const [search, setSearch] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
+  const [flavorFilter, setFlavorFilter] = useState("");
+  const [roastFilter, setRoastFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "price" | "popular" | "recent">("popular");
+  
   // 취향 기반 추천용 상태
   const [myFlavor, setMyFlavor] = useState("");
   const [myRoast, setMyRoast] = useState("");
@@ -65,6 +69,12 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
   const [user, setUser] = useState<User | null>(null);
   // Firestore 기반 찜 목록
   const [wishlist, setWishlist] = useState<string[]>([]);
+
+  // 챗봇 상태 추가
+  const [showChatbot, setShowChatbot] = useState(false);
+  const [chatbotPosition, setChatbotPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const { basket, toggleBasket } = useBasket();
   const router = useRouter();
@@ -104,35 +114,85 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
   // 향미/배전도/브랜드 목록 추출
   // 실제 데이터에서 향미 목록 추출 (쉼표로 구분된 문자열을 분리하고 중복 제거)
   const flavors = Array.from(new Set(
-    beans.flatMap(bean => 
-      (bean.flavor || "").split(",").map(f => f.trim())
-    ).filter(Boolean)
+    beans.flatMap(bean => {
+      const flavorValue = bean.flavor;
+      if (typeof flavorValue === 'string') {
+        return flavorValue.split(",").map(f => f.trim());
+      } else if (Array.isArray(flavorValue)) {
+        return flavorValue.map((f: any) => String(f).trim());
+      }
+      return [] as string[];
+    }).filter(Boolean)
   )).sort();
 
-  // 실제 데이터에서 배전도 목록 추출
-  const roasts = Array.from(new Set(
+  // 표준 배전도 목록 (실제 데이터와 함께)
+  const standardRoasts = ["Light", "Medium-Light", "Medium", "Medium-Dark", "Dark"];
+  const actualRoasts = Array.from(new Set(
     beans.map(bean => bean.roast || "").filter(Boolean)
   )).sort();
+  const roasts = [...new Set([...standardRoasts, ...actualRoasts])];
 
   // 실제 데이터에서 브랜드 목록 추출
   const brands = Array.from(new Set(
     beans.map(bean => bean.brand || "").filter(Boolean)
   )).sort();
 
+  // 필터링 로직
+  let filteredBeans = beans;
+
+  // 브랜드 필터
+  if (brandFilter) {
+    filteredBeans = filteredBeans.filter(bean => bean.brand === brandFilter);
+  }
+
+  // 향미 필터
+  if (flavorFilter) {
+    filteredBeans = filteredBeans.filter(bean => {
+      const flavorValue = bean.flavor;
+      if (typeof flavorValue === 'string') {
+        return flavorValue.includes(flavorFilter);
+      } else if (Array.isArray(flavorValue)) {
+        return flavorValue.some((f: any) => String(f).includes(flavorFilter));
+      }
+      return false;
+    });
+  }
+
+  // 배전도 필터
+  if (roastFilter) {
+    filteredBeans = filteredBeans.filter(bean => bean.roast === roastFilter);
+  }
+
   // 취향 기반 추천 필터
-  const recommendedBeans = beans.filter(bean => {
-    const flavorMatch = myFlavor ? (bean.flavor && bean.flavor.includes(myFlavor)) : true;
+  const recommendedBeans = filteredBeans.filter(bean => {
+    const flavorMatch = myFlavor ? (bean.flavor && String(bean.flavor).includes(myFlavor)) : true;
     const roastMatch = myRoast ? (bean.roast === myRoast) : true;
     const brandMatch = myBrand ? (bean.brand === myBrand) : true;
     return flavorMatch && roastMatch && brandMatch;
   });
 
-  // 배전도 순으로 정렬
+  // 정렬 로직
   const sortedBeans = [...recommendedBeans].sort((a, b) => {
-    const roastOrder = { "Light": 1, "Medium": 2, "Medium-Dark": 3, "Dark": 4 };
-    const aRoast = a.roast || "";
-    const bRoast = b.roast || "";
-    return (roastOrder[aRoast as keyof typeof roastOrder] || 0) - (roastOrder[bRoast as keyof typeof roastOrder] || 0);
+    switch (sortBy) {
+      case "name":
+        return a.name.localeCompare(b.name);
+      case "price":
+        const priceA = parseInt(String(a.price || "0").replace(/[^0-9]/g, "")) || 0;
+        const priceB = parseInt(String(b.price || "0").replace(/[^0-9]/g, "")) || 0;
+        return priceA - priceB;
+      case "recent":
+        return (b.createdAt || "").localeCompare(a.createdAt || "");
+      case "popular":
+      default:
+        // 인기도 기준: 브랜드별 원두 개수가 많을수록 인기있다고 가정
+        const brandCountA = beans.filter(bean => bean.brand === a.brand).length;
+        const brandCountB = beans.filter(bean => bean.brand === b.brand).length;
+        if (brandCountA !== brandCountB) {
+          return brandCountB - brandCountA;
+        }
+        // 이름순으로 2차 정렬
+        return a.name.localeCompare(b.name);
+    }
   });
 
   // Fuzzy Search 적용 (Fuse.js)
@@ -140,21 +200,20 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
     keys: ["name", "flavor", "brand"],
     threshold: 0.3,
   });
-  const fuzzyBeans = search
+  const finalBeans = search
     ? fuse.search(search).map(result => result.item)
     : sortedBeans;
 
-  // 브랜드 필터 추가 적용
-  const filteredBeans = fuzzyBeans.filter(bean => {
-    const matchesBrand = brandFilter ? bean.brand === brandFilter : true;
-    return matchesBrand;
-  });
-
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-  const totalPages = Math.ceil(filteredBeans.length / itemsPerPage);
-  const paginatedBeans = filteredBeans.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const itemsPerPage = 12;
+  const totalPages = Math.ceil(finalBeans.length / itemsPerPage);
+  const paginatedBeans = finalBeans.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // 페이지 변경 시 맨 위로 스크롤
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, brandFilter, flavorFilter, roastFilter, sortBy, myFlavor, myRoast, myBrand]);
 
   // GPT 감성 추천 요청
   const handleGptRecommend = async (e: React.FormEvent) => {
@@ -164,19 +223,28 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
     setGptError("");
     setRecommendations([]);
     try {
-      const res = await fetch("http://localhost:8000/recommend", {
+      const res = await fetch("/api/gpt-recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: gptInput }),
+        body: JSON.stringify({ 
+          message: gptInput,
+          availableBeans: beans.map(bean => ({
+            name: bean.name,
+            flavor: bean.flavor,
+            roast: bean.roast,
+            brand: bean.brand
+          }))
+        }),
       });
       const data = await res.json();
       if (data.recommendations) {
         setRecommendations(data.recommendations);
+        setGptError("");
       } else {
         setGptError("추천 결과를 불러올 수 없습니다.");
       }
     } catch {
-      setGptError("추천 서버에 연결할 수 없습니다.");
+      setGptError("추천 서버에 연결할 수 없습니다. GPT API 설정을 확인해주세요.");
     }
     setGptLoading(false);
   };
@@ -184,240 +252,484 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
   // Firestore 원두 데이터와 매칭
   const getBeanDetail = (name: string) => beans.find((bean) => bean.name === name);
 
-  // 카페별로 그룹화
-  const beansByBrand: { [brand: string]: Bean[] } = {};
-  filteredBeans.forEach(bean => {
-    const brand = bean.brand || "기타";
-    if (!beansByBrand[brand]) beansByBrand[brand] = [];
-    beansByBrand[brand].push(bean);
-  });
-  const brandList = Object.keys(beansByBrand).sort();
-  const [openBrand, setOpenBrand] = useState<string | null>(null);
+  // 드래그 핸들러
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - chatbotPosition.x,
+      y: e.clientY - chatbotPosition.y
+    });
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    setChatbotPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragStart]);
 
   return (
-    <main className="flex flex-col items-center min-h-screen pt-20 pb-20 bg-gradient-to-br from-amber-50 to-rose-100">
-      <h1 className="text-2xl font-bold mb-6 text-espresso">🌱 감성 원두사기</h1>
-      {/* 로그인/로그아웃 UI (상단에만 노출) */}
-      <div className="mb-4 flex gap-2 items-center">
-        {user ? (
-          <>
-            <span className="text-mocha font-bold">{user.displayName || user.email} 님</span>
-            <button onClick={() => signOut(auth)} className="px-3 py-1 rounded-full bg-mocha text-white font-bold hover:bg-espresso transition">로그아웃</button>
-          </>
-        ) : (
-          <button
-            onClick={async () => {
-              try {
-                await signInWithPopup(auth, new GoogleAuthProvider());
-                window.location.reload();
-              } catch {
-                alert("로그인에 실패했습니다. 다시 시도해 주세요.");
-              }
-            }}
-            className="px-3 py-1 rounded-full bg-blue-500 text-white font-bold hover:bg-blue-700 transition"
-          >
-            구글 로그인
-          </button>
-        )}
+    <div className="min-h-screen bg-gradient-to-br from-cream-50 via-coffee-50 to-cream-100 relative overflow-hidden">
+      {/* 배경 장식 요소들 */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(230,188,83,0.15),transparent_70%)]"></div>
+      <div className="absolute top-0 left-0 w-96 h-96 bg-coffee-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-float"></div>
+      <div className="absolute top-0 right-0 w-80 h-80 bg-brown-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float" style={{animationDelay: '2s'}}></div>
+      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-coffee-300 rounded-full mix-blend-multiply filter blur-3xl opacity-25 animate-float" style={{animationDelay: '4s'}}></div>
+      
+      <main className="relative z-10 flex flex-col items-center min-h-screen pt-20 pb-20 px-4">
+        {/* 헤더 */}
+        <header className="w-full max-w-6xl text-center mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-8">
+            <h1 className="text-4xl md:text-6xl font-display font-bold bg-gradient-to-r from-brown-700 via-coffee-600 to-brown-800 bg-clip-text text-transparent mb-4">
+              ☕ 원두 컬렉션
+            </h1>
+            <p className="text-xl text-brown-600 mb-8">최고의 원두와 감성 추천을 만나보세요</p>
       </div>
-      {/* GPT 감성 추천 입력창 및 결과 */}
-      <section className="w-full max-w-md mb-8">
-        <form onSubmit={handleGptRecommend} className="flex gap-2 mb-2">
+        </header>
+
+        {/* 필터 섹션 */}
+        <div className="w-full max-w-6xl mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-6">
+            {/* 상단 필터 바 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+              {/* 검색 */}
+              <div className="lg:col-span-2">
           <input
             type="text"
-            value={gptInput}
-            onChange={e => setGptInput(e.target.value)}
-            className="flex-1 border border-caramel rounded-full px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mocha font-serif"
-            placeholder="기분/날씨/취향을 입력해보세요! (예: 오늘은 우울해요)"
-            disabled={gptLoading}
-          />
-          <button
-            type="submit"
-            disabled={gptLoading || !gptInput.trim()}
-            className="bg-amber-400 hover:bg-amber-500 text-white font-semibold rounded-full px-4 py-2 shadow transition"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-full bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 placeholder-brown-400 focus:outline-none focus:ring-2 focus:ring-coffee-400"
+                  placeholder="🔍 원두명, 브랜드, 향미 검색..."
+                />
+              </div>
+
+              {/* 브랜드 필터 */}
+              <select 
+                value={brandFilter} 
+                onChange={e => setBrandFilter(e.target.value)} 
+                className="bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
           >
-            추천받기
-          </button>
-        </form>
-        {gptLoading && <div className="text-center text-mocha">추천 중...</div>}
-        {gptError && <div className="text-center text-red-500">{gptError}</div>}
-        {recommendations.length > 0 && (
-          <div className="flex flex-col gap-4 mt-4">
-            {recommendations.map((rec, idx) => {
-              const bean = getBeanDetail(rec.name);
-              return (
-                <div key={idx} className="bg-white rounded-xl shadow p-4 flex gap-4 items-center">
-                  <Image src={bean?.image || "/beans/default.jpg"} alt={rec.name} width={80} height={80} className="rounded-lg" />
-                  <div>
-                    <div className="font-bold text-lg">{rec.name}</div>
-                    <div className="text-xs text-mocha mb-1">{rec.reason}</div>
-                    {bean && (
-                      <>
-                        <div className="text-caramel font-bold">{bean.price}</div>
-                        <div className="text-xs text-brown-700">{bean.flavor}</div>
-                      </>
-                    )}
+                <option value="">모든 브랜드</option>
+                {brands.map(brand => <option key={brand} value={brand}>{brand}</option>)}
+              </select>
+
+              {/* 향미 필터 */}
+              <select 
+                value={flavorFilter} 
+                onChange={e => setFlavorFilter(e.target.value)} 
+                className="bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
+              >
+                <option value="">모든 향미</option>
+                {flavors.map(flavor => <option key={flavor} value={flavor}>{flavor}</option>)}
+              </select>
+
+              {/* 배전도 필터 */}
+              <select 
+                value={roastFilter} 
+                onChange={e => setRoastFilter(e.target.value)} 
+                className="bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
+              >
+                <option value="">모든 배전도</option>
+                {roasts.map(roast => <option key={roast} value={roast}>{roast}</option>)}
+              </select>
+            </div>
+
+            {/* 정렬 및 결과 표시 */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+              <div className="flex items-center gap-4">
+                <span className="text-brown-700 font-medium">정렬:</span>
+                <select 
+                  value={sortBy} 
+                  onChange={e => setSortBy(e.target.value as "name" | "price" | "popular" | "recent")} 
+                  className="bg-white border border-coffee-200 rounded-button px-4 py-2 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
+                >
+                  <option value="popular">인기순</option>
+                  <option value="name">이름순</option>
+                  <option value="price">가격순</option>
+                  <option value="recent">최신순</option>
+                </select>
+              </div>
+              
+              <div className="text-brown-600">
+                총 <span className="font-bold text-coffee-600">{finalBeans.length}</span>개 원두
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-      {/* 취향 기반 추천 UI */}
-      <div className="flex flex-wrap gap-2 mb-4 justify-center">
+
+            {/* 취향 기반 필터 (간소화) */}
+            <details className="mb-6">
+              <summary className="cursor-pointer text-coffee-600 font-medium mb-3">🎯 취향 맞춤 추천</summary>
+              <div className="flex flex-wrap gap-3">
         <select 
           value={myFlavor} 
           onChange={e => setMyFlavor(e.target.value)} 
-          className="border border-mocha rounded-full px-3 py-2 bg-caramel text-espresso font-serif text-sm focus:outline-none focus:ring-2 focus:ring-mocha"
+                  className="bg-white border border-coffee-200 rounded-button px-4 py-2 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
         >
-          <option value="">향미 선택</option>
+                  <option value="">원하는 향미</option>
           {flavors.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
         <select 
           value={myRoast} 
           onChange={e => setMyRoast(e.target.value)} 
-          className="border border-mocha rounded-full px-3 py-2 bg-caramel text-espresso font-serif text-sm focus:outline-none focus:ring-2 focus:ring-mocha"
+                  className="bg-white border border-coffee-200 rounded-button px-4 py-2 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
         >
-          <option value="">배전도 선택</option>
+                  <option value="">원하는 배전도</option>
           {roasts.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <select 
           value={myBrand} 
           onChange={e => setMyBrand(e.target.value)} 
-          className="border border-mocha rounded-full px-3 py-2 bg-caramel text-espresso font-serif text-sm focus:outline-none focus:ring-2 focus:ring-mocha"
+                  className="bg-white border border-coffee-200 rounded-button px-4 py-2 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
         >
-          <option value="">브랜드 선택</option>
+                  <option value="">원하는 브랜드</option>
           {brands.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
-      </div>
-      {/* 검색/브랜드 필터 */}
-      <div className="flex flex-wrap gap-2 mb-4 justify-center">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="이름/향미/브랜드 검색 (부분/오타 허용)"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyPress={e => e.key === 'Enter' && setSearch(e.currentTarget.value)}
-            className="border border-mocha rounded-full px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mocha font-serif text-sm"
-          />
+                {(myFlavor || myRoast || myBrand) && (
           <button
-            onClick={() => setSearch(search)}
-            className="px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition"
+                    onClick={() => {
+                      setMyFlavor("");
+                      setMyRoast("");
+                      setMyBrand("");
+                    }}
+                    className="px-4 py-2 rounded-button bg-brown-200 text-brown-700 hover:bg-brown-300 transition-colors duration-200"
           >
-            검색
+                    초기화
           </button>
+                )}
+              </div>
+            </details>
+          </div>
         </div>
-        <select
-          value={brandFilter}
-          onChange={e => setBrandFilter(e.target.value)}
-          className="border border-mocha rounded-full px-3 py-2 bg-caramel text-espresso font-serif text-sm focus:outline-none focus:ring-2 focus:ring-mocha"
-        >
-          <option value="">전체 브랜드</option>
-          {brands.map(brand => (
-            <option key={brand} value={brand}>{brand}</option>
-          ))}
-        </select>
+
+        {/* 원두 그리드 */}
+        <div className="w-full max-w-6xl">
+          {paginatedBeans.length === 0 ? (
+            <div className="bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-12 text-center">
+              <div className="text-6xl mb-4">☕</div>
+              <h3 className="text-xl font-bold text-brown-800 mb-2">검색 결과가 없습니다</h3>
+              <p className="text-brown-600">다른 조건으로 검색해보세요</p>
       </div>
-      {/* 카페별 아코디언 카드 UI */}
-      <div className="w-full max-w-4xl flex flex-col gap-4 px-4">
-        {brandList.length === 0 && (
-          <div className="text-center text-mocha py-10">원두가 없습니다.</div>
-        )}
-        {brandList.map(brand => (
-          <div key={brand} className="bg-white/90 rounded-2xl shadow border border-caramel">
-            <button
-              className="w-full text-left px-6 py-4 flex items-center justify-between text-xl font-bold text-espresso hover:bg-amber-50 rounded-2xl transition"
-              onClick={() => setOpenBrand(openBrand === brand ? null : brand)}
+          ) : (
+            <>
+              {/* 원두 카드 그리드 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                {paginatedBeans.map((bean) => (
+                  <div
+                    key={bean.id || bean.name}
+                    className="group bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-6 hover:shadow-hover hover:scale-[1.02] transition-all duration-300"
             >
-              <span>{brand}</span>
-              <span className="text-lg">{openBrand === brand ? "▲" : "▼"}</span>
-            </button>
-            {openBrand === brand && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 pt-0">
-                {beansByBrand[brand].map(bean => (
-                  <div key={bean.id} className="bg-white/80 rounded-2xl shadow p-4 flex flex-col gap-4 border border-caramel relative">
-                    {/* 찜/장바구니 버튼 */}
-                    <div className="absolute top-2 right-2 flex gap-2 z-10">
+                    {/* 이미지 */}
+                    <div className="relative mb-4">
+                      <Image
+                        src={bean.image || "/beans/default.jpg"}
+                        alt={bean.name}
+                        width={200}
+                        height={200}
+                        className="w-full h-48 object-cover rounded-card"
+                      />
+                      
+                      {/* 찜하기 버튼 */}
+                      {user && (
                       <button
-                        onClick={() => user ? toggleWishlist(bean.id!) : undefined}
-                        aria-label="찜하기"
-                        className={`text-2xl ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={!user}
-                        title={!user ? "로그인 후 이용 가능" : wishlist.includes(bean.id!) ? "찜 해제" : "찜하기"}
+                          onClick={() => toggleWishlist(bean.id || bean.name)}
+                          className={`absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+                            wishlist.includes(bean.id || bean.name)
+                              ? "bg-red-500 text-white"
+                              : "bg-white/80 text-brown-600 hover:bg-red-50"
+                          }`}
                       >
-                        {wishlist.includes(bean.id!) ? "❤️" : "🤍"}
+                          {wishlist.includes(bean.id || bean.name) ? "❤️" : "🤍"}
                       </button>
-                      <button onClick={() => toggleBasket(bean.id!)} aria-label="장바구니 담기" className="text-2xl">
-                        {basket.includes(bean.id!) ? "🛒" : "🛍️"}
-                      </button>
+                      )}
                     </div>
-                    <div className="flex justify-center">
-                      <Image src={bean.image || "/beans/default.jpg"} alt={bean.name} width={200} height={200} className="rounded-xl object-cover w-48 h-48" />
+
+                    {/* 원두 정보 */}
+                    <div className="space-y-3">
+                      <div>
+                        <h3 className="font-bold text-lg text-brown-800 leading-tight mb-1 group-hover:text-coffee-600 transition-colors duration-200">
+                          {bean.name}
+                        </h3>
+                        {bean.brand && (
+                          <p className="text-sm text-brown-500 font-medium">{bean.brand}</p>
+                        )}
+                      </div>
+
+                      {/* 향미 태그 */}
+                      <div className="flex flex-wrap gap-1">
+                        {(typeof bean.flavor === 'string' ? bean.flavor.split(',') : bean.flavor || [])
+                          .slice(0, 3)
+                          .map((flavor, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 bg-coffee-100 text-coffee-700 text-xs rounded-button font-medium"
+                          >
+                            {flavor.trim()}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* 배전도 */}
+                      {bean.roast && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-brown-600">배전도:</span>
+                          <span className="px-2 py-1 bg-brown-100 text-brown-700 text-xs rounded-button font-medium">
+                            {bean.roast}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 가격 */}
+                      <div className="text-xl font-bold text-coffee-600">
+                        {bean.price}
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <div className="text-lg font-bold text-espresso">{bean.name}</div>
-                      <div className="text-xs text-mocha">향미: {bean.flavor}</div>
-                      {bean.desc && <div className="text-xs text-brown-700">{bean.desc}</div>}
-                      <div className="text-caramel font-bold">{bean.price} / 200g</div>
-                      <div className="flex justify-center">
+
+                      {/* 액션 버튼들 */}
+                      <div className="flex gap-2 pt-2">
                         <button
-                          onClick={() => bean.link && window.open(bean.link, "_blank")}
-                          className="px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition text-sm"
+                          onClick={() => toggleBasket(bean.id || bean.name)}
+                          className={`flex-1 px-4 py-2 rounded-button font-medium transition-all duration-200 ${
+                            basket.includes(bean.id || bean.name)
+                              ? "bg-orange-500 text-white hover:bg-orange-600"
+                              : "bg-coffee-500 text-white hover:bg-coffee-600"
+                          }`}
                         >
-                          구매하기
+                          {basket.includes(bean.id || bean.name) ? "🛒 담김" : "🛒 담기"}
                         </button>
+                        
+                        {bean.link && (
+                          <button
+                            onClick={() => window.open(bean.link, "_blank")}
+                            className="px-4 py-2 bg-brown-500 text-white rounded-button font-medium hover:bg-brown-600 transition-all duration-200"
+                          >
+                            구매
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
-      {/* 페이지네이션 UI */}
+
+              {/* 페이지네이션 */}
       {totalPages > 1 && (
-        <div className="flex gap-2 mt-8">
+                <div className="flex justify-center items-center gap-2">
           <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
-            className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-white/80 backdrop-blur-sm rounded-button text-brown-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-coffee-100 transition-all duration-200"
           >
             이전
           </button>
-          {Array.from({ length: totalPages }, (_, i) => (
+                  
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      const page = i + 1;
+                      return (
             <button
-              key={i + 1}
-              onClick={() => setCurrentPage(i + 1)}
-              className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'bg-mocha text-white' : 'bg-gray-100 text-gray-700'}`}
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-10 h-10 rounded-button font-medium transition-all duration-200 ${
+                            currentPage === page
+                              ? "bg-coffee-500 text-white"
+                              : "bg-white/80 text-brown-700 hover:bg-coffee-100"
+                          }`}
             >
-              {i + 1}
+                          {page}
             </button>
-          ))}
+                      );
+                    })}
+                  </div>
+                  
           <button
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
-            className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-white/80 backdrop-blur-sm rounded-button text-brown-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-coffee-100 transition-all duration-200"
           >
             다음
           </button>
         </div>
       )}
-      {/* 오른쪽 하단 플로팅 장바구니 버튼 */}
+            </>
+          )}
+        </div>
+      </main>
+
+      {/* 플로팅 장바구니 */}
+      {basket.length > 0 && (
       <button
-        className="fixed bottom-6 right-6 z-50 bg-mocha text-white rounded-full shadow-lg w-16 h-16 flex items-center justify-center text-3xl hover:bg-espresso transition-all duration-200"
-        onClick={() => router.push("/basket")}
-        aria-label="장바구니 열기"
+          onClick={() => router.push('/cart')}
+          className="fixed bottom-6 right-6 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 z-50"
       >
-        🛒
-        {basket.length > 0 && (
-          <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+          <span className="text-2xl">🛒</span>
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
             {basket.length}
           </span>
-        )}
-      </button>
-    </main>
+        </button>
+      )}
+
+      {/* 드래그 가능한 플로팅 챗봇 */}
+      <div
+        style={{
+          position: 'fixed',
+          left: chatbotPosition.x || (basket.length > 0 ? 'calc(100vw - 100px)' : 'calc(100vw - 100px)'),
+          top: chatbotPosition.y || (basket.length > 0 ? 'calc(100vh - 180px)' : 'calc(100vh - 100px)'),
+          zIndex: 50,
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
+      >
+        <button
+          onClick={() => !isDragging && setShowChatbot(true)}
+          onMouseDown={handleMouseDown}
+          className="relative w-20 h-20 bg-gradient-to-br from-amber-600 via-orange-500 to-amber-700 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 group"
+        >
+          {/* 커피 머그컵 디자인 */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 opacity-80"></div>
+          
+          {/* 머그컵 몸체 */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-8 bg-gradient-to-b from-brown-600 to-brown-800 rounded-md shadow-inner">
+            {/* 커피 표면 */}
+            <div className="absolute top-1 left-1 right-1 h-1.5 bg-gradient-to-r from-amber-900 to-brown-900 rounded-full"></div>
+            
+            {/* 김 */}
+            <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
+              <div className="w-0.5 h-2 bg-white opacity-60 rounded-full animate-pulse"></div>
+            </div>
+            <div className="absolute -top-1.5 left-1/2 transform -translate-x-1/2 translate-x-1">
+              <div className="w-0.5 h-1.5 bg-white opacity-40 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
+            </div>
+            <div className="absolute -top-1.5 left-1/2 transform -translate-x-1/2 -translate-x-1">
+              <div className="w-0.5 h-1.5 bg-white opacity-40 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
+            </div>
+          </div>
+          
+          {/* 머그컵 손잡이 */}
+          <div className="absolute top-1/2 right-2 transform -translate-y-1/2 w-2 h-4 border-2 border-brown-700 rounded-r-full"></div>
+          
+          {/* AI 표시 */}
+          <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+            AI
+          </div>
+          
+          {/* 호버 효과 */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+        </button>
+        
+        {/* 안내 텍스트 */}
+        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-brown-600 text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          드래그하여 이동
+        </div>
+      </div>
+
+      {/* 챗봇 모달 */}
+      {showChatbot && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-card shadow-xl max-w-lg w-full max-h-[600px] overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-500 to-blue-600 text-white p-4 flex justify-between items-center">
+              <h3 className="text-xl font-bold">🤖 AI 감성 추천</h3>
+              <button 
+                onClick={() => setShowChatbot(false)}
+                className="text-white hover:text-gray-200 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <form onSubmit={handleGptRecommend} className="flex gap-3 mb-4">
+                <input
+                  type="text"
+                  value={gptInput}
+                  onChange={e => setGptInput(e.target.value)}
+                  className="flex-1 bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 placeholder-brown-400 focus:outline-none focus:ring-2 focus:ring-coffee-400 focus:border-transparent"
+                  placeholder="기분/날씨/취향을 입력해보세요!"
+                  disabled={gptLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={gptLoading || !gptInput.trim()}
+                  className="px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-600 rounded-button text-white font-medium shadow-lg hover:shadow-hover transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ✨
+                </button>
+              </form>
+              
+              {gptLoading && (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-purple-500 border-t-transparent mx-auto mb-2"></div>
+                  <p className="text-brown-600">AI가 생각 중...</p>
+                </div>
+              )}
+              {gptError && <div className="text-center text-red-600 py-4">{gptError}</div>}
+              
+              <div className="max-h-96 overflow-y-auto">
+                {recommendations.length > 0 && (
+                  <div className="space-y-4">
+                    {recommendations.map((rec, idx) => {
+                      const bean = getBeanDetail(rec.name);
+                      return (
+                        <div 
+                          key={idx} 
+                          className="bg-coffee-50 rounded-card p-4 border border-coffee-100 hover:shadow-lg transition-all duration-300"
+                        >
+                          <div className="flex gap-4 items-center">
+                            <Image 
+                              src={bean?.image || "/beans/default.jpg"} 
+                              alt={rec.name} 
+                              width={60} 
+                              height={60} 
+                              className="rounded-card object-cover" 
+                            />
+                            <div className="flex-1">
+                              <h4 className="font-bold text-base text-brown-800 mb-1">{rec.name}</h4>
+                              <p className="text-sm text-brown-600 mb-2">{rec.reason}</p>
+                              {bean && (
+                                <p className="text-coffee-600 font-bold text-sm">{bean.price}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes blob {
+          0% { transform: translate(0px, 0px) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+          100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
+    </div>
   );
 } 

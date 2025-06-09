@@ -49,18 +49,18 @@ schedule:
 ## 🛠️ 설치 및 설정
 
 ### 1. 저장소 클론 및 의존성 설치
-```bash
+   ```bash
 # 저장소 클론
-git clone https://github.com/yourusername/coffee-crawler.git
-cd coffee-crawler
+   git clone https://github.com/yourusername/coffee-crawler.git
+   cd coffee-crawler
 
-# Python 가상 환경 설정
-python -m venv venv
-venv\Scripts\activate  # Windows
-source venv/bin/activate  # macOS/Linux
+   # Python 가상 환경 설정
+   python -m venv venv
+   venv\Scripts\activate  # Windows
+   source venv/bin/activate  # macOS/Linux
 
-# 의존성 설치
-pip install -r requirements.txt
+   # 의존성 설치
+   pip install -r requirements.txt
 
 # 웹 애플리케이션 의존성 설치
 npm install
@@ -99,7 +99,7 @@ python scripts/run_crawler.py --all --output data/beans.json --dry-run
 ```
 
 ### 웹 애플리케이션 실행
-```bash
+   ```bash
 # 개발 서버 실행
 npm run dev
 

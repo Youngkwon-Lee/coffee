@@ -73,6 +73,72 @@ export default function RecordManualPage() {
   const [myRecords, setMyRecords] = useState<RecordData[]>([]);
   const [loadingRecords, setLoadingRecords] = useState(true);
 
+  // 자주 사용한 원두/카페 분석
+  const [frequentBeans, setFrequentBeans] = useState<string[]>([]);
+  const [recentBeans, setRecentBeans] = useState<string[]>([]);
+  const [preferredFlavors, setPreferredFlavors] = useState<string[]>([]);
+  
+  useEffect(() => {
+    async function analyzeUserPreferences() {
+      if (!userId) return;
+      
+      try {
+        // 최근 20개 기록 가져오기
+        const q = query(
+          collection(db, `users/${userId}/records`), 
+          orderBy("createdAt", "desc"), 
+          limit(20)
+        );
+        const snap = await getDocs(q);
+        const records = snap.docs.map(doc => doc.data() as RecordData);
+        
+        // 원두 빈도 분석
+        const beanFrequency: { [key: string]: number } = {};
+        const flavorFrequency: { [key: string]: number } = {};
+        
+        records.forEach(record => {
+          // 원두 빈도
+          if (record.bean) {
+            beanFrequency[record.bean] = (beanFrequency[record.bean] || 0) + 1;
+          }
+          
+          // 향미 빈도
+          if (record.flavor && Array.isArray(record.flavor)) {
+            record.flavor.forEach(flavor => {
+              flavorFrequency[flavor] = (flavorFrequency[flavor] || 0) + 1;
+            });
+          }
+        });
+        
+        // 자주 사용한 원두 (2회 이상)
+        const frequentBeanList = Object.entries(beanFrequency)
+          .filter(([_, count]) => count >= 2)
+          .sort(([,a], [,b]) => b - a)
+          .map(([bean]) => bean)
+          .slice(0, 6);
+        
+        // 최근 사용한 원두 (중복 제거)
+        const recentBeanList = [...new Set(records.map(r => r.bean).filter(Boolean))].slice(0, 5);
+        
+        // 선호하는 향미 (2회 이상)
+        const preferredFlavorList = Object.entries(flavorFrequency)
+          .filter(([_, count]) => count >= 2)
+          .sort(([,a], [,b]) => b - a)
+          .map(([flavor]) => flavor)
+          .slice(0, 6);
+        
+        setFrequentBeans(frequentBeanList);
+        setRecentBeans(recentBeanList);
+        setPreferredFlavors(preferredFlavorList);
+        
+      } catch (error) {
+        console.error("사용자 선호도 분석 오류:", error);
+      }
+    }
+    
+    analyzeUserPreferences();
+  }, [userId]);
+
   // 위치 기반 가까운 카페 추천
   function getDistance(lat1: number, lng1: number, lat2: number, lng2: number) {
     const R = 6371; // km
@@ -202,18 +268,61 @@ export default function RecordManualPage() {
       alert("로그인이 필요합니다.");
       return;
     }
+
+    // 필수 데이터 검증
+    if (!data.bean || !data.cafe || !data.flavor || data.flavor.length === 0) {
+      alert("원두명, 카페명, 향미는 필수 입력 항목입니다.");
+      return;
+    }
+
     try {
-      await addDoc(collection(db, `users/${userId}/records`), {
-        ...data,
+      const recordData = {
+        bean: data.bean.trim(),
+        cafe: data.cafe.trim(),
+        flavor: data.flavor.filter(f => f.trim() !== ""), // 빈 향미 제거
+        mood: data.mood || null,
+        rating: data.rating || null,
+        review: data.review?.trim() || null,
         createdAt: new Date().toISOString(),
-      });
+        updatedAt: new Date().toISOString()
+      };
+
+      console.log("저장할 데이터:", recordData); // 디버깅용
+
+      await addDoc(collection(db, `users/${userId}/records`), recordData);
+      
       alert("기록이 저장되었습니다!");
+      
       // 저장 후 기록 새로고침
+      try {
       const q = query(collection(db, `users/${userId}/records`), orderBy("createdAt", "desc"), limit(3));
       const snap = await getDocs(q);
       setMyRecords(snap.docs.map(doc => doc.data() as RecordData));
-    } catch {
-      alert("저장 중 오류가 발생했습니다.");
+      } catch (fetchError) {
+        console.error("기록 새로고침 오류:", fetchError);
+        // 새로고침 실패해도 저장은 성공했으므로 계속 진행
+      }
+
+      // 성공 시 초기화
+      setData({ bean: "", cafe: "", flavor: [] });
+      setStep("bean");
+      setChat([{ type: "bot", text: "안녕하세요! 오늘 마신 커피 원두를 알려주세요 😊" }]);
+      
+    } catch (error) {
+      console.error("저장 오류:", error);
+      
+      // 구체적인 오류 메시지 제공
+      if (error instanceof Error) {
+        if (error.message.includes("permission-denied")) {
+          alert("데이터베이스 접근 권한이 없습니다. 다시 로그인해주세요.");
+        } else if (error.message.includes("network")) {
+          alert("네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.");
+        } else {
+          alert(`저장 중 오류가 발생했습니다: ${error.message}`);
+        }
+      } else {
+        alert("저장 중 알 수 없는 오류가 발생했습니다. 다시 시도해주세요.");
+      }
     }
   };
 
@@ -250,27 +359,98 @@ export default function RecordManualPage() {
   }, [step]);
 
   return (
-    <div className="p-4 max-w-lg mx-auto">
-      <h1 className="text-xl font-bold mb-4">☕️ 커피 기록 챗봇</h1>
-      <div className="flex flex-col gap-2 mb-4">
+    <div className="min-h-screen bg-gradient-to-br from-cream-50 via-coffee-50 to-cream-100 pt-20 pb-20">
+      <div className="container mx-auto px-4 max-w-3xl">
+        {/* 헤더 */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-display font-bold text-brown-800 mb-4">
+            ✍️ 직접 입력하기
+          </h1>
+          <p className="text-brown-600">AI 어시스턴트와 대화하며 커피 기록을 남겨보세요</p>
+        </div>
+
+        {/* AI 어시스턴트 메인 채팅 영역 */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-6">
+          <h2 className="text-lg font-display font-bold text-brown-800 mb-4">💬 AI 어시스턴트</h2>
+          
+          <div className="flex flex-col gap-3 h-[400px] overflow-y-auto p-4 bg-coffee-50 rounded-card border border-coffee-100 mb-4">
         {chat.map((msg, idx) => (
           <div
             key={idx}
-            className={`max-w-[80%] px-4 py-2 rounded-2xl text-sm whitespace-pre-line
-              ${msg.type === "bot" ? "bg-gray-100 self-start" : "bg-yellow-200 self-end"}
-            `}
+                className={`max-w-[85%] transition-all duration-200 ${
+                  msg.type === "bot" ? "self-start" : "self-end"
+                }`}
+              >
+                <div
+                  className={`px-4 py-3 rounded-button text-sm whitespace-pre-line ${
+                    msg.type === "bot" 
+                      ? "bg-white text-brown-700 shadow-sm border border-coffee-200" 
+                      : "bg-gradient-to-r from-coffee-500 to-coffee-600 text-white shadow-lg"
+                  }`}
           >
             {msg.text}
+                </div>
           </div>
         ))}
       </div>
+
+          {/* 원두 선택 */}
       {step === "bean" && (
-        <div className="mb-4">
-          <div className="flex flex-wrap gap-2 mb-2">
+            <div className="space-y-4">
+              {/* 자주 사용한 원두 */}
+              {frequentBeans.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-brown-700 mb-3">⭐ 자주 사용한 원두</label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {frequentBeans.map(bean => (
+                      <button
+                        key={bean}
+                        className="px-4 py-2 rounded-button bg-coffee-500 text-white font-medium shadow-lg hover:shadow-hover transition-all duration-200"
+                        onClick={() => {
+                          setData(d => ({ ...d, bean }));
+                          setChat(prev => [...prev, { type: "user", text: bean }]);
+                          setChat(prev => [...prev, { type: "bot", text: "카페명을 입력해 주세요!" }]);
+                          setStep("cafe");
+                        }}
+                      >
+                        ⭐ {bean}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 최근 사용한 원두 */}
+              {recentBeans.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-brown-700 mb-3">🕒 최근 사용한 원두</label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {recentBeans.filter(bean => !frequentBeans.includes(bean)).map(bean => (
+                      <button
+                        key={bean}
+                        className="px-4 py-2 rounded-button bg-brown-400 text-white font-medium hover:bg-brown-500 transition-colors duration-200"
+                        onClick={() => {
+                          setData(d => ({ ...d, bean }));
+                          setChat(prev => [...prev, { type: "user", text: bean }]);
+                          setChat(prev => [...prev, { type: "bot", text: "카페명을 입력해 주세요!" }]);
+                          setStep("cafe");
+                        }}
+                      >
+                        🕒 {bean}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 원산지별 원두 */}
+              <div>
+                <label className="block text-sm font-medium text-brown-700 mb-3">🌍 원산지별 원두</label>
+                <div className="flex flex-wrap gap-2 mb-3">
             {BEAN_ORIGINS.map((origin: BeanOrigin) => (
               <button
                 key={origin.origin}
-                className="px-3 py-1 rounded-full border bg-yellow-100"
+                      className="px-4 py-2 rounded-button border bg-coffee-100 hover:bg-coffee-200 text-brown-700 font-medium transition-colors duration-200"
                 onClick={() => {
                   setInput(origin.origin);
                   setOpenOrigin(openOrigin === origin.origin ? null : origin.origin);
@@ -284,13 +464,17 @@ export default function RecordManualPage() {
               </button>
             ))}
           </div>
+                
+                {/* 품종 버튼들 */}
           {BEAN_ORIGINS.map((origin: BeanOrigin) => (
             openOrigin === origin.origin && (
-              <div key={origin.origin} className="flex flex-wrap gap-2 mb-2 ml-4">
+                    <div key={origin.origin} className="p-3 bg-coffee-50 rounded-card border border-coffee-200">
+                      <p className="text-sm font-medium text-brown-700 mb-2">{origin.origin} 품종:</p>
+                      <div className="flex flex-wrap gap-2">
                 {origin.varieties.map((variety: string) => (
                   <button
                     key={variety}
-                    className="px-3 py-1 rounded-full border bg-yellow-400 text-white font-bold"
+                            className="px-3 py-2 rounded-button bg-gradient-to-r from-coffee-500 to-coffee-600 text-white font-medium shadow-lg hover:shadow-hover transition-all duration-200"
                     onClick={() => {
                       setData(d => ({ ...d, bean: `${origin.origin} ${variety}` }));
                       setChat(prev => [...prev, { type: "user", text: `${origin.origin} ${variety}` }]);
@@ -302,35 +486,46 @@ export default function RecordManualPage() {
                     {variety}
                   </button>
                 ))}
+                      </div>
               </div>
             )
           ))}
-          <form onSubmit={handleSubmit} className="flex gap-2 mt-2">
+              </div>
+              
+              {/* 직접 입력 */}
+              <div>
+                <label className="block text-sm font-medium text-brown-700 mb-2">✏️ 직접 입력</label>
+                <form onSubmit={handleSubmit} className="flex gap-3">
             <input
               id="bean-input"
-              className="flex-1 border rounded-lg px-3 py-2"
+                    className="flex-1 px-4 py-3 border border-coffee-200 rounded-button bg-white text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400 focus:border-transparent transition-all duration-200"
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="직접 입력도 가능합니다"
+                    placeholder="원두명을 입력하세요"
               autoFocus
             />
-            <button className="px-4 py-2 bg-yellow-400 rounded-lg font-bold" type="submit">
-              입력
+                  <button className="px-6 py-3 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-button font-medium shadow-lg hover:shadow-hover transition-all duration-200" type="submit">
+                    다음
             </button>
           </form>
+              </div>
         </div>
       )}
+
+          {/* 카페 선택 */}
       {step === "cafe" && (
-        <div className="mb-4">
-          <div className="mb-2 text-xs text-gray-500">가까운 카페</div>
-          <div className="flex flex-wrap gap-2 mb-2">
+            <div className="space-y-4">
+              {/* 가까운 카페 */}
+              <div>
+                <label className="block text-sm font-medium text-brown-700 mb-2">가까운 카페</label>
+                <div className="flex flex-wrap gap-2 mb-3">
             {geoError ? (
-              <span className="text-xs text-gray-400">{geoError}</span>
+                    <span className="text-sm text-brown-500 p-2">{geoError}</span>
             ) : nearbyCafes.length > 0 ? (
               nearbyCafes.map(cafe => (
                 <button
                   key={cafe.name}
-                  className="px-3 py-1 rounded-full border bg-yellow-100"
+                        className="px-4 py-2 rounded-button border bg-coffee-100 hover:bg-coffee-200 text-brown-700 font-medium transition-colors duration-200"
                   onClick={() => {
                     setData(d => ({ ...d, cafe: cafe.name }));
                     setChat(prev => [...prev, { type: "user", text: cafe.name }]);
@@ -338,22 +533,26 @@ export default function RecordManualPage() {
                     setStep("flavor");
                   }}
                 >
-                  {cafe.name} <span className="text-xs text-gray-500">({cafe.distance.toFixed(1)}km)</span>
+                        {cafe.name} <span className="text-xs text-brown-500">({cafe.distance.toFixed(1)}km)</span>
                 </button>
               ))
             ) : (
-              <span className="text-xs text-gray-400">위치 정보를 불러오는 중...</span>
+                    <span className="text-sm text-brown-500 p-2">위치 정보를 불러오는 중...</span>
             )}
           </div>
-          <div className="mb-2 text-xs text-gray-500">자주 간 카페</div>
-          <div className="flex flex-wrap gap-2 mb-2">
+              </div>
+
+              {/* 자주 간 카페 */}
+              <div>
+                <label className="block text-sm font-medium text-brown-700 mb-2">자주 간 카페</label>
+                <div className="flex flex-wrap gap-2 mb-3">
             {frequentLoading ? (
-              <span className="text-xs text-gray-400">불러오는 중...</span>
+                    <span className="text-sm text-brown-500 p-2">불러오는 중...</span>
             ) : frequentCafes.length > 0 ? (
               frequentCafes.map(cafe => (
                 <button
                   key={cafe}
-                  className="px-3 py-1 rounded-full border bg-rose-100"
+                        className="px-4 py-2 rounded-button border bg-brown-100 hover:bg-brown-200 text-brown-700 font-medium transition-colors duration-200"
                   onClick={() => {
                     setData(d => ({ ...d, cafe }));
                     setChat(prev => [...prev, { type: "user", text: cafe }]);
@@ -365,48 +564,91 @@ export default function RecordManualPage() {
                 </button>
               ))
             ) : (
-              <span className="text-xs text-gray-400">기록이 없습니다.</span>
+                    <span className="text-sm text-brown-500 p-2">기록이 없습니다.</span>
             )}
           </div>
-          <form onSubmit={handleSubmit} className="flex gap-2 mt-2">
+              </div>
+
+              {/* 직접 입력 */}
+              <div>
+                <label className="block text-sm font-medium text-brown-700 mb-2">직접 입력</label>
+                <form onSubmit={handleSubmit} className="flex gap-3">
             <input
-              className="flex-1 border rounded-lg px-3 py-2"
+                    className="flex-1 px-4 py-3 border border-coffee-200 rounded-button bg-white text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400 focus:border-transparent transition-all duration-200"
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="직접 입력도 가능합니다"
+                    placeholder="카페명을 입력하세요"
               autoFocus
             />
-            <button className="px-4 py-2 bg-yellow-400 rounded-lg font-bold" type="submit">
-              입력
+                  <button className="px-6 py-3 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-button font-medium shadow-lg hover:shadow-hover transition-all duration-200" type="submit">
+                    다음
             </button>
           </form>
+              </div>
         </div>
       )}
-      {step !== "done" && step !== "flavor" && step !== "mood" && step !== "rating" && step !== "review" && step !== "bean" && step !== "cafe" && (
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
-            className="flex-1 border rounded-lg px-3 py-2"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="입력하세요"
-            autoFocus
-          />
-          <button className="px-4 py-2 bg-yellow-400 rounded-lg font-bold" type="submit">
-            입력
+
+          {/* 향미 선택 */}
+          {step === "flavor" && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-brown-700 mb-3">향미 (여러 개 선택 가능)</label>
+                
+                {/* 선호하는 향미 (자주 사용한 향미) */}
+                {preferredFlavors.length > 0 && (
+                  <div className="mb-4 p-3 bg-gradient-to-r from-coffee-100 to-brown-100 rounded-card border border-coffee-200">
+                    <p className="text-sm font-medium text-brown-800 mb-2">⭐ 자주 선택한 향미</p>
+                    <div className="flex flex-wrap gap-2">
+                      {preferredFlavors.map(flavor => (
+                        <button
+                          key={flavor}
+                          type="button"
+                          className={`px-3 py-1 rounded-button border transition-all duration-200 text-xs font-medium ${
+                            selectedFlavors.includes(flavor)
+                              ? "bg-coffee-500 text-white border-coffee-500 shadow-lg"
+                              : "bg-coffee-300 text-white border-coffee-300 hover:bg-coffee-400"
+                          }`}
+                          onClick={() => handleFlavorClick(flavor)}
+                        >
+                          ⭐ {flavor}
           </button>
-        </form>
-      )}
-      {step === "flavor" && (
-        <>
-          <div className="mb-4">
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* 선택된 향미 표시 */}
+                {selectedFlavors.length > 0 && (
+                  <div className="mb-4 p-3 bg-white rounded-card border border-coffee-100">
+                    <p className="text-sm font-medium text-brown-800 mb-2">선택된 향미:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedFlavors.map(flavor => (
+                        <div 
+                          key={flavor} 
+                          className="flex items-center gap-2 px-3 py-1 bg-coffee-500 text-white rounded-button font-medium text-sm"
+                        >
+                          <span>{flavor}</span>
+                          <button 
+                            type="button" 
+                            className="w-4 h-4 bg-coffee-600 hover:bg-coffee-700 rounded-full flex items-center justify-center transition-colors duration-200 text-xs"
+                            onClick={() => handleFlavorClick(flavor)}
+                          >✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 향미 카테고리 */}
+                <div className="space-y-2 mb-4">
             {FLAVOR_CATEGORIES.map(cat => (
-              <div key={cat.category} className="mb-2">
+                    <div key={cat.category}>
                 <button
                   type="button"
-                  className="w-full text-left px-3 py-2 bg-yellow-100 rounded font-bold"
+                        className="w-full text-left px-3 py-2 bg-coffee-200 hover:bg-coffee-300 rounded-button font-medium text-brown-800 transition-colors duration-200 text-sm"
                   onClick={() => handleCategoryToggle(cat.category)}
                 >
-                  {cat.category}
+                        {cat.category} {openCategories.includes(cat.category) ? '▼' : '▶'}
                 </button>
                 {openCategories.includes(cat.category) && (
                   <div className="flex flex-wrap gap-2 mt-2 ml-4">
@@ -414,10 +656,10 @@ export default function RecordManualPage() {
                       <button
                         key={flavor}
                         type="button"
-                        className={`px-3 py-1 rounded-full border transition-all duration-150 ${
+                              className={`px-3 py-1 rounded-button border transition-all duration-200 text-xs font-medium ${
                           selectedFlavors.includes(flavor)
-                            ? "bg-yellow-400 text-white font-bold border-yellow-400"
-                            : "bg-white text-gray-700 border-gray-300"
+                                  ? "bg-coffee-500 text-white border-coffee-500 shadow-lg"
+                                  : "bg-white text-brown-700 border-coffee-200 hover:bg-coffee-50"
                         }`}
                         onClick={() => handleFlavorClick(flavor)}
                       >
@@ -429,119 +671,170 @@ export default function RecordManualPage() {
               </div>
             ))}
           </div>
+
           <button
-            className="px-4 py-2 bg-yellow-400 rounded-lg font-bold mb-4"
+                  className="w-full px-6 py-3 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-button font-medium shadow-lg hover:shadow-hover transition-all duration-200 disabled:opacity-50"
             onClick={handleFlavorNext}
             disabled={selectedFlavors.length === 0}
           >
             다음
           </button>
-        </>
+              </div>
+            </div>
       )}
+
+          {/* 기분 선택 */}
       {step === "mood" && (
-        <div className="flex flex-wrap gap-2 mb-4">
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-brown-700">오늘의 기분</label>
+              <div className="flex flex-wrap gap-3">
           {MOOD_OPTIONS.map(opt => (
             <button
               key={opt.label}
-              className="px-3 py-2 rounded-full border bg-white text-2xl"
+                    className="flex items-center gap-2 px-4 py-3 rounded-button border bg-white hover:bg-coffee-50 text-brown-700 font-medium transition-colors duration-200"
               onClick={() => handleMood(opt.emoji + ' ' + opt.label)}
             >
-              {opt.emoji} <span className="text-base ml-1">{opt.label}</span>
+                    <span className="text-xl">{opt.emoji}</span>
+                    <span>{opt.label}</span>
             </button>
           ))}
           <button
-            className="px-3 py-2 rounded-full border bg-gray-200"
+                  className="px-4 py-3 rounded-button border bg-brown-100 hover:bg-brown-200 text-brown-700 font-medium transition-colors duration-200"
             onClick={() => handleMood(undefined)}
           >
-            Skip
+                  건너뛰기
           </button>
+              </div>
         </div>
       )}
+
+          {/* 별점 선택 */}
       {step === "rating" && (
-        <div className="flex items-center gap-2 mb-4">
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-brown-700">평점</label>
+              <div className="flex items-center gap-4">
+                <div className="flex gap-1">
           {Array.from({ length: 5 }, (_, i) => (
             <button
               key={i}
-              className="text-4xl p-0 m-0 bg-transparent border-none"
-              style={{ cursor: "pointer" }}
+                      className="text-4xl transition-all duration-200 hover:scale-110"
               onClick={() => handleRating(i + 1)}
               aria-label={`${i + 1}점`}
             >
               {data.rating && data.rating >= i + 1 ? "⭐" : "☆"}
             </button>
           ))}
+                </div>
           <button
-            className="px-3 py-2 rounded-full border bg-gray-200 ml-2"
+                  className="px-4 py-3 rounded-button border bg-brown-100 hover:bg-brown-200 text-brown-700 font-medium transition-colors duration-200"
             onClick={() => handleRating(undefined)}
           >
-            Skip
+                  건너뛰기
           </button>
+              </div>
         </div>
       )}
+
+          {/* 한줄평 입력 */}
       {step === "review" && (
+            <div className="space-y-4">
         <form
           onSubmit={e => {
             e.preventDefault();
             handleReview(input.trim() || undefined);
           }}
-          className="flex gap-2"
+                className="space-y-3"
         >
-          <input
-            className="flex-1 border rounded-lg px-3 py-2"
+                <label className="block text-sm font-medium text-brown-700">한줄평</label>
+                <textarea
+                  className="w-full px-4 py-3 border border-coffee-200 rounded-button bg-white text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400 focus:border-transparent transition-all duration-200 resize-none"
+                  rows={3}
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="오늘 커피에 대해 한 줄로 남겨볼까요? (스킵 가능)"
+                  placeholder="오늘 커피에 대해 한 줄로 남겨볼까요? (건너뛰기 가능)"
             autoFocus
           />
-          <button className="px-4 py-2 bg-yellow-400 rounded-lg font-bold" type="submit">
-            입력
+                <div className="flex gap-3">
+                  <button className="flex-1 px-6 py-3 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-button font-medium shadow-lg hover:shadow-hover transition-all duration-200" type="submit">
+                    완료
           </button>
           <button
             type="button"
-            className="px-3 py-2 rounded-full border bg-gray-200"
+                    className="px-4 py-3 rounded-button border bg-brown-100 hover:bg-brown-200 text-brown-700 font-medium transition-colors duration-200"
             onClick={() => handleReview(undefined)}
           >
-            Skip
+                    건너뛰기
           </button>
+                </div>
         </form>
+            </div>
       )}
+
+          {/* 저장 확인 */}
       {step === "done" && (
-        <div className="mt-4 p-4 bg-white rounded-lg shadow">
-          <div className="mb-2">☕️ <b>원두명:</b> {data.bean}</div>
-          <div className="mb-2">🏠 <b>카페명:</b> {data.cafe}</div>
-          <div className="mb-2">🌸 <b>향미:</b> {data.flavor.join(", ")}</div>
-          {data.mood && <div className="mb-2">🧘 <b>오늘 기분:</b> {data.mood}</div>}
-          {data.rating && <div className="mb-2">⭐ <b>별점:</b> {"⭐".repeat(data.rating)}</div>}
-          {data.review && <div className="mb-2">💬 <b>한줄 감상:</b> {data.review}</div>}
+            <div className="space-y-6">
+              <div className="p-4 bg-coffee-50 rounded-card border border-coffee-200">
+                <h3 className="text-lg font-medium text-brown-800 mb-4">기록 확인</h3>
+                <div className="space-y-2 text-sm text-brown-700">
+                  <div><span className="font-medium">☕️ 원두:</span> {data.bean}</div>
+                  <div><span className="font-medium">🏠 카페:</span> {data.cafe}</div>
+                  <div><span className="font-medium">🌸 향미:</span> {data.flavor.join(", ")}</div>
+                  {data.mood && <div><span className="font-medium">🧘 기분:</span> {data.mood}</div>}
+                  {data.rating && <div><span className="font-medium">⭐ 별점:</span> {"⭐".repeat(data.rating)}</div>}
+                  {data.review && <div><span className="font-medium">💬 감상:</span> {data.review}</div>}
+                </div>
+              </div>
           <button
-            className="mt-2 px-4 py-2 bg-rose-400 text-white rounded-lg font-bold"
+                className="w-full px-6 py-4 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-button font-medium shadow-lg hover:shadow-hover transition-all duration-200"
             onClick={handleSave}
           >
-            기록 저장
+                💾 기록 저장하기
           </button>
         </div>
       )}
-      {/* 내 최근 기록 요약 */}
-      <div className="mb-6">
-        <h2 className="text-lg font-bold mb-2">내 최근 기록 요약</h2>
+
+          {/* 기본 입력 (다른 단계들) */}
+          {step !== "done" && step !== "flavor" && step !== "mood" && step !== "rating" && step !== "review" && step !== "bean" && step !== "cafe" && (
+            <form onSubmit={handleSubmit} className="flex gap-3">
+              <input
+                className="flex-1 px-4 py-3 border border-coffee-200 rounded-button bg-white text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400 focus:border-transparent transition-all duration-200"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="입력하세요"
+                autoFocus
+              />
+              <button className="px-6 py-3 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-button font-medium shadow-lg hover:shadow-hover transition-all duration-200" type="submit">
+                다음
+              </button>
+            </form>
+          )}
+
+        </div>
+
+        {/* 내 최근 기록 */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-6 mt-6">
+          <h3 className="text-lg font-display font-bold text-brown-800 mb-4">📚 내 최근 기록</h3>
         {loadingRecords ? (
-          <div>불러오는 중...</div>
+            <div className="text-center py-4 text-brown-600">불러오는 중...</div>
         ) : myRecords.length === 0 ? (
-          <div>최근 기록이 없습니다.</div>
+            <div className="text-center py-4 text-brown-500">최근 기록이 없습니다.</div>
         ) : (
-          <ul className="space-y-2">
+            <div className="space-y-2">
             {myRecords.map((rec, i) => (
-              <li key={i} className="p-2 bg-amber-50 rounded shadow">
-                <div>☕️ <b>원두명:</b> {rec.bean}</div>
-                <div>🏠 <b>카페명:</b> {rec.cafe}</div>
-                <div>🌸 <b>향미:</b> {rec.flavor?.join(", ")}</div>
-                {rec.mood && <div>🧘 <b>기분:</b> {rec.mood}</div>}
-                {rec.rating && <div>⭐ <b>별점:</b> {"⭐".repeat(rec.rating)}</div>}
-                {rec.review && <div>💬 <b>감상:</b> {rec.review}</div>}
-              </li>
+                <div key={i} className="p-3 bg-coffee-50 rounded-card border border-coffee-200">
+                  <div className="text-sm text-brown-700 space-y-1">
+                    <div><span className="font-medium">☕️ 원두:</span> {rec.bean}</div>
+                    <div><span className="font-medium">🏠 카페:</span> {rec.cafe}</div>
+                    <div><span className="font-medium">🌸 향미:</span> {rec.flavor?.join(", ")}</div>
+                    {rec.mood && <div><span className="font-medium">🧘 기분:</span> {rec.mood}</div>}
+                    {rec.rating && <div><span className="font-medium">⭐ 별점:</span> {"⭐".repeat(rec.rating)}</div>}
+                    {rec.review && <div><span className="font-medium">💬 감상:</span> {rec.review}</div>}
+                  </div>
+                </div>
             ))}
-          </ul>
+            </div>
         )}
+        </div>
       </div>
     </div>
   );

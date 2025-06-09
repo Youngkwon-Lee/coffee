@@ -24,10 +24,10 @@ export default function FloatingAction() {
                 router.push("/record/photo");
                 setOpen(false);
               }}
-              className="flex flex-col items-center bg-white rounded-xl shadow-lg px-4 py-2 min-w-[90px]"
+              className="flex flex-col items-center bg-white/90 backdrop-blur-sm rounded-card shadow-card px-4 py-3 min-w-[90px] border border-coffee-200 hover:scale-105 hover:shadow-hover transition-all duration-200"
             >
               <span className="text-2xl">📷</span>
-              <span className="text-xs mt-1">사진 기록하기</span>
+              <span className="text-xs mt-1 text-brown-700 font-medium">사진 기록하기</span>
             </button>
             {/* 직접 입력하기 */}
             <button
@@ -35,10 +35,10 @@ export default function FloatingAction() {
                 router.push("/record/manual");
                 setOpen(false);
               }}
-              className="flex flex-col items-center bg-white rounded-xl shadow-lg px-4 py-2 min-w-[90px]"
+              className="flex flex-col items-center bg-white/90 backdrop-blur-sm rounded-card shadow-card px-4 py-3 min-w-[90px] border border-coffee-200 hover:scale-105 hover:shadow-hover transition-all duration-200"
             >
               <span className="text-2xl">✍️</span>
-              <span className="text-xs mt-1">직접 입력하기</span>
+              <span className="text-xs mt-1 text-brown-700 font-medium">직접 입력하기</span>
             </button>
           </motion.div>
         )}
@@ -46,10 +46,12 @@ export default function FloatingAction() {
       {/* 플로팅 + 버튼 */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-16 h-16 rounded-full bg-yellow-400 flex items-center justify-center shadow-xl text-3xl border-4 border-white"
+        className="w-16 h-16 rounded-full bg-gradient-to-r from-coffee-500 to-coffee-600 flex items-center justify-center shadow-hover text-3xl border-4 border-white hover:scale-110 transition-all duration-200"
         aria-label="기록 추가"
       >
+        <span className="text-white font-bold">
         {open ? "✕" : "+"}
+        </span>
       </button>
     </div>
   );

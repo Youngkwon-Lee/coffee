@@ -87,6 +87,7 @@ Thumbs.db
 venv/
 
 your-service-account-key.json
+firebase_credentials.json
 
 # Backend
 /coffee-backend/

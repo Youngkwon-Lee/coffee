@@ -66,7 +66,7 @@ class FirebaseClient:
             else:
                 logger.error("Firebase 인증 파일을 찾을 수 없습니다")
                 return
-        
+            
         self.db = firestore.client()
     
     def is_available(self) -> bool:
@@ -228,11 +228,11 @@ class FirebaseClient:
                     
                     # 비활성화
                     doc_ref = self.db.collection('beans').document(bean['id'])
-                    doc_ref.update({
+            doc_ref.update({
                         'isActive': False,
                         'lastUpdated': datetime.now()
-                    })
-                    
+            })
+            
                     logger.info(f"원두 비활성화: {bean.get('name')} ({bean.get('brand')})")
                     deactivated_count += 1
             
