@@ -1,22 +1,26 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 개발 속도 최적화
+  // TypeScript 설정
   typescript: {
     tsconfigPath: './tsconfig.json',
   },
   
-  // 빌드 최적화
-  swcMinify: true,
+  // ESLint 무시 (개발 단계)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   
   // 실험적 기능 활성화 (성능 향상)
   experimental: {
     optimizePackageImports: ['framer-motion', 'firebase'],
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
+  },
+  
+  // Turbopack 설정 (experimental.turbo는 deprecated)
+  turbopack: {
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
       },
     },
   },

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { auth } from "../firebase";
+import { auth } from "../../src/firebase";
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import Link from "next/link";
 import { ShoppingBagIcon, HeartIcon } from "@heroicons/react/24/outline";
