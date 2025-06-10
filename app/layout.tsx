@@ -3,8 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import { HomeIcon, MagnifyingGlassIcon, BookOpenIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
-import Header from "../src/components/Header";
-import FloatingAction from "../src/components/FloatingAction";
+import Header from "./components/Header";
+import FloatingAction from "./components/FloatingAction";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

@@ -128,74 +128,152 @@ export default function MainPageHero() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-red-50">
-      <div className="container mx-auto px-4 pt-20 pb-8">
+      <div className="container mx-auto px-4 pt-20 pb-32 max-w-6xl">
         
         {/* 개인화된 인사말 섹션 */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-16"
         >
-          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent mb-4">
-            {getGreeting()}
-          </h1>
+          <div className="mb-8">
+            <div className="text-6xl mb-4">☕</div>
+            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent mb-4">
+              {getGreeting()}
+            </h1>
+            <p className="text-gray-600 text-lg">오늘도 완벽한 커피 한 잔과 함께</p>
+          </div>
+          
           {user ? (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg max-w-6xl mx-auto">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                {user.displayName}님의 커피 여정 📊
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="text-center p-4 bg-amber-100 rounded-xl">
-                  <div className="text-3xl font-bold text-amber-700">{recentRecords.length || 0}</div>
-                  <div className="text-sm text-amber-600">총 기록</div>
-                </div>
-                <div className="text-center p-4 bg-orange-100 rounded-xl">
-                  <div className="text-2xl font-bold text-orange-700">
-                    {recentRecords.length > 0 ? 'Floral' : 'Floral'}
-                  </div>
-                  <div className="text-sm text-orange-600">선호 향미</div>
-                </div>
-                <div className="text-center p-4 bg-red-100 rounded-xl">
-                  <div className="text-lg font-bold text-red-700">
-                    {recentRecords.length > 0 ? 
-                      popularBeans.length > 0 ? popularBeans[0].brand : '원두 탐색 필요' : 
-                      '기록 필요'
-                    }
-                  </div>
-                  <div className="text-sm text-red-600">추천 브랜드</div>
+            <div className="space-y-8">
+              {/* 개인 통계 카드 */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-xl">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center justify-center gap-3">
+                  <span className="text-3xl">📊</span>
+                  {user.displayName || "커피 애호가"}님의 여정
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <motion.div 
+                    className="text-center p-6 bg-gradient-to-br from-amber-100 to-amber-200 rounded-2xl shadow-lg"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <div className="text-4xl font-bold text-amber-700 mb-2">{recentRecords.length || 0}</div>
+                    <div className="text-amber-600 font-medium">총 기록</div>
+                    <div className="text-xs text-amber-500 mt-1">누적된 커피 경험</div>
+                  </motion.div>
+                  <motion.div 
+                    className="text-center p-6 bg-gradient-to-br from-orange-100 to-orange-200 rounded-2xl shadow-lg"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <div className="text-3xl font-bold text-orange-700 mb-2">
+                      {recentRecords.length > 0 ? '🌸 Floral' : '🌸 Floral'}
+                    </div>
+                    <div className="text-orange-600 font-medium">선호 향미</div>
+                    <div className="text-xs text-orange-500 mt-1">개인 취향 분석</div>
+                  </motion.div>
+                  <motion.div 
+                    className="text-center p-6 bg-gradient-to-br from-red-100 to-red-200 rounded-2xl shadow-lg"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <div className="text-2xl font-bold text-red-700 mb-2">
+                      ⭐ {recentRecords.length > 0 ? 
+                        popularBeans.length > 0 ? popularBeans[0].brand : '탐색중' : 
+                        '시작하세요'
+                      }
+                    </div>
+                    <div className="text-red-600 font-medium">추천 브랜드</div>
+                    <div className="text-xs text-red-500 mt-1">AI 맞춤 추천</div>
+                  </motion.div>
                 </div>
               </div>
               
-              {/* 이메일 리포트 버튼 추가 */}
+              {/* 빠른 액션 버튼들 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl p-6 text-white shadow-xl"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold mb-2">새로운 기록</h3>
+                      <p className="text-purple-100">오늘의 커피를 기록해보세요</p>
+                    </div>
+                    <div className="text-4xl">📝</div>
+                  </div>
+                  <Link 
+                    href="/record"
+                    className="mt-4 inline-block bg-white/20 hover:bg-white/30 px-6 py-2 rounded-full transition-all"
+                  >
+                    기록하기 →
+                  </Link>
+                </motion.div>
+                
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  className="bg-gradient-to-r from-green-500 to-teal-500 rounded-2xl p-6 text-white shadow-xl"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold mb-2">카페 탐색</h3>
+                      <p className="text-green-100">새로운 카페를 찾아보세요</p>
+                    </div>
+                    <div className="text-4xl">🗺️</div>
+                  </div>
+                  <Link 
+                    href="/cafes"
+                    className="mt-4 inline-block bg-white/20 hover:bg-white/30 px-6 py-2 rounded-full transition-all"
+                  >
+                    탐색하기 →
+                  </Link>
+                </motion.div>
+              </div>
+              
+              {/* 이메일 리포트 및 기록 보기 */}
               {recentRecords.length > 0 && (
-                <div className="flex justify-center space-x-4">
+                <div className="flex flex-col sm:flex-row justify-center gap-4">
                   <Link 
                     href="/records"
-                    className="inline-flex items-center px-6 py-3 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+                    className="inline-flex items-center justify-center px-8 py-4 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-all duration-300 shadow-lg"
                   >
                     📊 전체 기록 보기
                   </Link>
                   <button
                     onClick={() => setShowEmailModal(true)}
-                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                    className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl"
                   >
-                    📧 이메일로 리포트 받기
+                    📧 이메일 리포트 받기
                   </button>
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg max-w-6xl mx-auto">
-              <p className="text-xl text-gray-600 mb-6">
-                나만의 커피 여정을 시작해보세요
-              </p>
-              <Link 
-                href="/login"
-                className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-full hover:from-amber-600 hover:to-orange-600 transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                로그인하고 시작하기 ☕
-              </Link>
-            </div>
+            <motion.div 
+              className="bg-white/90 backdrop-blur-sm rounded-3xl p-12 shadow-xl max-w-2xl mx-auto"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              <div className="text-center">
+                <div className="text-6xl mb-6">🌟</div>
+                <h2 className="text-3xl font-bold text-gray-800 mb-4">
+                  커피 여정을 시작해보세요
+                </h2>
+                <p className="text-xl text-gray-600 mb-8">
+                  매일의 커피 경험을 기록하고, 개인 맞춤 추천을 받아보세요
+                </p>
+                <div className="space-y-4">
+                  <Link 
+                    href="/login"
+                    className="inline-flex items-center px-10 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-lg rounded-2xl hover:from-amber-600 hover:to-orange-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    ✨ 지금 시작하기
+                  </Link>
+                  <div className="text-sm text-gray-500">
+                    이미 계정이 있으신가요? <Link href="/login" className="text-amber-600 hover:underline">로그인</Link>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           )}
         </motion.div>
 
