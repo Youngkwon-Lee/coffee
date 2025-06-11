@@ -72,6 +72,7 @@ export default function RecordManualPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [myRecords, setMyRecords] = useState<RecordData[]>([]);
   const [loadingRecords, setLoadingRecords] = useState(true);
+  const [hoveredRating, setHoveredRating] = useState<number>(0);
 
   // 자주 사용한 원두/카페 분석
   const [frequentBeans, setFrequentBeans] = useState<string[]>([]);
@@ -295,9 +296,11 @@ export default function RecordManualPage() {
       
       // 저장 후 기록 새로고침
       try {
-      const q = query(collection(db, `users/${userId}/records`), orderBy("createdAt", "desc"), limit(3));
-      const snap = await getDocs(q);
-      setMyRecords(snap.docs.map(doc => doc.data() as RecordData));
+        const q = query(collection(db, `users/${userId}/records`), orderBy("createdAt", "desc"), limit(5));
+        const snap = await getDocs(q);
+        const updatedRecords = snap.docs.map(doc => doc.data() as RecordData);
+        setMyRecords(updatedRecords);
+        console.log("기록 새로고침 완료:", updatedRecords.length, "개 기록");
       } catch (fetchError) {
         console.error("기록 새로고침 오류:", fetchError);
         // 새로고침 실패해도 저장은 성공했으므로 계속 진행
@@ -738,16 +741,21 @@ export default function RecordManualPage() {
               <label className="block text-sm font-medium text-brown-700">평점</label>
               <div className="flex items-center gap-4">
                 <div className="flex gap-1">
-          {Array.from({ length: 5 }, (_, i) => (
-            <button
-              key={i}
-                      className="text-4xl transition-all duration-200 hover:scale-110"
-              onClick={() => handleRating(i + 1)}
-              aria-label={`${i + 1}점`}
-            >
-              {data.rating && data.rating >= i + 1 ? "⭐" : "☆"}
-            </button>
-          ))}
+          {Array.from({ length: 5 }, (_, i) => {
+            const isActive = hoveredRating > 0 ? hoveredRating >= i + 1 : (data.rating || 0) >= i + 1;
+            return (
+              <button
+                key={i}
+                        className="text-4xl transition-all duration-200 hover:scale-110"
+                onClick={() => handleRating(i + 1)}
+                onMouseEnter={() => setHoveredRating(i + 1)}
+                onMouseLeave={() => setHoveredRating(0)}
+                aria-label={`${i + 1}점`}
+              >
+                {isActive ? "⭐" : "☆"}
+              </button>
+            );
+          })}
                 </div>
           <button
                   className="px-4 py-3 rounded-button border bg-brown-100 hover:bg-brown-200 text-brown-700 font-medium transition-colors duration-200"
