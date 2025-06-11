@@ -86,7 +86,7 @@ const FLAVOR_CATEGORIES = {
   }
 };
 
-export default function PhotoRecordPageSimple() {
+export default function PhotoRecordPageWithWheel() {
   const [user] = useAuthState(auth);
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -136,7 +136,7 @@ export default function PhotoRecordPageSimple() {
     }
   };
 
-  // OCR 수행 (CoffeeScanPro 스타일)
+  // OCR 수행
   const performOCR = async (imageFile: File): Promise<string> => {
     if (!Tesseract) {
       throw new Error("Tesseract.js가 로드되지 않았습니다.");
@@ -148,7 +148,7 @@ export default function PhotoRecordPageSimple() {
     try {
       const { data: { text } } = await Tesseract.recognize(
         imageFile,
-        'eng', // 영어 위주로 인식
+        'eng',
         {
           logger: (m: any) => {
             if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
@@ -166,7 +166,7 @@ export default function PhotoRecordPageSimple() {
     }
   };
 
-  // OpenAI로 커피 정보 추출 (CoffeeScanPro 스타일)
+  // OpenAI로 커피 정보 추출
   const extractCoffeeInfo = async (text: string): Promise<AnalysisResult> => {
     setAnalysisStep("AI가 커피 정보를 분석 중...");
 
@@ -205,7 +205,6 @@ export default function PhotoRecordPageSimple() {
       setAnalyzing(true);
       setAnalysisStep("분석 준비 중...");
 
-      // 1단계: OCR로 텍스트 추출
       const extractedText = await performOCR(image);
       
       if (!extractedText) {
@@ -213,13 +212,11 @@ export default function PhotoRecordPageSimple() {
         return;
       }
 
-      // 2단계: AI로 정보 추출
       const result = await extractCoffeeInfo(extractedText);
       
       setAnalysisResult(result);
       setAnalysisStep("분석 완료!");
       
-      // 성공 메시지
       setTimeout(() => {
         alert("🎉 AI 분석이 완료되었습니다!\n아래에서 정보를 확인하고 수정해주세요.");
       }, 500);
@@ -277,7 +274,6 @@ export default function PhotoRecordPageSimple() {
 
       alert("🎉 커피 기록이 성공적으로 저장되었어요!");
       
-      // 폼 초기화
       setForm({
         cafe: "",
         bean: "",
@@ -533,12 +529,11 @@ export default function PhotoRecordPageSimple() {
             </motion.div>
           )}
 
-          {/* 수동 분석 버튼 (분석 실패시 또는 수동 입력 원할 때) */}
+          {/* 수동 분석 버튼 */}
           {preview && !analyzing && (
             <div className="text-center">
               <button
                 onClick={() => {
-                  // 기본 폼으로 이동
                   const formSection = document.querySelector('#coffee-form');
                   formSection?.scrollIntoView({ behavior: 'smooth' });
                 }}
@@ -613,7 +608,7 @@ export default function PhotoRecordPageSimple() {
                   </div>
                 </div>
 
-                {/* 향미 선택 */}
+                {/* 향미 선택 (개선된 버전) */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <label className="text-lg font-semibold text-brown-700">향미</label>
@@ -622,29 +617,30 @@ export default function PhotoRecordPageSimple() {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setShowFlavorWheel(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-300"
+                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
                     >
-                      <span className="text-lg">🎯</span>
-                      <span>플레이버 휠</span>
+                      <span className="text-2xl">🎯</span>
+                      <span>플레이버 휠로 선택</span>
                     </motion.button>
                   </div>
                   
                   {/* 선택된 향미들 */}
                   {form.flavor.length > 0 && (
                     <div className="mb-4">
+                      <h4 className="text-sm font-semibold text-brown-600 mb-2">선택된 향미:</h4>
                       <div className="flex flex-wrap gap-2">
                         {form.flavor.map((flavor, index) => (
                           <motion.div
                             key={index}
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            className="flex items-center gap-2 px-3 py-2 bg-coffee-100 text-coffee-700 rounded-xl border border-coffee-200"
+                            className="flex items-center gap-2 px-4 py-2 bg-coffee-100 text-coffee-700 rounded-xl border border-coffee-200 shadow-sm"
                           >
-                            <span>{flavor}</span>
+                            <span className="font-medium">{flavor}</span>
                             <button
                               type="button"
                               onClick={() => removeFlavor(flavor)}
-                              className="text-coffee-500 hover:text-red-500 transition-colors"
+                              className="text-coffee-500 hover:text-red-500 transition-colors text-lg"
                             >
                               ✕
                             </button>
@@ -787,29 +783,28 @@ export default function PhotoRecordPageSimple() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white rounded-3xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-3xl p-8 max-w-6xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-3xl font-bold text-brown-800">커피 플레이버 휠</h2>
+                <div>
+                  <h2 className="text-4xl font-bold text-brown-800 mb-2">커피 플레이버 휠</h2>
+                  <p className="text-brown-600">카테고리를 선택해서 향미를 추가해보세요! 🎯</p>
+                </div>
                 <button
                   onClick={() => setShowFlavorWheel(false)}
-                  className="w-12 h-12 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-300"
+                  className="w-12 h-12 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-300 text-xl"
                 >
                   ✕
                 </button>
               </div>
               
-              <p className="text-brown-600 mb-8 text-center">
-                카테고리를 선택해서 향미를 추가해보세요! 🎯
-              </p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {Object.entries(FLAVOR_CATEGORIES).map(([category, data]) => (
                   <motion.div
                     key={category}
-                    whileHover={{ scale: 1.02 }}
-                    className={`${data.color} rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300`}
+                    whileHover={{ scale: 1.02, y: -5 }}
+                    className={`${data.color} rounded-2xl p-6 text-white shadow-lg hover:shadow-2xl transition-all duration-300`}
                   >
                     <h3 className="text-xl font-bold mb-4 text-center">{category}</h3>
                     <div className="space-y-2">
@@ -820,21 +815,14 @@ export default function PhotoRecordPageSimple() {
                           whileTap={{ scale: 0.95 }}
                           onClick={() => {
                             handleFlavorWheelSelect(flavor);
-                            // 선택 피드백
-                            const button = document.activeElement as HTMLButtonElement;
-                            if (button) {
-                              button.style.transform = 'scale(1.1)';
-                              setTimeout(() => {
-                                button.style.transform = 'scale(1)';
-                              }, 200);
-                            }
                           }}
                           className={`w-full px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                             form.flavor.includes(flavor)
-                              ? 'bg-white/30 border-2 border-white'
+                              ? 'bg-white/30 border-2 border-white shadow-lg'
                               : 'bg-white/10 hover:bg-white/20 border-2 border-transparent'
                           }`}
                         >
+                          {form.flavor.includes(flavor) && <span className="mr-1">✓</span>}
                           {flavor}
                         </motion.button>
                       ))}
@@ -844,16 +832,30 @@ export default function PhotoRecordPageSimple() {
               </div>
               
               <div className="mt-8 text-center">
-                <p className="text-brown-600 mb-4">
-                  선택된 향미: <span className="font-semibold">{form.flavor.length}개</span>
-                </p>
+                <div className="mb-6">
+                  <p className="text-brown-600 text-lg mb-2">
+                    선택된 향미: <span className="font-bold text-coffee-600">{form.flavor.length}개</span>
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {form.flavor.slice(0, 10).map((flavor, index) => (
+                      <span key={index} className="px-3 py-1 bg-coffee-100 text-coffee-700 rounded-lg text-sm font-medium">
+                        {flavor}
+                      </span>
+                    ))}
+                    {form.flavor.length > 10 && (
+                      <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm">
+                        +{form.flavor.length - 10}개 더
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowFlavorWheel(false)}
                   className="px-8 py-4 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
                 >
-                  선택 완료
+                  선택 완료 ({form.flavor.length}개)
                 </motion.button>
               </div>
             </motion.div>

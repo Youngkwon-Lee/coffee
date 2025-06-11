@@ -7,6 +7,9 @@ import { collection, query, orderBy, limit, getDocs, where } from "firebase/fire
 import Link from "next/link";
 import { motion } from "framer-motion";
 import EmailReportModal from './EmailReportModal';
+import SearchBar from './SearchBar';
+import OfflineIndicator from './OfflineIndicator';
+import ErrorBoundary from './ErrorBoundary';
 
 interface Bean {
   id: string;
@@ -42,6 +45,7 @@ export default function MainPageHero() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
 
   useEffect(() => {
     loadMainPageData();
@@ -81,7 +85,6 @@ export default function MainPageHero() {
         setRecentRecords(records);
 
         // 개인화 추천 (사용자 취향 기반)
-        // TODO: 실제 추천 알고리즘 구현
         setPersonalizedRecommendations(beans.slice(0, 3));
 
         // 오늘의 통계
@@ -117,418 +120,390 @@ export default function MainPageHero() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-cream-50 via-coffee-50 to-cream-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-amber-700">커피 여정을 준비하고 있어요...</p>
+          <div className="animate-spin w-16 h-16 border-4 border-coffee-500 border-t-transparent rounded-full mx-auto mb-6"></div>
+          <p className="text-brown-600 text-lg">커피 여정을 준비하고 있어요...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-red-50">
-      <div className="container mx-auto px-4 pt-20 pb-32 max-w-6xl">
+    <div className="min-h-screen bg-gradient-to-br from-cream-50 via-coffee-50 to-cream-100 relative">
+      <OfflineIndicator />
+      
+      <div className="container mx-auto px-4 pt-20 pb-16 max-w-7xl">
         
-        {/* 개인화된 인사말 섹션 */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+        {/* 🎯 메인 히어로 섹션 - 현대적 디자인 */}
+        <motion.section 
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-16"
         >
-          <div className="mb-8">
-            <div className="text-6xl mb-4">☕</div>
-            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent mb-4">
-              {getGreeting()}
-            </h1>
-            <p className="text-gray-600 text-lg">오늘도 완벽한 커피 한 잔과 함께</p>
-          </div>
-          
-          {user ? (
-            <div className="space-y-8">
-              {/* 개인 통계 카드 */}
-              <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-xl">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center justify-center gap-3">
-                  <span className="text-3xl">📊</span>
-                  {user.displayName || "커피 애호가"}님의 여정
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <motion.div 
-                    className="text-center p-6 bg-gradient-to-br from-amber-100 to-amber-200 rounded-2xl shadow-lg"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <div className="text-4xl font-bold text-amber-700 mb-2">{recentRecords.length || 0}</div>
-                    <div className="text-amber-600 font-medium">총 기록</div>
-                    <div className="text-xs text-amber-500 mt-1">누적된 커피 경험</div>
-                  </motion.div>
-                  <motion.div 
-                    className="text-center p-6 bg-gradient-to-br from-orange-100 to-orange-200 rounded-2xl shadow-lg"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <div className="text-3xl font-bold text-orange-700 mb-2">
-                      {recentRecords.length > 0 ? '🌸 Floral' : '🌸 Floral'}
-                    </div>
-                    <div className="text-orange-600 font-medium">선호 향미</div>
-                    <div className="text-xs text-orange-500 mt-1">개인 취향 분석</div>
-                  </motion.div>
-                  <motion.div 
-                    className="text-center p-6 bg-gradient-to-br from-red-100 to-red-200 rounded-2xl shadow-lg"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <div className="text-2xl font-bold text-red-700 mb-2">
-                      ⭐ {recentRecords.length > 0 ? 
-                        popularBeans.length > 0 ? popularBeans[0].brand : '탐색중' : 
-                        '시작하세요'
-                      }
-                    </div>
-                    <div className="text-red-600 font-medium">추천 브랜드</div>
-                    <div className="text-xs text-red-500 mt-1">AI 맞춤 추천</div>
-                  </motion.div>
-                </div>
-              </div>
+          <div className="max-w-4xl mx-auto">
+            {/* 메인 타이틀 */}
+              <motion.h1 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              className="text-5xl md:text-7xl font-black bg-gradient-to-r from-brown-800 via-coffee-700 to-brown-800 bg-clip-text text-transparent mb-6 leading-tight"
+              >
+              Coffee Journey
+              </motion.h1>
               
-              {/* 빠른 액션 버튼들 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl p-6 text-white shadow-xl"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-bold mb-2">새로운 기록</h3>
-                      <p className="text-purple-100">오늘의 커피를 기록해보세요</p>
-                    </div>
-                    <div className="text-4xl">📝</div>
-                  </div>
-                  <Link 
-                    href="/record"
-                    className="mt-4 inline-block bg-white/20 hover:bg-white/30 px-6 py-2 rounded-full transition-all"
-                  >
-                    기록하기 →
-                  </Link>
-                </motion.div>
-                
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  className="bg-gradient-to-r from-green-500 to-teal-500 rounded-2xl p-6 text-white shadow-xl"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-bold mb-2">카페 탐색</h3>
-                      <p className="text-green-100">새로운 카페를 찾아보세요</p>
-                    </div>
-                    <div className="text-4xl">🗺️</div>
-                  </div>
-                  <Link 
-                    href="/cafes"
-                    className="mt-4 inline-block bg-white/20 hover:bg-white/30 px-6 py-2 rounded-full transition-all"
-                  >
-                    탐색하기 →
-                  </Link>
-                </motion.div>
-              </div>
-              
-              {/* 이메일 리포트 및 기록 보기 */}
-              {recentRecords.length > 0 && (
-                <div className="flex flex-col sm:flex-row justify-center gap-4">
-                  <Link 
-                    href="/records"
-                    className="inline-flex items-center justify-center px-8 py-4 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-all duration-300 shadow-lg"
-                  >
-                    📊 전체 기록 보기
-                  </Link>
-                  <button
-                    onClick={() => setShowEmailModal(true)}
-                    className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-2xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl"
-                  >
-                    📧 이메일 리포트 받기
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <motion.div 
-              className="bg-white/90 backdrop-blur-sm rounded-3xl p-12 shadow-xl max-w-2xl mx-auto"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-xl md:text-2xl text-brown-600 mb-8 font-light"
             >
-              <div className="text-center">
-                <div className="text-6xl mb-6">🌟</div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-4">
-                  커피 여정을 시작해보세요
-                </h2>
-                <p className="text-xl text-gray-600 mb-8">
-                  매일의 커피 경험을 기록하고, 개인 맞춤 추천을 받아보세요
-                </p>
-                <div className="space-y-4">
-                  <Link 
-                    href="/login"
-                    className="inline-flex items-center px-10 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-lg rounded-2xl hover:from-amber-600 hover:to-orange-600 transition-all duration-300 shadow-lg hover:shadow-xl"
-                  >
-                    ✨ 지금 시작하기
-                  </Link>
-                  <div className="text-sm text-gray-500">
-                    이미 계정이 있으신가요? <Link href="/login" className="text-amber-600 hover:underline">로그인</Link>
-                  </div>
-                </div>
+              AI로 분석하는 나만의 커피 이야기
+            </motion.p>
+
+            {/* 메인 사진촬영 액션 - 가장 큰 영역 */}
+              <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-gradient-to-br from-coffee-500 via-coffee-600 to-brown-500 rounded-3xl p-12 text-white shadow-2xl relative overflow-hidden group mb-12 max-w-3xl mx-auto"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10">
+                <div className="text-7xl mb-6">📸</div>
+                <motion.h2 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-4xl md:text-5xl font-black mb-4"
+                >
+                  사진으로 분석하기
+                </motion.h2>
+                <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                  className="text-white/90 text-xl mb-8 leading-relaxed"
+                >
+                  커피백이나 카페 메뉴판을 찍어보세요<br/>
+                  AI가 즉시 커피 정보를 분석해드릴게요
+                </motion.p>
+                <motion.button
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowPhotoOptions(true)}
+                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-8 py-4 rounded-2xl font-bold text-xl transition-all duration-300 border-2 border-white/30 hover:border-white/50"
+                >
+                  사진으로 분석하기 →
+                </motion.button>
               </div>
             </motion.div>
-          )}
-        </motion.div>
 
-        {/* 개인화 추천 섹션 */}
-        {user && personalizedRecommendations.length > 0 && (
+            {/* 날씨 기반 추천 - 미니멀한 디자인 */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 border border-white/20 shadow-xl max-w-2xl mx-auto mb-12"
+            >
+              <div className="flex items-center justify-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full shadow-sm">
+                  <span className="text-2xl">☁️</span>
+                  <span className="text-brown-700 font-medium">흐림</span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full shadow-sm">
+                  <span className="text-2xl">🌸</span>
+                  <span className="text-brown-700 font-medium">Floral</span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-full shadow-sm">
+                  <span className="text-xl">🗺️</span>
+                  <span className="font-medium">테라로사</span>
+                </div>
+              </div>
+              <p className="text-brown-600 mt-4 text-center">
+                오늘 같은 날씨에는 <span className="font-semibold text-coffee-600">Floral</span>한 분위기가 어울려요
+              </p>
+            </motion.div>
+
+            {/* 검색바 - 현대적인 디자인 */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+                className="max-w-2xl mx-auto"
+              >
+                <SearchBar 
+                  placeholder="원두, 카페, 브랜드를 검색해보세요..."
+                  onSearch={(query) => {
+                    window.location.href = `/search?q=${encodeURIComponent(query)}`;
+                  }}
+                />
+              </motion.div>
+            </div>
+        </motion.section>
+
+        {/* 🚀 서브 액션 카드들 - 2x2 그리드 (작은 크기) */}
+        <motion.section
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="mb-20"
+        >
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-brown-800 mb-2">더 많은 기능들</h2>
+            <p className="text-brown-600">커피 여정을 더욱 풍부하게 만들어보세요</p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+            {/* 직접 기록하기 */}
+              <motion.div
+              whileHover={{ scale: 1.05, y: -5 }}
+              className="bg-gradient-to-br from-brown-400 via-brown-500 to-coffee-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 text-center">
+                <div className="text-3xl mb-3">✍️</div>
+                <h3 className="text-lg font-bold mb-2">직접 기록</h3>
+                <p className="text-white/90 text-sm mb-4">수동으로 입력</p>
+                <Link href="/record">
+                  <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-300 border border-white/30">
+                    기록하기
+                  </button>
+                </Link>
+              </div>
+              </motion.div>
+              
+            {/* 취향 분석하기 */}
+              <motion.div
+              whileHover={{ scale: 1.05, y: -5 }}
+              className="bg-gradient-to-br from-coffee-400 via-coffee-500 to-brown-400 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 text-center">
+                <div className="text-3xl mb-3">✨</div>
+                <h3 className="text-lg font-bold mb-2">취향 분석</h3>
+                <p className="text-white/90 text-sm mb-4">AI 분석</p>
+                <Link href="/history">
+                  <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-300 border border-white/30">
+                    분석하기
+                  </button>
+                </Link>
+              </div>
+              </motion.div>
+              
+            {/* 카페 탐색 */}
+              <motion.div
+              whileHover={{ scale: 1.05, y: -5 }}
+              className="bg-gradient-to-br from-coffee-500 via-coffee-600 to-brown-500 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 text-center">
+                <div className="text-3xl mb-3">🗺️</div>
+                <h3 className="text-lg font-bold mb-2">카페 탐색</h3>
+                <p className="text-white/90 text-sm mb-4">주변 카페</p>
+                <Link href="/cafes">
+                  <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-300 border border-white/30">
+                    탐색하기
+                  </button>
+                </Link>
+              </div>
+              </motion.div>
+
+            {/* 원두 카탈로그 */}
+              <motion.div
+              whileHover={{ scale: 1.05, y: -5 }}
+              className="bg-gradient-to-br from-brown-500 via-coffee-500 to-coffee-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 text-center">
+                <div className="text-3xl mb-3">🌱</div>
+                <h3 className="text-lg font-bold mb-2">원두</h3>
+                <p className="text-white/90 text-sm mb-4">카탈로그</p>
+                <Link href="/beans">
+                  <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-300 border border-white/30">
+                    둘러보기
+                  </button>
+                    </Link>
+                </div>
+              </motion.div>
+          </div>
+        </motion.section>
+
+        {/* 📊 사용자 대시보드 */}
+        {user && (
           <motion.section 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="mb-16"
+            transition={{ delay: 0.9 }}
+            className="mb-20"
           >
-            <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-xl">
-              <h2 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
-                🎯 {user.displayName}님만을 위한 추천
+            <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-8 border border-white/20 shadow-xl">
+              <h2 className="text-3xl font-bold text-brown-800 mb-8 text-center">
+                👋 {user?.displayName}님의 커피 여정
               </h2>
-              <p className="text-gray-600 mb-6">
-                취향 분석 결과를 바탕으로 엄선한 원두들이에요
-              </p>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {personalizedRecommendations.map((bean, index) => (
-                  <motion.div
-                    key={bean.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.1 * index }}
-                    className="group bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border-2 border-transparent hover:border-amber-300 transition-all duration-300 hover:shadow-lg"
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                <div className="text-center p-6 bg-white/60 rounded-2xl border border-white/30">
+                  <div className="text-3xl mb-2">📊</div>
+                  <div className="text-2xl font-bold text-brown-800">{recentRecords.length}</div>
+                  <div className="text-brown-600 text-sm">총 기록</div>
+                </div>
+                
+                <div className="text-center p-6 bg-white/60 rounded-2xl border border-white/30">
+                  <div className="text-3xl mb-2">🌸</div>
+                  <div className="text-lg font-bold text-brown-800">Floral</div>
+                  <div className="text-brown-600 text-sm">선호 향미</div>
+                </div>
+                
+                <div className="text-center p-6 bg-white/60 rounded-2xl border border-white/30">
+                  <div className="text-3xl mb-2">⭐</div>
+                  <div className="text-lg font-bold text-brown-800">Blue Bottle</div>
+                  <div className="text-brown-600 text-sm">추천 브랜드</div>
+                </div>
+                
+                <div className="text-center p-6 bg-white/60 rounded-2xl border border-white/30">
+                  <div className="text-3xl mb-2">📧</div>
+                  <button
+                    onClick={() => setShowEmailModal(true)}
+                    className="text-lg font-bold text-brown-800 hover:text-coffee-600 transition-colors"
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="bg-amber-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                        #{index + 1} 추천
-                      </span>
-                      <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>❤️ {bean.likes}</span>
-                        <span>👁️ {bean.views}</span>
+                    리포트
+                  </button>
+                  <div className="text-brown-600 text-sm">주간 분석</div>
                       </div>
                     </div>
                     
-                    <h3 className="font-bold text-lg text-gray-800 mb-2 group-hover:text-amber-700 transition-colors">
-                      {bean.name}
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-2">{bean.brand}</p>
-                    {bean.flavor && (
-                      <p className="text-amber-600 text-sm mb-3">🌸 {bean.flavor}</p>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-amber-700">{bean.price}</span>
-                      <Link 
-                        href={`/beans/${bean.id}`}
-                        className="bg-amber-500 text-white px-4 py-2 rounded-full text-sm hover:bg-amber-600 transition-colors"
-                      >
-                        자세히 보기
+              {/* 최근 기록들 미니 프리뷰 */}
+              {recentRecords.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-brown-800">최근 기록</h3>
+                    <Link href="/history" className="text-coffee-600 hover:text-coffee-700 font-medium">
+                      전체보기 →
                       </Link>
                     </div>
-                  </motion.div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {recentRecords.slice(0, 4).map((record, index) => (
+                      <div key={record.id} className="bg-white/60 rounded-xl p-4 border border-white/30 text-center">
+                        <div className="text-2xl mb-2">☕</div>
+                        <h4 className="font-semibold text-brown-800 text-sm truncate">{record.beanName}</h4>
+                        <p className="text-xs text-brown-600 mb-2">{record.flavor}</p>
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-yellow-500">⭐</span>
+                          <span className="text-xs font-medium">{record.rating}</span>
+                        </div>
+                      </div>
                 ))}
               </div>
+                </div>
+              )}
             </div>
           </motion.section>
         )}
 
-        {/* 인기 원두 섹션 */}
+        {/* 🔥 인기 원두 섹션 */}
+        {popularBeans.length > 0 && (
         <motion.section 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mb-16"
-        >
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center justify-center">
-              🔥 지금 인기있는 원두
-            </h2>
-            <p className="text-gray-600">커피 애호가들이 주목하고 있는 원두들</p>
+            transition={{ delay: 1.0 }}
+            className="mb-20"
+          >
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-bold text-brown-800 mb-4">🔥 인기 원두</h2>
+              <p className="text-brown-600 text-lg">커피 애호가들이 주목하는 원두들</p>
           </div>
 
-          {popularBeans.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {popularBeans.map((bean, index) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {popularBeans.slice(0, 6).map((bean, index) => (
                 <motion.div
                   key={bean.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 * index }}
-                  className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group hover:-translate-y-1"
+                  whileHover={{ scale: 1.03, y: -5 }}
+                  className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/30 hover:shadow-2xl transition-all duration-300"
                 >
-                  {bean.image && (
-                    <div className="h-48 bg-gradient-to-br from-amber-100 to-orange-100 relative overflow-hidden">
-                      <img 
-                        src={bean.image} 
-                        alt={bean.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium text-amber-700">
-                        #{index + 1}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-lg text-gray-800 group-hover:text-amber-700 transition-colors">
-                        {bean.name}
-                      </h3>
-                      <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">☕</div>
+                    <h3 className="font-bold text-brown-800 text-lg mb-2">{bean.name}</h3>
+                    <p className="text-brown-600 mb-1">{bean.brand}</p>
+                    <p className="text-coffee-600 text-sm mb-4">{bean.flavor}</p>
+                    <div className="flex items-center justify-center gap-4 text-sm text-brown-500">
+                      <span>👀 {bean.views}</span>
                         <span>❤️ {bean.likes}</span>
-                        <span>👁️ {bean.views}</span>
-                      </div>
-                    </div>
-                    
-                    <p className="text-gray-600 text-sm mb-2">{bean.brand}</p>
-                    {bean.origin && (
-                      <p className="text-blue-600 text-sm mb-2">🌍 {bean.origin}</p>
-                    )}
-                    {bean.flavor && (
-                      <p className="text-amber-600 text-sm mb-4">🌸 {bean.flavor}</p>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xl text-amber-700">{bean.price}</span>
-                      <Link 
-                        href={`/beans/${bean.id}`}
-                        className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-full text-sm hover:from-amber-600 hover:to-orange-600 transition-all duration-300 shadow-md hover:shadow-lg"
-                      >
-                        상세보기
-                      </Link>
                     </div>
                   </div>
                 </motion.div>
               ))}
             </div>
-          ) : (
-            <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-12 text-center shadow-xl max-w-6xl mx-auto">
-              <div className="text-6xl mb-4">☕</div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-2">인기 원두 준비 중</h3>
-              <p className="text-gray-600 mb-6">곧 멋진 원두들을 소개해드릴게요!</p>
-              <Link 
-                href="/beans"
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-medium hover:from-amber-600 hover:to-orange-600 transition-all duration-300 shadow-lg"
-              >
-                원두 둘러보기 🔍
-              </Link>
-            </div>
-          )}
-        </motion.section>
-
-        {/* 최근 기록 섹션 - 사용자 로그인 시에만 표시 */}
-        {user && recentRecords.length > 0 && (
-          <motion.section 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mb-16"
-          >
-            <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-xl">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-bold text-gray-800 flex items-center">
-                  📚 나의 커피 기록
-                </h2>
-                <Link 
-                  href="/records"
-                  className="text-amber-600 hover:text-amber-700 font-medium flex items-center"
-                >
-                  전체보기 →
-                </Link>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {recentRecords.map((record, index) => (
-                  <motion.div
-                    key={record.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.05 * index }}
-                    className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200 hover:border-amber-300 transition-all duration-300 hover:shadow-md"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">
-                        {new Date(record.createdAt).toLocaleDateString()}
-                      </span>
-                      <div className="flex">
-                        {[...Array(5)].map((_, i) => (
-                          <span 
-                            key={i} 
-                            className={i < record.rating ? "text-amber-400" : "text-gray-300"}
-                          >
-                            ⭐
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <h4 className="font-semibold text-gray-800 mb-1 truncate">
-                      {record.beanName}
-                    </h4>
-                    <p className="text-sm text-gray-600 mb-2 truncate">
-                      {record.flavor}
-                    </p>
-                    <span className="inline-block bg-amber-200 text-amber-800 px-2 py-1 rounded-full text-xs">
-                      {record.brewMethod}
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
           </motion.section>
         )}
-
-        {/* 빠른 액션 섹션 */}
-        <motion.section 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="text-center mb-32"
-        >
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">
-            오늘도 멋진 커피 여정을 시작해보세요 ☕️
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <Link 
-              href="/bean-analyze"
-              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-            >
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📸</div>
-              <h3 className="font-bold text-lg text-gray-800 mb-2">원두 분석</h3>
-              <p className="text-gray-600 text-sm">사진으로 원두 정보를 자동 분석</p>
-            </Link>
-            
-            <Link 
-              href="/cafes"
-              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-            >
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🗺️</div>
-              <h3 className="font-bold text-lg text-gray-800 mb-2">카페 탐색</h3>
-              <p className="text-gray-600 text-sm">내 취향에 맞는 카페 찾기</p>
-            </Link>
-            
-            <Link 
-              href="/beans"
-              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-            >
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🌱</div>
-              <h3 className="font-bold text-lg text-gray-800 mb-2">원두 탐색</h3>
-              <p className="text-gray-600 text-sm">다양한 원두들을 만나보세요</p>
-            </Link>
-          </div>
-        </motion.section>
-
       </div>
 
+      {/* 사진 옵션 모달 */}
+      {showPhotoOptions && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
+          >
+            <div className="text-center mb-8">
+              <div className="text-5xl mb-4">📸</div>
+              <h3 className="text-2xl font-bold text-brown-800 mb-2">사진으로 분석하기</h3>
+              <p className="text-brown-600">커피백이나 메뉴판을 촬영해보세요</p>
+            </div>
+
+            <div className="space-y-4">
+              <Link href="/record/photo">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full bg-gradient-to-r from-coffee-500 to-coffee-600 text-white py-4 px-6 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3"
+                >
+                  <span className="text-2xl">📷</span>
+                  사진 촬영하기
+                </motion.button>
+            </Link>
+            
+              <Link href="/record/photo">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full bg-gradient-to-r from-brown-500 to-brown-600 text-white py-4 px-6 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3"
+                >
+                  <span className="text-2xl">🖼️</span>
+                  갤러리에서 선택
+                </motion.button>
+            </Link>
+            
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowPhotoOptions(false)}
+                className="w-full bg-cream-100 text-brown-700 py-3 px-6 rounded-2xl font-semibold hover:bg-cream-200 transition-colors duration-300"
+              >
+                취소
+              </motion.button>
+          </div>
+          </motion.div>
+        </motion.div>
+      )}
+
       {/* 이메일 리포트 모달 */}
+      {showEmailModal && (
       <EmailReportModal 
         isOpen={showEmailModal}
         onClose={() => setShowEmailModal(false)}
       />
+      )}
     </div>
   );
 } 

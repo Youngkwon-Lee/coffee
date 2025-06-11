@@ -1,5 +1,53 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // 이미지 설정
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'm.fritz.co.kr',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'm.namusairo.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lowkeycoffee.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn-optimized.imweb.me',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'renew.terarosa.com',
+        port: '9000',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
+  },
+  
   // TypeScript 설정
   typescript: {
     tsconfigPath: './tsconfig.json',

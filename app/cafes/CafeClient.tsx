@@ -145,107 +145,43 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
     : "오늘의 추천 카페를 불러오는 중...";
 
   return (
-    <main className="flex flex-col items-center min-h-screen pt-20 pb-20 bg-gradient-to-br from-amber-50 to-rose-100">
+    <main className="flex flex-col items-center min-h-screen pt-20 pb-20 bg-gradient-to-br from-cream-50 via-coffee-50 to-cream-100">
       {/* 🎨 현대적인 헤더 섹션 */}
       <div className="w-full max-w-7xl mb-8">
         {/* 페이지 타이틀 */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent mb-4">
-            📍 우리 동네 카페 찾기
-          </h1>
-          <p className="text-gray-600 text-lg">취향에 맞는 완벽한 카페를 발견하세요</p>
+                      <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-brown-700 via-coffee-600 to-brown-800 bg-clip-text text-transparent mb-4">
+              📍 우리 동네 카페 찾기
+            </h1>
+            <p className="text-brown-600 text-lg">취향에 맞는 완벽한 카페를 발견하세요</p>
         </div>
 
-        {/* AI 추천 카드 */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-3xl p-6 mb-8 shadow-lg border border-amber-200">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 flex items-center justify-center text-3xl shadow-lg">
-              {weatherEmoji}
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-4 mb-2">
-                <span className="bg-white px-3 py-1 rounded-full text-sm font-medium text-gray-700 shadow-sm">
-                  오늘의 날씨: <span className="font-bold text-blue-600">{weather}</span>
-                </span>
-                <span className="bg-white px-3 py-1 rounded-full text-sm font-medium text-gray-700 shadow-sm">
-                  내 취향: <span className="font-bold text-amber-600">{userPreference}</span>
-                </span>
-              </div>
-              <div className="text-gray-700 text-lg">
-                {todayCafe ? (
-                  <>
-                    오늘은 <span className="font-semibold">{weather}</span> 날씨에 <span className="font-semibold text-amber-600">{userPreference}</span>한 분위기가 어울려요.
-                    <a
-                      href={`https://map.kakao.com/link/map/${encodeURIComponent(todayCafe.name)},${todayCafe.lat},${todayCafe.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 ml-2 px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-md hover:shadow-lg"
-                    >
-                      <span className="font-bold">{todayCafe.name}</span> 🗺️
-                    </a>
-                    에서 감성 한 잔 어떠세요? ☕
-                  </>
-                ) : (
-                  todayMent
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* 검색 및 필터 섹션 */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100">
-          {/* 취향 선택 */}
-          <div className="mb-6">
-            <label className="block text-lg font-semibold text-gray-800 mb-3">🎯 내 취향</label>
-            <div className="flex flex-wrap gap-3 items-center">
-              {FLAVOR_OPTIONS.map(flavor => (
-                <button
-                  key={flavor}
-                  onClick={() => setUserPreference(flavor)}
-                  className={`px-4 py-2 rounded-full font-medium transition-all duration-300 ${
-                    userPreference === flavor
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg scale-105'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105'
-                  }`}
-                >
-                  {flavor}
-                </button>
-              ))}
-              {userRecordCount === 0 && (
-                <a
-                  href="/record"
-                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full font-medium hover:from-purple-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-                >
-                  ✨ 취향 분석하기
-                </a>
-              )}
-            </div>
-          </div>
 
-          {/* 검색바 */}
-          <div className="mb-6">
-            <label className="block text-lg font-semibold text-gray-800 mb-3">🔍 검색</label>
-            <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  onKeyPress={e => e.key === 'Enter' && setSearch(e.currentTarget.value)}
-                  placeholder="카페명, 메뉴명을 검색해보세요..."
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-amber-400 focus:outline-none transition-all duration-300 text-lg"
-                />
-                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl">🔍</span>
-              </div>
-              <button
+        {/* 검색 필드만 간단하게 */}
+        <div className="mb-8">
+          <div className="max-w-2xl mx-auto">
+            <div className="relative">
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && setSearch(e.currentTarget.value)}
+                placeholder="카페명, 메뉴 검색..."
+                className="w-full px-6 py-4 text-lg border-2 border-coffee-200 rounded-2xl focus:border-coffee-400 focus:outline-none transition-all duration-300 shadow-lg"
+              />
+              <button 
                 onClick={() => setSearch(search)}
-                className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-medium hover:from-amber-600 hover:to-orange-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-brown-400 hover:text-coffee-500 transition-colors text-xl"
               >
-                검색
+                🔍
               </button>
             </div>
           </div>
+        </div>
+
+        {/* 필터 섹션 */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100">
 
           {/* 필터 및 정렬 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -342,7 +278,7 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
                   alert("위치 정보 사용이 불가합니다.");
                 }
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-gradient-to-r from-amber-300 to-orange-300 text-white rounded-full font-medium hover:from-amber-400 hover:to-orange-400 transition-all duration-300 shadow-lg hover:shadow-xl text-sm md:text-base"
             >
               📌 내 위치로 이동
             </button>
@@ -467,16 +403,16 @@ export default function CafeClient({ weather, weatherEmoji, cafes, todayCafe: ss
                         href={`https://map.kakao.com/link/map/${encodeURIComponent(cafe.name)},${cafe.lat},${cafe.lng}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-300 to-orange-300 text-white rounded-xl font-medium hover:from-amber-400 hover:to-orange-400 transition-all duration-300 shadow-lg hover:shadow-xl"
                       >
                         <span>🗺️</span>
                         지도에서 보기
                       </a>
                       <button
                         onClick={() => setSelectedCafe(cafe)}
-                        className="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                        className="px-4 py-3 bg-gradient-to-br from-amber-50 to-orange-50 text-amber-700 rounded-xl font-medium hover:from-amber-100 hover:to-orange-100 transition-colors border border-amber-200 hover:border-amber-300"
                       >
-                        <span>ℹ️</span>
+                        <span>📋</span>
                       </button>
                     </div>
                   </div>

@@ -22,10 +22,7 @@ type Bean = {
   lastUpdated?: string;
 };
 
-type Recommendation = {
-  name: string;
-  reason: string;
-};
+
 
 // 장바구니(🛒) 상태 관리 훅
 function useBasket() {
@@ -59,22 +56,14 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
   const [myRoast, setMyRoast] = useState("");
   const [myBrand, setMyBrand] = useState("");
 
-  // GPT 감성 추천 상태
-  const [gptInput, setGptInput] = useState("");
-  const [gptLoading, setGptLoading] = useState(false);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [gptError, setGptError] = useState("");
+
 
   // 로그인 상태
   const [user, setUser] = useState<User | null>(null);
   // Firestore 기반 찜 목록
   const [wishlist, setWishlist] = useState<string[]>([]);
 
-  // 챗봇 상태 추가
-  const [showChatbot, setShowChatbot] = useState(false);
-  const [chatbotPosition, setChatbotPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
 
   const { basket, toggleBasket } = useBasket();
   const router = useRouter();
@@ -215,74 +204,7 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
     setCurrentPage(1);
   }, [search, brandFilter, flavorFilter, roastFilter, sortBy, myFlavor, myRoast, myBrand]);
 
-  // GPT 감성 추천 요청
-  const handleGptRecommend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!gptInput.trim()) return;
-    setGptLoading(true);
-    setGptError("");
-    setRecommendations([]);
-    try {
-      const res = await fetch("/api/gpt-recommend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          message: gptInput,
-          availableBeans: beans.map(bean => ({
-            name: bean.name,
-            flavor: bean.flavor,
-            roast: bean.roast,
-            brand: bean.brand
-          }))
-        }),
-      });
-      const data = await res.json();
-      if (data.recommendations) {
-        setRecommendations(data.recommendations);
-        setGptError("");
-      } else {
-        setGptError("추천 결과를 불러올 수 없습니다.");
-      }
-    } catch {
-      setGptError("추천 서버에 연결할 수 없습니다. GPT API 설정을 확인해주세요.");
-    }
-    setGptLoading(false);
-  };
 
-  // Firestore 원두 데이터와 매칭
-  const getBeanDetail = (name: string) => beans.find((bean) => bean.name === name);
-
-  // 드래그 핸들러
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({
-      x: e.clientX - chatbotPosition.x,
-      y: e.clientY - chatbotPosition.y
-    });
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    setChatbotPosition({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, dragStart]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cream-50 via-coffee-50 to-cream-100 relative overflow-hidden">
@@ -582,136 +504,7 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
         </button>
       )}
 
-      {/* 드래그 가능한 플로팅 챗봇 */}
-      <div
-        style={{
-          position: 'fixed',
-          left: chatbotPosition.x || (basket.length > 0 ? 'calc(100vw - 100px)' : 'calc(100vw - 100px)'),
-          top: chatbotPosition.y || (basket.length > 0 ? 'calc(100vh - 180px)' : 'calc(100vh - 100px)'),
-          zIndex: 50,
-          cursor: isDragging ? 'grabbing' : 'grab'
-        }}
-      >
-        <button
-          onClick={() => !isDragging && setShowChatbot(true)}
-          onMouseDown={handleMouseDown}
-          className="relative w-20 h-20 bg-gradient-to-br from-amber-600 via-orange-500 to-amber-700 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 group"
-        >
-          {/* 커피 머그컵 디자인 */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 opacity-80"></div>
-          
-          {/* 머그컵 몸체 */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-8 bg-gradient-to-b from-brown-600 to-brown-800 rounded-md shadow-inner">
-            {/* 커피 표면 */}
-            <div className="absolute top-1 left-1 right-1 h-1.5 bg-gradient-to-r from-amber-900 to-brown-900 rounded-full"></div>
-            
-            {/* 김 */}
-            <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-              <div className="w-0.5 h-2 bg-white opacity-60 rounded-full animate-pulse"></div>
-            </div>
-            <div className="absolute -top-1.5 left-1/2 transform -translate-x-1/2 translate-x-1">
-              <div className="w-0.5 h-1.5 bg-white opacity-40 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
-            </div>
-            <div className="absolute -top-1.5 left-1/2 transform -translate-x-1/2 -translate-x-1">
-              <div className="w-0.5 h-1.5 bg-white opacity-40 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
-            </div>
-          </div>
-          
-          {/* 머그컵 손잡이 */}
-          <div className="absolute top-1/2 right-2 transform -translate-y-1/2 w-2 h-4 border-2 border-brown-700 rounded-r-full"></div>
-          
-          {/* AI 표시 */}
-          <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
-            AI
-          </div>
-          
-          {/* 호버 효과 */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-        </button>
-        
-        {/* 안내 텍스트 */}
-        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-brown-600 text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          드래그하여 이동
-        </div>
-      </div>
 
-      {/* 챗봇 모달 */}
-      {showChatbot && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-card shadow-xl max-w-lg w-full max-h-[600px] overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-500 to-blue-600 text-white p-4 flex justify-between items-center">
-              <h3 className="text-xl font-bold">🤖 AI 감성 추천</h3>
-              <button 
-                onClick={() => setShowChatbot(false)}
-                className="text-white hover:text-gray-200 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="p-6">
-              <form onSubmit={handleGptRecommend} className="flex gap-3 mb-4">
-                <input
-                  type="text"
-                  value={gptInput}
-                  onChange={e => setGptInput(e.target.value)}
-                  className="flex-1 bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 placeholder-brown-400 focus:outline-none focus:ring-2 focus:ring-coffee-400 focus:border-transparent"
-                  placeholder="기분/날씨/취향을 입력해보세요!"
-                  disabled={gptLoading}
-                />
-                <button
-                  type="submit"
-                  disabled={gptLoading || !gptInput.trim()}
-                  className="px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-600 rounded-button text-white font-medium shadow-lg hover:shadow-hover transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  ✨
-                </button>
-              </form>
-              
-              {gptLoading && (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-purple-500 border-t-transparent mx-auto mb-2"></div>
-                  <p className="text-brown-600">AI가 생각 중...</p>
-                </div>
-              )}
-              {gptError && <div className="text-center text-red-600 py-4">{gptError}</div>}
-              
-              <div className="max-h-96 overflow-y-auto">
-                {recommendations.length > 0 && (
-                  <div className="space-y-4">
-                    {recommendations.map((rec, idx) => {
-                      const bean = getBeanDetail(rec.name);
-                      return (
-                        <div 
-                          key={idx} 
-                          className="bg-coffee-50 rounded-card p-4 border border-coffee-100 hover:shadow-lg transition-all duration-300"
-                        >
-                          <div className="flex gap-4 items-center">
-                            <Image 
-                              src={bean?.image || "/beans/default.jpg"} 
-                              alt={rec.name} 
-                              width={60} 
-                              height={60} 
-                              className="rounded-card object-cover" 
-                            />
-                            <div className="flex-1">
-                              <h4 className="font-bold text-base text-brown-800 mb-1">{rec.name}</h4>
-                              <p className="text-sm text-brown-600 mb-2">{rec.reason}</p>
-                              {bean && (
-                                <p className="text-coffee-600 font-bold text-sm">{bean.price}</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style jsx>{`
         @keyframes blob {

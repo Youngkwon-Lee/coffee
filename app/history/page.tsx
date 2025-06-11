@@ -303,23 +303,25 @@ export default function HistoryPage() {
 
                             {/* 기록 내용 */}
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-2">
-                                <h3 className="font-bold text-lg text-brown-800 truncate">
+                              {/* 제목과 평점을 분리하여 배치 */}
+                              <div className="mb-2">
+                                <h3 className="font-bold text-lg text-brown-800 truncate mb-1">
                                   {record.bean || record.cafe || "커피 기록"}
                                 </h3>
                                 {record.rating && (
                                   <div className="flex items-center gap-1">
                                     {Array.from({length: 5}, (_, i) => (
-                                      <span key={i} className={`text-lg ${i < record.rating! ? 'text-yellow-500' : 'text-gray-300'}`}>
+                                      <span key={i} className={`text-base ${i < record.rating! ? 'text-yellow-500' : 'text-gray-300'}`}>
                                         ⭐
                                       </span>
                                     ))}
+                                    <span className="text-sm text-brown-600 ml-1">({record.rating}/5)</span>
                                   </div>
                                 )}
                               </div>
 
-                              {record.cafe && record.bean && (
-                                <p className="text-brown-600 text-sm mb-2">
+                              {record.cafe && (
+                                <p className="text-brown-600 text-sm mb-2 font-medium">
                                   📍 {record.cafe}
                                 </p>
                               )}

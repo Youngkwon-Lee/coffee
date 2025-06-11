@@ -114,8 +114,18 @@ export default function ChatBotRecorder() {
   const currentQuestion = questions[step];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 pt-20 pb-8">
-      <div className="container mx-auto px-4 max-w-2xl">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-rose-100 pt-20 pb-8">
+      <div className="container mx-auto px-4 max-w-7xl">
+        
+        {/* 페이지 타이틀 - 카페 페이지 스타일 */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-4">
+            📚 My Coffee Journey
+          </h1>
+          <p className="text-gray-600 text-lg">{user?.displayName || '이영권'}님의 커피 기록</p>
+        </div>
+
+        <div className="max-w-2xl mx-auto">
         {/* 진행 상황 */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-2">
@@ -248,6 +258,7 @@ export default function ChatBotRecorder() {
             이전 질문으로 돌아가기
           </button>
         )}
+        </div>
       </div>
     </div>
   );

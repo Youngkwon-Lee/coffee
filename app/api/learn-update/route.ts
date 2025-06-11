@@ -23,6 +23,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // 매핑된 데이터 검증 - 너무 짧거나 유효하지 않은 데이터 필터링
+    let validMapped = mapped;
+    if (typeof mapped === 'string') {
+      // 너무 짧은 매핑 (2자 이하) 또는 의미없는 패턴 제거
+      if (mapped.length <= 2 || 
+          mapped.match(/^[A-Z]{1,2}$/) || // 단순 대문자 1-2개
+          (mapped.includes('\n') && mapped.split('\n')[0].length <= 3)) { // 줄바꿈 후 첫 줄이 3자 이하
+        console.log("Invalid mapping detected, skipping:", mapped);
+        return NextResponse.json({ 
+          success: false,
+          message: 'Invalid mapping data detected and filtered' 
+        });
+      }
+      
+      // 여러 줄 중 의미있는 첫 번째 줄만 사용 (원두명/카페명은 보통 한 줄)
+      const lines = mapped.split('\n').filter(line => line.trim().length > 3);
+      if (lines.length > 1) {
+        // 가장 적절한 줄을 선택 (원두명 패턴에 맞는 것)
+        const beanPattern = /^[A-Za-z가-힣\s]+[A-Za-z가-힣]$/; // 문자로 시작하고 끝나는 패턴
+        const validLine = lines.find(line => beanPattern.test(line.trim()));
+        validMapped = validLine ? validLine.trim() : lines[0].trim();
+      }
+    }
+
     // 신뢰도가 낮으면 학습하지 않음
     if (confidence < 0.7) {
       console.log('Confidence too low:', confidence);
@@ -37,7 +61,7 @@ export async function POST(req: NextRequest) {
     await setDoc(learningRef, {
       type,
       original: original.toLowerCase().trim(),
-      mapped,
+      mapped: validMapped,
       confidence,
       userId,
       createdAt: new Date().toISOString(),
@@ -63,7 +87,7 @@ export async function POST(req: NextRequest) {
         newMappings[key].lastUsed = new Date().toISOString();
       } else {
         newMappings[key] = {
-          mapped,
+          mapped: validMapped,
           confidence,
           count: 1,
           createdAt: new Date().toISOString(),
@@ -81,7 +105,7 @@ export async function POST(req: NextRequest) {
       await setDoc(mappingRef, {
         mappings: {
           [original.toLowerCase().trim()]: {
-            mapped,
+            mapped: validMapped,
             confidence,
             count: 1,
             createdAt: new Date().toISOString(),
