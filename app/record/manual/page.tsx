@@ -277,34 +277,41 @@ export default function RecordManualPage() {
     }
 
     try {
-      const recordData = {
+      const recordData: any = {
         bean: data.bean.trim(),
         cafe: data.cafe.trim(),
         flavor: data.flavor.filter(f => f.trim() !== ""), // 빈 향미 제거
-        mood: data.mood || null,
-        rating: data.rating || null,
-        review: data.review?.trim() || null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
+      
+      // undefined 값이 아닌 경우에만 필드 추가 (Firebase는 undefined를 허용하지 않음)
+      if (data.mood) recordData.mood = data.mood;
+      if (data.rating) recordData.rating = data.rating;
+      if (data.review?.trim()) recordData.review = data.review.trim();
 
       console.log("저장할 데이터:", recordData); // 디버깅용
 
       await addDoc(collection(db, `users/${userId}/records`), recordData);
       
+      // 저장 즉시 로컬 상태에 새 기록 추가 (즉시 반영)
+      const newRecord = { ...recordData };
+      setMyRecords(prevRecords => [newRecord, ...prevRecords.slice(0, 4)]);
+      
       alert("기록이 저장되었습니다!");
       
-      // 저장 후 기록 새로고침
-      try {
-        const q = query(collection(db, `users/${userId}/records`), orderBy("createdAt", "desc"), limit(5));
-        const snap = await getDocs(q);
-        const updatedRecords = snap.docs.map(doc => doc.data() as RecordData);
-        setMyRecords(updatedRecords);
-        console.log("기록 새로고침 완료:", updatedRecords.length, "개 기록");
-      } catch (fetchError) {
-        console.error("기록 새로고침 오류:", fetchError);
-        // 새로고침 실패해도 저장은 성공했으므로 계속 진행
-      }
+      // 백그라운드에서 실제 데이터 새로고침 (정확성 보장)
+      setTimeout(async () => {
+        try {
+          const q = query(collection(db, `users/${userId}/records`), orderBy("createdAt", "desc"), limit(5));
+          const snap = await getDocs(q);
+          const updatedRecords = snap.docs.map(doc => doc.data() as RecordData);
+          setMyRecords(updatedRecords);
+          console.log("백그라운드 기록 새로고침 완료:", updatedRecords.length, "개 기록");
+        } catch (fetchError) {
+          console.error("백그라운드 기록 새로고침 오류:", fetchError);
+        }
+      }, 1000);
 
       // 성공 시 초기화
       setData({ bean: "", cafe: "", flavor: [] });
@@ -740,19 +747,27 @@ export default function RecordManualPage() {
             <div className="space-y-4">
               <label className="block text-sm font-medium text-brown-700">평점</label>
               <div className="flex items-center gap-4">
-                <div className="flex gap-1">
+                <div className="flex gap-2">
           {Array.from({ length: 5 }, (_, i) => {
             const isActive = hoveredRating > 0 ? hoveredRating >= i + 1 : (data.rating || 0) >= i + 1;
             return (
               <button
                 key={i}
-                        className="text-4xl transition-all duration-200 hover:scale-110"
+                        className="w-8 h-8 transition-all duration-200 hover:scale-110 focus:outline-none"
                 onClick={() => handleRating(i + 1)}
                 onMouseEnter={() => setHoveredRating(i + 1)}
                 onMouseLeave={() => setHoveredRating(0)}
                 aria-label={`${i + 1}점`}
               >
-                {isActive ? "⭐" : "☆"}
+                        <svg 
+                          className="w-full h-full" 
+                          viewBox="0 0 24 24" 
+                          fill={isActive ? "#f59e0b" : "transparent"} 
+                          stroke="#f59e0b" 
+                          strokeWidth="2"
+                        >
+                          <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26 12,2" />
+                        </svg>
               </button>
             );
           })}
@@ -812,7 +827,25 @@ export default function RecordManualPage() {
                   <div><span className="font-medium">🏠 카페:</span> {data.cafe}</div>
                   <div><span className="font-medium">🌸 향미:</span> {data.flavor.join(", ")}</div>
                   {data.mood && <div><span className="font-medium">🧘 기분:</span> {data.mood}</div>}
-                  {data.rating && <div><span className="font-medium">⭐ 별점:</span> {"⭐".repeat(data.rating)}</div>}
+                  {data.rating && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">⭐ 별점:</span>
+                      <div className="flex gap-1">
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <svg 
+                            key={i}
+                            className="w-4 h-4" 
+                            viewBox="0 0 24 24" 
+                            fill={(data.rating || 0) >= i + 1 ? "#f59e0b" : "transparent"} 
+                            stroke="#f59e0b" 
+                            strokeWidth="2"
+                          >
+                            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26 12,2" />
+                          </svg>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {data.review && <div><span className="font-medium">💬 감상:</span> {data.review}</div>}
                 </div>
               </div>
@@ -859,7 +892,25 @@ export default function RecordManualPage() {
                     <div><span className="font-medium">🏠 카페:</span> {rec.cafe}</div>
                     <div><span className="font-medium">🌸 향미:</span> {rec.flavor?.join(", ")}</div>
                     {rec.mood && <div><span className="font-medium">🧘 기분:</span> {rec.mood}</div>}
-                    {rec.rating && <div><span className="font-medium">⭐ 별점:</span> {"⭐".repeat(rec.rating)}</div>}
+                    {rec.rating && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">⭐ 별점:</span>
+                        <div className="flex gap-1">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <svg 
+                              key={i}
+                              className="w-3 h-3" 
+                              viewBox="0 0 24 24" 
+                              fill={(rec.rating || 0) >= i + 1 ? "#f59e0b" : "transparent"} 
+                              stroke="#f59e0b" 
+                              strokeWidth="2"
+                            >
+                              <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26 12,2" />
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {rec.review && <div><span className="font-medium">💬 감상:</span> {rec.review}</div>}
                   </div>
                 </div>

@@ -267,13 +267,25 @@ export default function PhotoRecordPageSimple() {
     try {
       setSubmitting(true);
       
-      await addDoc(collection(db, "users", user.uid, "coffee_records"), {
-        ...form,
+      // undefined 값 제거한 기록 데이터 생성
+      const recordData: any = {
+        bean: form.bean,
+        cafe: form.cafe,
+        flavor: form.flavor,
         imageUrl: preview,
         analysisData: analysisResult,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         source: analysisResult ? 'photo_ai_analysis' : 'photo_manual_input'
-      });
+      };
+      
+      // undefined가 아닌 값만 추가
+      if (form.processing) recordData.processing = form.processing;
+      if (form.rating) recordData.rating = form.rating;
+      if (form.mood) recordData.mood = form.mood;
+      if (form.review?.trim()) recordData.review = form.review.trim();
+
+      await addDoc(collection(db, "users", user.uid, "records"), recordData);
 
       alert("🎉 커피 기록이 성공적으로 저장되었어요!");
       
@@ -698,12 +710,18 @@ export default function PhotoRecordPageSimple() {
                         <button
                           key={n}
                           type="button"
-                          className={`text-4xl transition-all duration-300 hover:scale-110 ${
-                            form.rating >= n ? "text-coffee-400" : "text-brown-300"
-                          }`}
+                          className="w-8 h-8 transition-all duration-300 hover:scale-110 focus:outline-none"
                           onClick={() => setForm(prev => ({...prev, rating: n}))}
                         >
-                          ⭐
+                          <svg 
+                            className="w-full h-full" 
+                            viewBox="0 0 24 24" 
+                            fill={form.rating >= n ? "#f59e0b" : "transparent"} 
+                            stroke="#f59e0b" 
+                            strokeWidth="2"
+                          >
+                            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26 12,2" />
+                          </svg>
                         </button>
                       ))}
                     </div>
