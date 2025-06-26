@@ -1,6 +1,7 @@
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
-import BeansClient from "./BeansClient";
+import BeanFinderClient from "./BeanFinderClient";
+import { Suspense } from "react";
 
 type Bean = {
   id?: string;
@@ -17,39 +18,68 @@ type Bean = {
   lastUpdated?: string;
 };
 
-export default async function BeansPage() {
-  const beansCol = collection(db, "beans");
-  const beanSnapshot = await getDocs(beansCol);
-  const beans = beanSnapshot.docs.map(doc => {
-    const data = doc.data();
+async function loadBeans(): Promise<Bean[]> {
+  try {
+    const beansCol = collection(db, "beans");
+    const beanSnapshot = await getDocs(beansCol);
     
-    // Timestamp 객체들을 안전하게 문자열로 변환
-    const convertTimestamp = (timestamp: any) => {
-      if (timestamp && typeof timestamp === 'object' && timestamp.toDate) {
-        return timestamp.toDate().toISOString();
-      }
-      if (timestamp instanceof Date) {
-        return timestamp.toISOString();
-      }
-      return timestamp || null;
-    };
+    return beanSnapshot.docs.map(doc => {
+      const data = doc.data();
+      
+      // Timestamp 객체들을 안전하게 문자열로 변환
+      const convertTimestamp = (timestamp: any) => {
+        if (timestamp && typeof timestamp === 'object' && timestamp.toDate) {
+          return timestamp.toDate().toISOString();
+        }
+        if (timestamp instanceof Date) {
+          return timestamp.toISOString();
+        }
+        return timestamp || null;
+      };
 
-    return {
-      id: doc.id,
-      name: data.name || '',
-      flavor: data.flavor || data.flavors || '',
-      price: data.price || '',
-      image: data.image || '',
-      desc: data.desc || data.description || '',
-      roast: data.roast || '',
-      brand: data.brand || '',
-      link: data.link || '',
-      category: data.category || '',
-      // 모든 timestamp 필드 변환
-      createdAt: convertTimestamp(data.createdAt),
-      lastUpdated: convertTimestamp(data.lastUpdated),
-    };
-  }) as Bean[];
+      return {
+        id: doc.id,
+        name: data.name || '',
+        flavor: data.flavor || data.flavors || '',
+        price: data.price || '',
+        image: data.image || '',
+        desc: data.desc || data.description || '',
+        roast: data.roast || '',
+        brand: data.brand || '',
+        link: data.link || '',
+        category: data.category || '',
+        createdAt: convertTimestamp(data.createdAt),
+        lastUpdated: convertTimestamp(data.lastUpdated),
+      };
+    }) as Bean[];
+  } catch (error) {
+    console.error("원두 데이터 로드 실패:", error);
+    return [];
+  }
+}
 
-  return <BeansClient beans={beans} />;
+function BeansLoading() {
+  return (
+    <div className="p-4">
+      <div className="animate-pulse">
+        <div className="h-8 bg-coffee-medium rounded mb-6"></div>
+        <div className="h-12 bg-coffee-medium rounded mb-6"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-64 bg-coffee-medium rounded-lg"></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default async function BeansPage() {
+  const beans = await loadBeans();
+
+  return (
+    <Suspense fallback={<BeansLoading />}>
+      <BeanFinderClient beans={beans} />
+    </Suspense>
+  );
 }

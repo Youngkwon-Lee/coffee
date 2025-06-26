@@ -6,6 +6,7 @@ import { db, auth } from "@/firebase";
 import Fuse from "fuse.js";
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 type Bean = {
   id?: string;
@@ -21,8 +22,6 @@ type Bean = {
   createdAt?: string;
   lastUpdated?: string;
 };
-
-
 
 // 장바구니(🛒) 상태 관리 훅
 function useBasket() {
@@ -56,14 +55,10 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
   const [myRoast, setMyRoast] = useState("");
   const [myBrand, setMyBrand] = useState("");
 
-
-
   // 로그인 상태
   const [user, setUser] = useState<User | null>(null);
   // Firestore 기반 찜 목록
   const [wishlist, setWishlist] = useState<string[]>([]);
-
-
 
   const { basket, toggleBasket } = useBasket();
   const router = useRouter();
@@ -204,325 +199,283 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
     setCurrentPage(1);
   }, [search, brandFilter, flavorFilter, roastFilter, sortBy, myFlavor, myRoast, myBrand]);
 
-
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cream-50 via-coffee-50 to-cream-100 relative overflow-hidden">
-      {/* 배경 장식 요소들 */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(230,188,83,0.15),transparent_70%)]"></div>
-      <div className="absolute top-0 left-0 w-96 h-96 bg-coffee-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-float"></div>
-      <div className="absolute top-0 right-0 w-80 h-80 bg-brown-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float" style={{animationDelay: '2s'}}></div>
-      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-coffee-300 rounded-full mix-blend-multiply filter blur-3xl opacity-25 animate-float" style={{animationDelay: '4s'}}></div>
-      
-      <main className="relative z-10 flex flex-col items-center min-h-screen pt-20 pb-20 px-4">
-        {/* 헤더 */}
-        <header className="w-full max-w-6xl text-center mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-8">
-            <h1 className="text-4xl md:text-6xl font-display font-bold bg-gradient-to-r from-brown-700 via-coffee-600 to-brown-800 bg-clip-text text-transparent mb-4">
-              ☕ 원두 컬렉션
-            </h1>
-            <p className="text-xl text-brown-600 mb-8">최고의 원두와 감성 추천을 만나보세요</p>
+    <div className="min-h-screen bg-coffee-dark relative overflow-hidden">
+      {/* Background decorations */}
+      <div className="absolute inset-0">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-coffee-gold opacity-10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 right-10 w-40 h-40 bg-coffee-gold opacity-5 rounded-full blur-3xl"></div>
       </div>
-        </header>
 
-        {/* 필터 섹션 */}
-        <div className="w-full max-w-6xl mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-6">
-            {/* 상단 필터 바 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-              {/* 검색 */}
-              <div className="lg:col-span-2">
-          <input
-            type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 placeholder-brown-400 focus:outline-none focus:ring-2 focus:ring-coffee-400"
-                  placeholder="🔍 원두명, 브랜드, 향미 검색..."
-                />
-              </div>
+      <main className="relative z-10 container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-coffee-light mb-4">
+            🌱 원두 컬렉션
+          </h1>
+          <p className="text-coffee-light opacity-70">전 세계의 다양한 원두를 탐색해보세요</p>
+        </div>
 
-              {/* 브랜드 필터 */}
+        {/* Search and Filters */}
+        <div className="card-coffee p-6 mb-8">
+          {/* Search Bar */}
+          <div className="mb-4">
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="input-coffee w-full"
+              placeholder="🔍 원두명, 브랜드, 향미 검색..."
+            />
+          </div>
+
+          {/* Collapsible Filters */}
+          <details className="mb-4">
+            <summary className="cursor-pointer text-coffee-gold font-medium mb-3 bg-coffee-medium px-4 py-2 rounded-lg">
+              📋 필터 옵션
+            </summary>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Brand Filter */}
               <select 
                 value={brandFilter} 
                 onChange={e => setBrandFilter(e.target.value)} 
-                className="bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
-          >
+                className="input-coffee"
+              >
                 <option value="">모든 브랜드</option>
                 {brands.map(brand => <option key={brand} value={brand}>{brand}</option>)}
               </select>
 
-              {/* 향미 필터 */}
+              {/* Flavor Filter */}
               <select 
                 value={flavorFilter} 
                 onChange={e => setFlavorFilter(e.target.value)} 
-                className="bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
+                className="input-coffee"
               >
                 <option value="">모든 향미</option>
                 {flavors.map(flavor => <option key={flavor} value={flavor}>{flavor}</option>)}
               </select>
 
-              {/* 배전도 필터 */}
+              {/* Roast Filter */}
               <select 
                 value={roastFilter} 
                 onChange={e => setRoastFilter(e.target.value)} 
-                className="bg-white border border-coffee-200 rounded-button px-4 py-3 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
+                className="input-coffee"
               >
                 <option value="">모든 배전도</option>
                 {roasts.map(roast => <option key={roast} value={roast}>{roast}</option>)}
               </select>
             </div>
+          </details>
 
-            {/* 정렬 및 결과 표시 */}
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-              <div className="flex items-center gap-4">
-                <span className="text-brown-700 font-medium">정렬:</span>
-                <select 
-                  value={sortBy} 
-                  onChange={e => setSortBy(e.target.value as "name" | "price" | "popular" | "recent")} 
-                  className="bg-white border border-coffee-200 rounded-button px-4 py-2 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
-                >
-                  <option value="popular">인기순</option>
-                  <option value="name">이름순</option>
-                  <option value="price">가격순</option>
-                  <option value="recent">최신순</option>
-                </select>
-              </div>
-              
-              <div className="text-brown-600">
-                총 <span className="font-bold text-coffee-600">{finalBeans.length}</span>개 원두
-                  </div>
-                </div>
-
-            {/* 취향 기반 필터 (간소화) */}
-            <details className="mb-6">
-              <summary className="cursor-pointer text-coffee-600 font-medium mb-3">🎯 취향 맞춤 추천</summary>
-              <div className="flex flex-wrap gap-3">
-        <select 
-          value={myFlavor} 
-          onChange={e => setMyFlavor(e.target.value)} 
-                  className="bg-white border border-coffee-200 rounded-button px-4 py-2 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
-        >
-                  <option value="">원하는 향미</option>
-          {flavors.map(f => <option key={f} value={f}>{f}</option>)}
-        </select>
-        <select 
-          value={myRoast} 
-          onChange={e => setMyRoast(e.target.value)} 
-                  className="bg-white border border-coffee-200 rounded-button px-4 py-2 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
-        >
-                  <option value="">원하는 배전도</option>
-          {roasts.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
-        <select 
-          value={myBrand} 
-          onChange={e => setMyBrand(e.target.value)} 
-                  className="bg-white border border-coffee-200 rounded-button px-4 py-2 text-brown-700 focus:outline-none focus:ring-2 focus:ring-coffee-400"
-        >
-                  <option value="">원하는 브랜드</option>
-          {brands.map(b => <option key={b} value={b}>{b}</option>)}
-        </select>
-                {(myFlavor || myRoast || myBrand) && (
-          <button
-                    onClick={() => {
-                      setMyFlavor("");
-                      setMyRoast("");
-                      setMyBrand("");
-                    }}
-                    className="px-4 py-2 rounded-button bg-brown-200 text-brown-700 hover:bg-brown-300 transition-colors duration-200"
-          >
-                    초기화
-          </button>
-                )}
-              </div>
-            </details>
+          {/* Sort and Results */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-4">
+              <span className="text-coffee-light font-medium">정렬:</span>
+              <select 
+                value={sortBy} 
+                onChange={e => setSortBy(e.target.value as "name" | "price" | "popular" | "recent")} 
+                className="input-coffee"
+              >
+                <option value="popular">인기순</option>
+                <option value="name">이름순</option>
+                <option value="price">가격순</option>
+                <option value="recent">최신순</option>
+              </select>
+            </div>
+            
+            <div className="text-coffee-light opacity-70">
+              총 <span className="font-bold text-coffee-gold">{finalBeans.length}</span>개 원두
+            </div>
           </div>
+
+          {/* Preference Filters */}
+          <details className="mt-4">
+            <summary className="cursor-pointer text-coffee-gold font-medium mb-3">🎯 취향 맞춤 추천</summary>
+            <div className="flex flex-wrap gap-3">
+              <select 
+                value={myFlavor} 
+                onChange={e => setMyFlavor(e.target.value)} 
+                className="input-coffee"
+              >
+                <option value="">원하는 향미</option>
+                {flavors.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+              <select 
+                value={myRoast} 
+                onChange={e => setMyRoast(e.target.value)} 
+                className="input-coffee"
+              >
+                <option value="">원하는 배전도</option>
+                {roasts.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+              <select 
+                value={myBrand} 
+                onChange={e => setMyBrand(e.target.value)} 
+                className="input-coffee"
+              >
+                <option value="">원하는 브랜드</option>
+                {brands.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+              {(myFlavor || myRoast || myBrand) && (
+                <button
+                  onClick={() => {
+                    setMyFlavor("");
+                    setMyRoast("");
+                    setMyBrand("");
+                  }}
+                  className="btn-secondary px-4 py-2 text-sm"
+                >
+                  초기화
+                </button>
+              )}
+            </div>
+          </details>
         </div>
 
-        {/* 원두 그리드 */}
-        <div className="w-full max-w-6xl">
+        {/* Beans Grid */}
+        <div className="w-full">
           {paginatedBeans.length === 0 ? (
-            <div className="bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-12 text-center">
+            <div className="card-coffee p-12 text-center">
               <div className="text-6xl mb-4">☕</div>
-              <h3 className="text-xl font-bold text-brown-800 mb-2">검색 결과가 없습니다</h3>
-              <p className="text-brown-600">다른 조건으로 검색해보세요</p>
-      </div>
+              <h3 className="text-xl font-bold text-coffee-light mb-2">검색 결과가 없습니다</h3>
+              <p className="text-coffee-light opacity-70">다른 조건으로 검색해보세요</p>
+            </div>
           ) : (
             <>
-              {/* 원두 카드 그리드 */}
+              {/* Bean Cards Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
                 {paginatedBeans.map((bean) => (
-                  <div
+                  <motion.div
                     key={bean.id || bean.name}
-                    className="group bg-white/80 backdrop-blur-sm rounded-card shadow-card border border-white/50 p-6 hover:shadow-hover hover:scale-[1.02] transition-all duration-300"
-            >
-                    {/* 이미지 */}
+                    whileHover={{ scale: 1.02, y: -5 }}
+                    className="card-coffee p-6 group"
+                  >
+                    {/* Image */}
                     <div className="relative mb-4">
                       <Image
                         src={bean.image || "/beans/default.jpg"}
                         alt={bean.name}
                         width={200}
                         height={200}
-                        className="w-full h-48 object-cover rounded-card"
+                        className="w-full h-48 object-cover rounded-xl"
                       />
                       
-                      {/* 찜하기 버튼 */}
+                      {/* Wishlist Button */}
                       {user && (
-                      <button
+                        <button
                           onClick={() => toggleWishlist(bean.id || bean.name)}
                           className={`absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
                             wishlist.includes(bean.id || bean.name)
                               ? "bg-red-500 text-white"
-                              : "bg-white/80 text-brown-600 hover:bg-red-50"
+                              : "bg-coffee-medium text-coffee-light hover:bg-red-50"
                           }`}
-                      >
+                        >
                           {wishlist.includes(bean.id || bean.name) ? "❤️" : "🤍"}
-                      </button>
+                        </button>
                       )}
                     </div>
 
-                    {/* 원두 정보 */}
+                    {/* Bean Info */}
                     <div className="space-y-3">
                       <div>
-                        <h3 className="font-bold text-lg text-brown-800 leading-tight mb-1 group-hover:text-coffee-600 transition-colors duration-200">
+                        <h3 className="font-bold text-lg text-coffee-light leading-tight mb-1 group-hover:text-coffee-gold transition-colors duration-200">
                           {bean.name}
                         </h3>
                         {bean.brand && (
-                          <p className="text-sm text-brown-500 font-medium">{bean.brand}</p>
+                          <p className="text-sm text-coffee-light opacity-70 font-medium">{bean.brand}</p>
                         )}
                       </div>
 
-                      {/* 향미 태그 */}
+                      {/* Flavor Tags */}
                       <div className="flex flex-wrap gap-1">
                         {(typeof bean.flavor === 'string' ? bean.flavor.split(',') : bean.flavor || [])
                           .slice(0, 3)
                           .map((flavor, idx) => (
                           <span
                             key={idx}
-                            className="px-2 py-1 bg-coffee-100 text-coffee-700 text-xs rounded-button font-medium"
+                            className="px-2 py-1 bg-coffee-gold text-coffee-dark text-xs rounded-full font-medium"
                           >
                             {flavor.trim()}
                           </span>
                         ))}
                       </div>
 
-                      {/* 배전도 */}
+                      {/* Roast Level */}
                       {bean.roast && (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-brown-600">배전도:</span>
-                          <span className="px-2 py-1 bg-brown-100 text-brown-700 text-xs rounded-button font-medium">
+                          <span className="text-xs text-coffee-light opacity-70">배전도:</span>
+                          <span className="px-2 py-1 bg-coffee-medium text-coffee-light text-xs rounded-full font-medium">
                             {bean.roast}
                           </span>
                         </div>
                       )}
 
-                      {/* 가격 */}
-                      <div className="text-xl font-bold text-coffee-600">
+                      {/* Price */}
+                      <div className="text-xl font-bold text-coffee-gold">
                         {bean.price}
-                    </div>
+                      </div>
 
-                      {/* 액션 버튼들 */}
+                      {/* Action Buttons */}
                       <div className="flex gap-2 pt-2">
                         <button
                           onClick={() => toggleBasket(bean.id || bean.name)}
-                          className={`flex-1 px-4 py-2 rounded-button font-medium transition-all duration-200 ${
+                          className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                             basket.includes(bean.id || bean.name)
-                              ? "bg-orange-500 text-white hover:bg-orange-600"
-                              : "bg-coffee-500 text-white hover:bg-coffee-600"
+                              ? "bg-coffee-gold text-coffee-dark"
+                              : "btn-secondary"
                           }`}
                         >
-                          {basket.includes(bean.id || bean.name) ? "🛒 담김" : "🛒 담기"}
+                          {basket.includes(bean.id || bean.name) ? "장바구니에서 제거" : "장바구니 추가"}
                         </button>
-                        
-                        {bean.link && (
-                          <button
-                            onClick={() => window.open(bean.link, "_blank")}
-                            className="px-4 py-2 bg-brown-500 text-white rounded-button font-medium hover:bg-brown-600 transition-all duration-200"
-                          >
-                            구매
-                          </button>
-                        )}
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
 
-              {/* 페이지네이션 */}
-      {totalPages > 1 && (
+              {/* Pagination */}
+              {totalPages > 1 && (
                 <div className="flex justify-center items-center gap-2">
-          <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-                    className="px-4 py-2 bg-white/80 backdrop-blur-sm rounded-button text-brown-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-coffee-100 transition-all duration-200"
-          >
-            이전
-          </button>
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="btn-secondary px-4 py-2 disabled:opacity-50"
+                  >
+                    이전
+                  </button>
                   
                   <div className="flex gap-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      const page = i + 1;
+                      const pageNum = Math.max(1, Math.min(totalPages, currentPage - 2 + i));
                       return (
-            <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`w-10 h-10 rounded-button font-medium transition-all duration-200 ${
-                            currentPage === page
-                              ? "bg-coffee-500 text-white"
-                              : "bg-white/80 text-brown-700 hover:bg-coffee-100"
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`w-10 h-10 rounded-lg font-medium transition-colors ${
+                            currentPage === pageNum
+                              ? "bg-coffee-gold text-coffee-dark"
+                              : "bg-coffee-medium text-coffee-light hover:bg-coffee-gold hover:text-coffee-dark"
                           }`}
-            >
-                          {page}
-            </button>
+                        >
+                          {pageNum}
+                        </button>
                       );
                     })}
                   </div>
                   
-          <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-                    className="px-4 py-2 bg-white/80 backdrop-blur-sm rounded-button text-brown-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-coffee-100 transition-all duration-200"
-          >
-            다음
-          </button>
-        </div>
-      )}
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="btn-secondary px-4 py-2 disabled:opacity-50"
+                  >
+                    다음
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
       </main>
-
-      {/* 플로팅 장바구니 */}
-      {basket.length > 0 && (
-      <button
-          onClick={() => router.push('/cart')}
-          className="fixed bottom-6 right-6 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 z-50"
-      >
-          <span className="text-2xl">🛒</span>
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
-            {basket.length}
-          </span>
-        </button>
-      )}
-
-
-
-      <style jsx>{`
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   );
 } 

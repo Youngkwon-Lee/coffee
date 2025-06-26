@@ -3,48 +3,41 @@ import { useState, useEffect } from "react";
 import { db, auth } from "../../src/firebase";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
+import BeanDetailModal from "../components/BeanDetailModal";
+import FilterDropdown from "../components/FilterDropdown";
+import { normalizeRoastLevel, getRoastDisplayText } from "../../src/utils/roastMapping";
+import { extractOrigin, getOriginFlag, STANDARD_ORIGINS } from "../../src/utils/originMapping";
 
 type Bean = {
   id?: string;
-  name: string;
-  flavor: string;
-  price: string;
-  image: string;
-  desc?: string;
-  roast?: string;
-  brand?: string;
-  link?: string;
-  category?: string;
-  createdAt?: string;
-  lastUpdated?: string;
+  name: string | any;
+  flavor: string | string[] | any;
+  price: string | number | any;
+  image: string | any;
+  desc?: string | any;
+  roast?: string | any;
+  brand?: string | any;
+  link?: string | any;
+  category?: string | any;
+  createdAt?: string | any;
+  lastUpdated?: string | any;
 };
 
 // Bean Card Component
-function BeanCard({ bean, onToggleWishlist, isWishlisted }: {
+function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick }: {
   bean: Bean;
   onToggleWishlist: (beanId: string) => void;
   isWishlisted: boolean;
+  onCardClick: (bean: Bean) => void;
 }) {
-  const getOriginFlag = (flavor: string) => {
-    const origins: { [key: string]: string } = {
-      "에티오피아": "🇪🇹",
-      "콜롬비아": "🇨🇴", 
-      "과테말라": "🇬🇹",
-      "브라질": "🇧🇷",
-      "자메이카": "🇯🇲",
-      "케냐": "🇰🇪",
-      "코스타리카": "🇨🇷",
-      "페루": "🇵🇪",
-      "인도네시아": "🇮🇩",
-      "니카라과": "🇳🇮",
-      "온두라스": "🇭🇳",
-      "파나마": "🇵🇦"
-    };
+  const getBeanOriginFlag = (flavor: string | any) => {
+    // flavor를 안전하게 문자열로 변환
+    const flavorStr = typeof flavor === 'string' ? flavor : 
+                     Array.isArray(flavor) ? flavor.join(' ') : 
+                     flavor ? String(flavor) : '';
     
-    for (const [origin, flag] of Object.entries(origins)) {
-      if (flavor?.toLowerCase().includes(origin.toLowerCase())) return flag;
-    }
-    return "🌍";
+    const origin = extractOrigin(flavorStr);
+    return origin ? getOriginFlag(origin) : "🌍";
   };
 
   const formatPrice = (price: string | number | any) => {
@@ -55,7 +48,10 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted }: {
   };
 
   return (
-    <div className="card-coffee p-4 card-hover h-full flex flex-col">
+    <div 
+      className="card-coffee p-4 card-hover h-full flex flex-col cursor-pointer"
+      onClick={() => onCardClick(bean)}
+    >
       <div className="relative mb-3">
         <img
           src={bean.image || "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=200&fit=crop"}
@@ -63,7 +59,10 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted }: {
           className="w-full h-32 rounded-lg object-cover"
         />
         <button
-          onClick={() => onToggleWishlist(bean.id || bean.name)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleWishlist(bean.id || bean.name);
+          }}
           className="absolute top-2 right-2 w-8 h-8 bg-coffee-gold rounded-full flex items-center justify-center text-coffee-dark hover:scale-110 transition-transform shadow-lg"
         >
           <span className="text-sm">
@@ -71,13 +70,13 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted }: {
           </span>
         </button>
         <div className="absolute top-2 left-2">
-          <span className="text-2xl">{getOriginFlag(bean.flavor)}</span>
+          <span className="text-2xl">{getBeanOriginFlag(bean.flavor)}</span>
         </div>
       </div>
       
       <div className="flex-1 flex flex-col">
         <h3 className="font-semibold text-coffee-light mb-1 line-clamp-1">
-          {bean.name}
+          {bean.name || '이름 없음'}
         </h3>
         
         <p className="text-sm text-coffee-light opacity-70 mb-2">
@@ -86,12 +85,17 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted }: {
         
         {/* Flavor Tags */}
         <div className="flex flex-wrap gap-1 mb-2">
-          <span className="flavor-tag text-xs">
-            {bean.flavor}
-          </span>
+          {bean.flavor && (
+            <span className="flavor-tag text-xs">
+              {Array.isArray(bean.flavor) ? bean.flavor.join(', ') : bean.flavor}
+            </span>
+          )}
           {bean.roast && (
             <span className="flavor-tag text-xs">
-              {bean.roast}
+              {(() => {
+                const normalizedRoast = normalizeRoastLevel(bean.roast);
+                return normalizedRoast ? getRoastDisplayText(normalizedRoast) : bean.roast;
+              })()} 
             </span>
           )}
         </div>
@@ -99,7 +103,7 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted }: {
         {/* Description */}
         {bean.desc && (
           <p className="text-xs text-coffee-light opacity-60 line-clamp-2 mt-auto">
-            {bean.desc}
+            {typeof bean.desc === 'string' ? bean.desc : String(bean.desc)}
           </p>
         )}
       </div>
@@ -108,14 +112,113 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted }: {
 }
 
 export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
-  const [selectedOrigin, setSelectedOrigin] = useState<string>("전체");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState<string>("전체");
+  const [selectedOrigin, setSelectedOrigin] = useState<string>("전체");
+  const [selectedRoast, setSelectedRoast] = useState<string>("전체");
   const [user, setUser] = useState<User | null>(null);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
+  const [selectedBean, setSelectedBean] = useState<Bean | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const origins = ["전체", "에티오피아", "콜롬비아", "과테말라", "브라질", "자메이카", "케냐", "코스타리카", "페루", "인도네시아"];
+  // 동적으로 필터 옵션 생성
+  const generateFilterOptions = (field: keyof Bean, label: string) => {
+    const safeString = (value: any) => {
+      if (!value) return '';
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) return value.join(' ');
+      return String(value);
+    };
+
+    const counts: { [key: string]: number } = {};
+    const uniqueValues = new Set<string>();
+
+    beans.forEach(bean => {
+      const value = safeString(bean[field]).trim();
+      if (value) {
+        // 여러 값이 쉼표나 공백으로 구분되어 있을 수 있음
+        const values = value.split(/[,\s]+/).filter(v => v.length > 0);
+        values.forEach(v => {
+          const cleanValue = v.trim();
+          if (cleanValue && cleanValue !== '전체') { // '전체' 중복 방지
+            uniqueValues.add(cleanValue);
+            counts[cleanValue] = (counts[cleanValue] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    const options = [
+      { value: "전체", label: "전체", count: beans.length }
+    ];
+
+    // 중복 제거된 값들을 정렬하여 추가
+    Array.from(uniqueValues)
+      .sort()
+      .forEach(value => {
+        // 이미 존재하는지 한번 더 확인
+        if (!options.some(opt => opt.value === value)) {
+          options.push({
+            value,
+            label: value,
+            count: counts[value]
+          });
+        }
+      });
+
+    return options;
+  };
+
+  // 필터 옵션들
+  const brandOptions = generateFilterOptions('brand', '브랜드');
+  const originOptions = (() => {
+    const counts: { [key: string]: number } = {};
+    
+    beans.forEach(bean => {
+      const flavorStr = typeof bean.flavor === 'string' ? bean.flavor : 
+                       Array.isArray(bean.flavor) ? bean.flavor.join(' ') : 
+                       bean.flavor ? String(bean.flavor) : '';
+      
+      // 원산지 추출 유틸리티 사용
+      const origin = extractOrigin(flavorStr);
+      if (origin) {
+        counts[origin] = (counts[origin] || 0) + 1;
+      }
+    });
+
+    return [
+      { value: "전체", label: "전체", count: beans.length },
+      ...STANDARD_ORIGINS.filter(origin => counts[origin] > 0).map(origin => ({
+        value: origin,
+        label: `${getOriginFlag(origin)} ${origin}`,
+        count: counts[origin]
+      }))
+    ];
+  })();
+  
+  const roastOptions = (() => {
+    const counts: { [key: string]: number } = {};
+    
+    beans.forEach(bean => {
+      if (bean.roast) {
+        const normalizedRoast = normalizeRoastLevel(bean.roast);
+        if (normalizedRoast) {
+          counts[normalizedRoast] = (counts[normalizedRoast] || 0) + 1;
+        }
+      }
+    });
+
+    return [
+      { value: "전체", label: "전체", count: beans.length },
+      ...Object.entries(counts).map(([roast, count]) => ({
+        value: roast,
+        label: getRoastDisplayText(roast as any),
+        count
+      }))
+    ];
+  })();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, setUser);
@@ -155,20 +258,43 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
     }
   };
 
-  // Filter beans based on search and selected origin
+  // Filter beans based on search and selected filters
   const filteredBeans = beans.filter(bean => {
+    // 안전한 문자열 변환 함수
+    const safeString = (value: any) => {
+      if (!value) return '';
+      if (typeof value === 'string') return value;
+      if (Array.isArray(value)) return value.join(' ');
+      return String(value);
+    };
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    // 검색어 매칭
     const matchesSearch = searchTerm === "" || 
-                         bean.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bean.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bean.flavor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bean.desc?.toLowerCase().includes(searchTerm.toLowerCase());
+                         safeString(bean.name).toLowerCase().includes(searchLower) ||
+                         safeString(bean.brand).toLowerCase().includes(searchLower) ||
+                         safeString(bean.flavor).toLowerCase().includes(searchLower) ||
+                         safeString(bean.desc).toLowerCase().includes(searchLower);
     
-    const matchesOrigin = selectedOrigin === "전체" || 
-                         bean.flavor?.toLowerCase().includes(selectedOrigin.toLowerCase()) ||
-                         bean.name?.toLowerCase().includes(selectedOrigin.toLowerCase()) ||
-                         bean.category?.toLowerCase().includes(selectedOrigin.toLowerCase());
+    // 브랜드 필터
+    const matchesBrand = selectedBrand === "전체" || 
+                        safeString(bean.brand).toLowerCase().includes(selectedBrand.toLowerCase());
     
-    return matchesSearch && matchesOrigin;
+    // 원산지 필터 (향미 필드에서 확인)
+    const matchesOrigin = selectedOrigin === "전체" || (() => {
+      const flavorStr = safeString(bean.flavor);
+      const origin = extractOrigin(flavorStr);
+      return origin === selectedOrigin;
+    })();
+    
+    // 로스팅 필터
+    const matchesRoast = selectedRoast === "전체" || (() => {
+      const normalizedRoast = normalizeRoastLevel(bean.roast);
+      return normalizedRoast === selectedRoast;
+    })();
+    
+    return matchesSearch && matchesBrand && matchesOrigin && matchesRoast;
   });
 
   // Pagination logic
@@ -180,7 +306,27 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedOrigin]);
+  }, [searchTerm, selectedBrand, selectedOrigin, selectedRoast]);
+
+  // Modal handlers
+  const handleCardClick = (bean: Bean) => {
+    setSelectedBean(bean);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedBean(null);
+  };
+
+  // 필터 초기화
+  const resetFilters = () => {
+    setSearchTerm("");
+    setSelectedBrand("전체");
+    setSelectedOrigin("전체");
+    setSelectedRoast("전체");
+    setCurrentPage(1);
+  };
 
   return (
     <section className="p-4">
@@ -200,17 +346,43 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
         </svg>
       </div>
       
-      {/* Filter Chips */}
-      <div className="flex space-x-2 mb-6 overflow-x-auto">
-        {origins.map((origin) => (
-          <button
-            key={origin}
-            onClick={() => setSelectedOrigin(origin)}
-            className={`filter-chip ${selectedOrigin === origin ? 'active' : 'inactive'}`}
-          >
-            {origin}
-          </button>
-        ))}
+      {/* Filter Dropdowns */}
+      <div className="mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <FilterDropdown
+            label="브랜드"
+            options={brandOptions}
+            selectedValue={selectedBrand}
+            onSelect={setSelectedBrand}
+            placeholder="브랜드 선택"
+          />
+          <FilterDropdown
+            label="원산지"
+            options={originOptions}
+            selectedValue={selectedOrigin}
+            onSelect={setSelectedOrigin}
+            placeholder="원산지 선택"
+          />
+          <FilterDropdown
+            label="로스팅"
+            options={roastOptions}
+            selectedValue={selectedRoast}
+            onSelect={setSelectedRoast}
+            placeholder="로스팅 선택"
+          />
+        </div>
+        
+        {/* Filter Reset Button */}
+        {(selectedBrand !== "전체" || selectedOrigin !== "전체" || selectedRoast !== "전체" || searchTerm !== "") && (
+          <div className="flex justify-end">
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 text-sm bg-coffee-medium text-coffee-light border border-coffee-gold border-opacity-50 rounded-lg hover:bg-coffee-gold hover:text-coffee-dark transition-colors"
+            >
+              필터 초기화
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Results count */}
@@ -234,6 +406,7 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
               bean={bean}
               onToggleWishlist={toggleWishlist}
               isWishlisted={wishlist.includes(bean.id || bean.name)}
+              onCardClick={handleCardClick}
             />
           ))
         ) : (
@@ -297,6 +470,15 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
           </button>
         </div>
       )}
+
+      {/* Bean Detail Modal */}
+      <BeanDetailModal
+        bean={selectedBean}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onToggleWishlist={toggleWishlist}
+        isWishlisted={selectedBean ? wishlist.includes(selectedBean.id || selectedBean.name) : false}
+      />
     </section>
   );
 } 

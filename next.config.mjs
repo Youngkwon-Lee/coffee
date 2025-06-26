@@ -1,8 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // 개발 환경 성능 최적화
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  
   // 이미지 설정
   images: {
     remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
+      },
       {
         protocol: 'https',
         hostname: 'm.fritz.co.kr',
@@ -46,6 +57,7 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+    minimumCacheTTL: 60,
   },
   
   // TypeScript 설정
@@ -63,15 +75,6 @@ const nextConfig = {
     optimizePackageImports: ['framer-motion', 'firebase'],
   },
   
-  // Turbopack 설정 (experimental.turbo는 deprecated)
-  turbopack: {
-    rules: {
-      '*.svg': {
-        loaders: ['@svgr/webpack'],
-        as: '*.js',
-      },
-    },
-  },
   
   // 웹팩 최적화
   webpack: (config, { dev }) => {

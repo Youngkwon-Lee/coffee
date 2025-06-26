@@ -5,10 +5,12 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../../src/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+import { useCustomAlert } from '../components/CustomAlert';
 
 export default function ChatBotRecorder() {
   const [user] = useAuthState(auth);
   const router = useRouter();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -72,7 +74,11 @@ export default function ChatBotRecorder() {
 
   const saveRecord = async () => {
     if (!user) {
-      alert("로그인이 필요합니다.");
+      showAlert({
+        type: 'warning',
+        title: '로그인 필요',
+        message: '로그인이 필요합니다.'
+      });
       return;
     }
 
@@ -84,11 +90,19 @@ export default function ChatBotRecorder() {
         userId: user.uid
       });
       
-      alert("커피 기록이 저장되었습니다! ☕");
-      router.push('/records');
+      showAlert({
+        type: 'success',
+        title: '저장 완료',
+        message: '커피 기록이 저장되었습니다! ☕',
+        onConfirm: () => router.push('/records')
+      });
     } catch (error) {
       console.error("기록 저장 실패:", error);
-      alert("저장에 실패했습니다. 다시 시도해주세요.");
+      showAlert({
+        type: 'error',
+        title: '저장 실패',
+        message: '저장에 실패했습니다. 다시 시도해주세요.'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -260,6 +274,8 @@ export default function ChatBotRecorder() {
         )}
         </div>
       </div>
+      
+      <AlertComponent />
     </div>
   );
 } 

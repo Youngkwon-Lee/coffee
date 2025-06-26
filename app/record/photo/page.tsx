@@ -2,10 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection } from "firebase/firestore";
+import { addDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { db, auth } from "@/firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthState } from "react-firebase-hooks/auth";
+import Link from "next/link";
+import { useCustomAlert } from "../../components/CustomAlert";
 
 // Tesseract.js 동적 import (에러 방지)
 let Tesseract: any = null;
@@ -88,6 +90,7 @@ const FLAVOR_CATEGORIES = {
 
 export default function PhotoRecordPageSimple() {
   const [user] = useAuthState(auth);
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -96,10 +99,49 @@ export default function PhotoRecordPageSimple() {
   const [analysisStep, setAnalysisStep] = useState<string>("");
   const [ocrProgress, setOcrProgress] = useState(0);
   const [showFlavorWheel, setShowFlavorWheel] = useState(false);
+  const [cafeSuggestions, setCafeSuggestions] = useState<string[]>([]);
+  const [showCafeSuggestions, setShowCafeSuggestions] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // 자주 방문하는 카페 목록 로드
+  useEffect(() => {
+    loadFrequentCafes();
+  }, [user]);
+
+  const loadFrequentCafes = async () => {
+    if (!user) return;
+
+    try {
+      const recordsQuery = query(
+        collection(db, "users", user.uid, "records"),
+        orderBy("createdAt", "desc"),
+        limit(50) // 최근 50개 기록에서 추출
+      );
+      const recordsSnapshot = await getDocs(recordsQuery);
+      
+      // 카페명 빈도 계산
+      const cafeFrequency: { [key: string]: number } = {};
+      recordsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.cafe && typeof data.cafe === 'string') {
+          cafeFrequency[data.cafe] = (cafeFrequency[data.cafe] || 0) + 1;
+        }
+      });
+
+      // 빈도순으로 정렬하여 상위 10개 추출
+      const sortedCafes = Object.entries(cafeFrequency)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10)
+        .map(([cafe]) => cafe);
+      
+      setCafeSuggestions(sortedCafes);
+    } catch (error) {
+      console.error('카페 목록 로드 실패:', error);
+    }
+  };
 
   // 설문 폼 상태
   const [form, setForm] = useState({
@@ -109,9 +151,11 @@ export default function PhotoRecordPageSimple() {
     flavor: [] as string[],
     rating: 0,
     mood: "",
-    review: ""
+    review: "",
+    roasting: "",
+    brewMethod: ""
   });
-
+  
   // 분석 결과가 나오면 폼에 자동 입력
   useEffect(() => {
     if (analysisResult) {
@@ -121,18 +165,94 @@ export default function PhotoRecordPageSimple() {
         bean: analysisResult.bean || "",
         processing: analysisResult.processing || "",
         flavor: analysisResult.flavor || []
-      }));
-    }
+        }));
+      }
   }, [analysisResult]);
 
-  // 파일 선택/촬영 시 미리보기
-  const handleFileChange = (file: File) => {
+  // 이미지 압축 함수
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      
+      img.onload = () => {
+        // 최대 크기 설정 (OCR 성능과 속도 균형)
+        const maxWidth = 1200;
+        const maxHeight = 1200;
+        
+        let { width, height } = img;
+        
+        // 비율 유지하면서 리사이즈
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // 이미지 품질 향상을 위한 필터 적용
+        ctx.filter = 'contrast(110%) brightness(105%)';
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              resolve(file); // 압축 실패시 원본 반환
+            }
+          },
+          'image/jpeg',
+          0.8 // 80% 품질
+        );
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  // 파일 선택/촬영 시 미리보기 (이미지 압축 포함)
+  const handleFileChange = async (file: File) => {
     if (file) {
-      setImage(file);
-      setPreview(URL.createObjectURL(file));
-      setAnalysisResult(null);
-      setAnalysisStep("");
-      setOcrProgress(0);
+      try {
+        setAnalysisStep("이미지 최적화 중...");
+        
+        // 이미지 압축
+        const compressedFile = await compressImage(file);
+        
+        setImage(compressedFile);
+        setPreview(URL.createObjectURL(compressedFile));
+        setAnalysisResult(null);
+        setAnalysisStep("");
+        setOcrProgress(0);
+        
+        // 압축 완료 알림
+        const originalSize = (file.size / 1024 / 1024).toFixed(1);
+        const compressedSize = (compressedFile.size / 1024 / 1024).toFixed(1);
+        console.log(`이미지 압축 완료: ${originalSize}MB → ${compressedSize}MB`);
+        
+      } catch (error) {
+        console.error('이미지 압축 실패:', error);
+        // 압축 실패시 원본 사용
+        setImage(file);
+        setPreview(URL.createObjectURL(file));
+        setAnalysisResult(null);
+        setAnalysisStep("");
+        setOcrProgress(0);
+      }
     }
   };
 
@@ -148,7 +268,7 @@ export default function PhotoRecordPageSimple() {
     try {
       const { data: { text } } = await Tesseract.recognize(
         imageFile,
-        'eng', // 영어 위주로 인식
+        'kor+eng', // 한글+영어 동시 인식으로 개선
         {
           logger: (m: any) => {
             if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
@@ -160,7 +280,7 @@ export default function PhotoRecordPageSimple() {
       );
 
       return text.trim();
-    } catch (error) {
+      } catch (error) {
       console.error('OCR 에러:', error);
       throw new Error('텍스트 인식에 실패했습니다.');
     }
@@ -176,7 +296,7 @@ export default function PhotoRecordPageSimple() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
+                body: JSON.stringify({
           text: text,
           confidence: 0.9
         })
@@ -209,7 +329,11 @@ export default function PhotoRecordPageSimple() {
       const extractedText = await performOCR(image);
       
       if (!extractedText) {
-        alert("이미지에서 텍스트를 찾을 수 없습니다.\n수동으로 입력해주세요.");
+        showAlert({
+          type: 'warning',
+          title: '텍스트 인식 실패',
+          message: '이미지에서 텍스트를 찾을 수 없습니다.\n수동으로 입력해주세요.'
+        });
         return;
       }
 
@@ -221,13 +345,39 @@ export default function PhotoRecordPageSimple() {
       
       // 성공 메시지
       setTimeout(() => {
-        alert("🎉 AI 분석이 완료되었습니다!\n아래에서 정보를 확인하고 수정해주세요.");
+        showAlert({
+          type: 'success',
+          title: 'AI 분석 완료',
+          message: '✨ AI 분석이 완료되었습니다!\n아래에서 정보를 확인하고 수정해주세요.'
+        });
       }, 500);
 
     } catch (error) {
       console.error("분석 실패:", error);
       const errorMessage = error instanceof Error ? error.message : "분석 중 오류가 발생했습니다.";
-      alert(`${errorMessage}\n\n수동으로 입력해주세요.`);
+      
+      // 분석 실패시 수동 입력 모드로 자동 전환
+      setAnalysisResult({
+        cafe: "",
+        bean: "",
+        processing: "",
+        flavor: [],
+        confidence: 0,
+        raw_text: ""
+      });
+      
+      showAlert({
+        type: 'warning',
+        title: '자동 분석 실패',
+        message: `${errorMessage}\n\n🖋️ 수동 입력 모드로 전환합니다.\n아래 폼에서 직접 입력해주세요.`
+      });
+      
+      // 폼으로 스크롤 이동
+      setTimeout(() => {
+        const formSection = document.querySelector('#coffee-form');
+        formSection?.scrollIntoView({ behavior: 'smooth' });
+      }, 1000);
+      
     } finally {
       setTimeout(() => {
         setAnalyzing(false);
@@ -287,7 +437,12 @@ export default function PhotoRecordPageSimple() {
 
       await addDoc(collection(db, "users", user.uid, "records"), recordData);
 
-      alert("🎉 커피 기록이 성공적으로 저장되었어요!");
+      showAlert({
+        type: 'success',
+        title: '저장 완료',
+        message: '🎉 커피 기록이 성공적으로 저장되었어요!',
+        onConfirm: () => router.push('/')
+      });
       
       // 폼 초기화
       setForm({
@@ -297,15 +452,21 @@ export default function PhotoRecordPageSimple() {
         flavor: [],
         rating: 0,
         mood: "",
-        review: ""
+        review: "",
+        roasting: "",
+        brewMethod: ""
       });
       setImage(null);
       setPreview(null);
       setAnalysisResult(null);
-
+      
     } catch (error) {
       console.error("저장 실패:", error);
-      alert("저장에 실패했습니다. 다시 시도해주세요.");
+      showAlert({
+        type: 'error',
+        title: '저장 실패',
+        message: '저장에 실패했습니다. 다시 시도해주세요.'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -322,562 +483,548 @@ export default function PhotoRecordPageSimple() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cream-50 via-coffee-50 to-cream-100 pt-20 pb-16">
-      <div className="container mx-auto px-4 max-w-4xl">
-        
-        {/* 헤더 */}
+    <div className="min-h-screen bg-coffee-dark relative overflow-hidden">
+      {/* Background decorations */}
+      <div className="absolute inset-0">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-coffee-gold opacity-10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 right-10 w-40 h-40 bg-coffee-gold opacity-5 rounded-full blur-3xl"></div>
+      </div>
+
+      <main className="relative z-10 container mx-auto px-4 py-8 max-w-4xl">
+        {/* Header */}
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-6"
         >
-          <h1 className="text-5xl md:text-6xl font-black bg-gradient-to-r from-brown-800 via-coffee-700 to-brown-800 bg-clip-text text-transparent mb-4">
-            AI 커피 분석
+          <h1 className="text-3xl md:text-4xl font-bold text-coffee-light mb-2">
+            📸 AI 커피 분석
           </h1>
-          <p className="text-2xl text-brown-600 mb-2">사진으로 시작하는 스마트 커피 기록</p>
-          <p className="text-brown-500 text-lg">커피백, 메뉴판, 원두 포장지를 촬영해서 AI 분석을 받아보세요</p>
+          <p className="text-coffee-light opacity-70">커피백이나 메뉴판을 촬영해서 AI 분석을 받아보세요</p>
         </motion.div>
 
-        {/* 메인 컨텐츠 */}
-        <div className="space-y-8">
-          
-          {/* 사진 영역 */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/50"
-          >
-            {preview ? (
-              <div className="relative">
-                <img 
-                  src={preview} 
-                  alt="선택된 사진" 
-                  className="w-full h-80 object-cover rounded-2xl border border-coffee-200 shadow-lg" 
-                />
-                <button 
-                  onClick={() => {
-                    setPreview(null);
-                    setImage(null);
-                    setAnalysisResult(null);
-                  }}
-                  className="absolute -top-3 -right-3 w-12 h-12 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl"
-                >
-                  <span className="text-xl">✕</span>
-                </button>
-                
-                {/* 분석 상태 표시 */}
-                {analyzing && (
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <div className="bg-black/70 backdrop-blur-sm rounded-xl p-4 text-white">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                        <span className="font-semibold">{analysisStep}</span>
-                      </div>
-                      {ocrProgress > 0 && ocrProgress < 100 && (
-                        <div className="w-full bg-white/20 rounded-full h-2">
-                          <div 
-                            className="bg-coffee-400 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${ocrProgress}%` }}
-                          ></div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-coffee-300 rounded-2xl p-16 text-center bg-gradient-to-br from-coffee-50/50 to-cream-100/50">
-                <div className="text-9xl mb-8">📸</div>
-                <h3 className="text-3xl font-bold text-brown-800 mb-4">사진을 선택해주세요</h3>
-                <p className="text-brown-600 text-lg mb-8">
-                  커피백, 메뉴판, 원두 포장지 등<br/>
-                  텍스트가 있는 커피 관련 사진을 업로드하세요!
-                </p>
-              </div>
-            )}
-          </motion.div>
-
-          {/* 사진 선택 버튼들 */}
-          {!preview && (
-            <div className="space-y-6">
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileChange(file);
-                }}
-                ref={cameraInputRef}
-                className="hidden"
+        {/* Photo Upload Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="card-coffee p-6 mb-6"
+        >
+          {preview ? (
+            <div className="relative">
+              <img 
+                src={preview} 
+                alt="Preview" 
+                className="w-full max-h-96 object-contain rounded-xl"
               />
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center justify-center gap-6 px-10 py-8 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-3xl font-bold text-2xl shadow-2xl hover:shadow-3xl transition-all duration-300"
-                onClick={() => cameraInputRef.current?.click()}
+              <button
+                onClick={() => {
+                  setPreview(null);
+                  setImage(null);
+                  setAnalysisResult(null);
+                }}
+                className="absolute -top-3 -right-3 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-300"
               >
-                <span className="text-5xl">📷</span> 
-                <span>사진 촬영하기</span>
-              </motion.button>
+                <span className="text-lg">✕</span>
+              </button>
               
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileChange(file);
-                }}
-                ref={fileInputRef}
-                className="hidden"
-              />
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center justify-center gap-6 px-10 py-8 bg-gradient-to-r from-brown-500 to-brown-600 text-white rounded-3xl font-bold text-2xl shadow-2xl hover:shadow-3xl transition-all duration-300"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <span className="text-5xl">🖼️</span> 
-                <span>갤러리에서 선택</span>
-              </motion.button>
-            </div>
-          )}
-
-          {/* AI 분석 버튼 */}
-          {preview && !analysisResult && !analyzing && (
-            <motion.button
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full flex items-center justify-center gap-6 px-10 py-8 bg-gradient-to-r from-coffee-600 to-brown-600 text-white rounded-3xl font-bold text-2xl shadow-2xl hover:shadow-3xl transition-all duration-300"
-              onClick={handleAnalyze}
-            >
-              <span className="text-5xl">🤖</span>
-              <span>AI 분석 시작하기</span>
-            </motion.button>
-          )}
-
-          {/* 분석 진행 중 상태 */}
-          {analyzing && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/50 text-center"
-            >
-              <div className="w-16 h-16 border-4 border-coffee-200 border-t-coffee-500 rounded-full animate-spin mx-auto mb-6"></div>
-              <h3 className="text-2xl font-bold text-coffee-700 mb-2">AI 분석 진행 중</h3>
-              <p className="text-coffee-600 text-lg">{analysisStep}</p>
-              {ocrProgress > 0 && ocrProgress < 100 && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between text-sm text-coffee-600 mb-2">
-                    <span>진행률</span>
-                    <span>{ocrProgress}%</span>
-                  </div>
-                  <div className="w-full bg-coffee-200 rounded-full h-3">
-                    <div 
-                      className="bg-coffee-500 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${ocrProgress}%` }}
-                    ></div>
+              {analyzing && (
+                <div className="absolute bottom-4 left-4 right-4">
+                  <div className="bg-black/70 backdrop-blur-sm rounded-xl p-4 text-white">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="loading-spinner w-6 h-6 rounded-full"></div>
+                      <span className="font-semibold">{analysisStep}</span>
+                    </div>
+                    {ocrProgress > 0 && ocrProgress < 100 && (
+                      <div className="w-full bg-white/20 rounded-full h-2">
+                        <div 
+                          className="bg-coffee-gold h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${ocrProgress}%` }}
+                        ></div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
-            </motion.div>
-          )}
-
-          {/* 분석 결과 */}
-          {analysisResult && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-coffee-500 via-coffee-600 to-brown-500 rounded-3xl p-8 text-white shadow-2xl"
-            >
-              <div className="flex items-center gap-4 mb-6">
-                <span className="text-4xl">✨</span>
-                <div>
-                  <h3 className="text-2xl font-bold">AI 분석 완료!</h3>
-                  <p className="text-white/80">다음 정보를 추출했어요</p>
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-coffee-gold border-opacity-30 rounded-xl p-8 text-center relative">
+              {/* 촬영 가이드 프레임 */}
+              <div className="relative mx-auto mb-6" style={{ width: '200px', height: '140px' }}>
+                <div className="absolute inset-0 border-2 border-coffee-gold border-opacity-50 rounded-lg"></div>
+                <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-coffee-gold"></div>
+                <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-coffee-gold"></div>
+                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-coffee-gold"></div>
+                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-coffee-gold"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-4xl text-coffee-gold opacity-70">📸</div>
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {analysisResult.cafe && (
-                  <div className="bg-white/10 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">📍</span>
-                      <span className="font-semibold">카페</span>
-                    </div>
-                    <p className="text-white/90">{analysisResult.cafe}</p>
-                  </div>
-                )}
-                {analysisResult.bean && (
-                  <div className="bg-white/10 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">☕</span>
-                      <span className="font-semibold">원두</span>
-                    </div>
-                    <p className="text-white/90">{analysisResult.bean}</p>
-                  </div>
-                )}
-                {analysisResult.processing && (
-                  <div className="bg-white/10 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">⚙️</span>
-                      <span className="font-semibold">프로세싱</span>
-                    </div>
-                    <p className="text-white/90">{analysisResult.processing}</p>
-                  </div>
-                )}
-                {analysisResult.flavor && analysisResult.flavor.length > 0 && (
-                  <div className="bg-white/10 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">🌸</span>
-                      <span className="font-semibold">향미</span>
-                    </div>
-                    <p className="text-white/90">{analysisResult.flavor.join(', ')}</p>
-                  </div>
-                )}
-              </div>
-              
-              <p className="text-white/80 text-center">
-                아래에서 정보를 확인하고 수정한 후 저장해보세요!
+              <h3 className="text-xl font-bold text-coffee-light mb-2">사진을 선택해주세요</h3>
+              <p className="text-coffee-light opacity-70 text-sm mb-4">
+                커피백, 메뉴판, 원두 포장지를 업로드하세요
               </p>
-            </motion.div>
-          )}
-
-          {/* 수동 분석 버튼 (분석 실패시 또는 수동 입력 원할 때) */}
-          {preview && !analyzing && (
-            <div className="text-center">
-              <button
-                onClick={() => {
-                  // 기본 폼으로 이동
-                  const formSection = document.querySelector('#coffee-form');
-                  formSection?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="text-brown-600 hover:text-brown-800 underline transition-colors"
-              >
-                AI 분석 없이 수동으로 입력하기
-              </button>
+              
+              {/* 촬영 가이드 팁 */}
+              <div className="bg-coffee-medium rounded-lg p-4 text-left">
+                <h4 className="text-coffee-light font-semibold mb-2 flex items-center gap-2">
+                  <span className="text-coffee-gold">💡</span>
+                  촬영 가이드
+                </h4>
+                <ul className="text-coffee-light opacity-70 text-sm space-y-1">
+                  <li>• 텍스트가 선명하게 보이도록 촬영하세요</li>
+                  <li>• 조명이 충분한 곳에서 촬영하세요</li>
+                  <li>• 카메라를 수직으로 정렬하세요</li>
+                  <li>• 그림자나 반사가 없도록 주의하세요</li>
+                </ul>
+              </div>
             </div>
           )}
+        </motion.div>
 
-          {/* 폼 입력 영역 */}
-          {preview && (
-            <motion.div
-              id="coffee-form"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/50"
+        {/* Photo Selection Buttons */}
+        {!preview && (
+          <div className="space-y-3 mb-6">
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileChange(file);
+              }}
+              ref={cameraInputRef}
+              className="hidden"
+            />
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="btn-primary w-full flex items-center justify-center gap-3 py-4"
+              onClick={() => cameraInputRef.current?.click()}
             >
-              <h2 className="text-3xl font-bold text-brown-800 mb-8 text-center">
-                {analysisResult ? "정보 확인 및 수정" : "커피 정보 입력"}
-              </h2>
-              
-              <form onSubmit={handleFormSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* 카페명 */}
-                  <div>
-                    <label className="block text-lg font-semibold text-brown-700 mb-3">
-                      카페명 <span className="text-red-500">*</span>
-                    </label>
-                    <input 
-                      className="w-full px-6 py-4 border-2 border-coffee-200 rounded-2xl bg-white text-brown-700 focus:outline-none focus:ring-4 focus:ring-coffee-400/30 focus:border-coffee-400 transition-all duration-300 text-lg" 
-                      value={form.cafe} 
-                      onChange={e => setForm(prev => ({...prev, cafe: e.target.value}))} 
-                      placeholder="카페명을 입력하세요"
-                      required
-                    />
-                  </div>
-                  
-                  {/* 원두명 */}
-                  <div>
-                    <label className="block text-lg font-semibold text-brown-700 mb-3">
-                      원두명 <span className="text-red-500">*</span>
-                    </label>
-                    <input 
-                      className="w-full px-6 py-4 border-2 border-coffee-200 rounded-2xl bg-white text-brown-700 focus:outline-none focus:ring-4 focus:ring-coffee-400/30 focus:border-coffee-400 transition-all duration-300 text-lg" 
-                      value={form.bean} 
-                      onChange={e => setForm(prev => ({...prev, bean: e.target.value}))} 
-                      placeholder="원두명을 입력하세요"
-                      required
-                    />
-                  </div>
-                </div>
+              <span className="text-2xl">📷</span> 
+              <span>사진 촬영하기</span>
+            </motion.button>
+            
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileChange(file);
+              }}
+              ref={fileInputRef}
+              className="hidden"
+            />
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="btn-secondary w-full flex items-center justify-center gap-3 py-4"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <span className="text-2xl">🖼️</span> 
+              <span>갤러리에서 선택</span>
+            </motion.button>
+          </div>
+        )}
 
-                {/* 프로세싱 */}
-                <div>
-                  <label className="block text-lg font-semibold text-brown-700 mb-4">프로세싱</label>
-                  <div className="flex flex-wrap gap-3">
-                    {PROCESSING_OPTIONS.map(process => (
-                      <button
-                        key={process}
-                        type="button"
-                        className={`px-6 py-3 rounded-2xl border-2 transition-all duration-300 font-semibold ${
-                          form.processing === process 
-                            ? "bg-coffee-500 text-white border-coffee-500 shadow-lg" 
-                            : "bg-white text-brown-700 border-coffee-200 hover:bg-coffee-50 hover:border-coffee-300"
-                        }`}
-                        onClick={() => setForm(prev => ({...prev, processing: process}))}
-                      >
-                        {process}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 향미 선택 */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <label className="text-lg font-semibold text-brown-700">향미</label>
-                    <motion.button
-                      type="button"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setShowFlavorWheel(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-300"
-                    >
-                      <span className="text-lg">🎯</span>
-                      <span>플레이버 휠</span>
-                    </motion.button>
-                  </div>
-                  
-                  {/* 선택된 향미들 */}
-                  {form.flavor.length > 0 && (
-                    <div className="mb-4">
-                      <div className="flex flex-wrap gap-2">
-                        {form.flavor.map((flavor, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="flex items-center gap-2 px-3 py-2 bg-coffee-100 text-coffee-700 rounded-xl border border-coffee-200"
-                          >
-                            <span>{flavor}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeFlavor(flavor)}
-                              className="text-coffee-500 hover:text-red-500 transition-colors"
-                            >
-                              ✕
-                            </button>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* 텍스트 입력 */}
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="향미를 직접 입력하세요 (예: 초콜릿, 견과류)"
-                      className="flex-1 px-4 py-3 border-2 border-coffee-200 rounded-xl bg-white text-brown-700 focus:outline-none focus:ring-4 focus:ring-coffee-400/30 focus:border-coffee-400 transition-all duration-300"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const input = e.target as HTMLInputElement;
-                          const value = input.value.trim();
-                          if (value) {
-                            addFlavor(value);
-                            input.value = '';
-                          }
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        const input = (e.target as HTMLButtonElement).previousElementSibling as HTMLInputElement;
-                        const value = input.value.trim();
-                        if (value) {
-                          addFlavor(value);
-                          input.value = '';
-                        }
-                      }}
-                      className="px-6 py-3 bg-coffee-500 text-white rounded-xl hover:bg-coffee-600 transition-colors font-semibold"
-                    >
-                      추가
-                    </button>
-                  </div>
-                </div>
-
-                {/* 평점 */}
-                <div>
-                  <label className="block text-lg font-semibold text-brown-700 mb-4">평점</label>
-                  <div className="flex items-center gap-4">
-                    <div className="flex gap-2">
-                      {[1,2,3,4,5].map(n => (
-                        <button
-                          key={n}
-                          type="button"
-                          className="w-8 h-8 transition-all duration-300 hover:scale-110 focus:outline-none"
-                          onClick={() => setForm(prev => ({...prev, rating: n}))}
-                        >
-                          <svg 
-                            className="w-full h-full" 
-                            viewBox="0 0 24 24" 
-                            fill={form.rating >= n ? "#f59e0b" : "transparent"} 
-                            stroke="#f59e0b" 
-                            strokeWidth="2"
-                          >
-                            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26 12,2" />
-                          </svg>
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-lg font-semibold text-brown-700">
-                      {form.rating ? `${form.rating}점` : "별점 선택"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 기분 */}
-                <div>
-                  <label className="block text-lg font-semibold text-brown-700 mb-4">오늘의 기분</label>
-                  <div className="flex flex-wrap gap-3">
-                    {MOOD_OPTIONS.map(opt => (
-                      <button
-                        key={opt.label}
-                        type="button"
-                        className={`flex items-center gap-3 px-6 py-3 rounded-2xl border-2 transition-all duration-300 font-semibold ${
-                          form.mood === opt.emoji + ' ' + opt.label 
-                            ? "bg-coffee-500 text-white border-coffee-500 shadow-lg" 
-                            : "bg-white text-brown-700 border-coffee-200 hover:bg-coffee-50 hover:border-coffee-300"
-                        }`}
-                        onClick={() => setForm(prev => ({...prev, mood: opt.emoji + ' ' + opt.label}))}
-                      >
-                        <span className="text-xl">{opt.emoji}</span>
-                        <span>{opt.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 한줄평 */}
-                <div>
-                  <label className="block text-lg font-semibold text-brown-700 mb-3">한줄평</label>
-                  <textarea 
-                    className="w-full px-6 py-4 border-2 border-coffee-200 rounded-2xl bg-white text-brown-700 focus:outline-none focus:ring-4 focus:ring-coffee-400/30 focus:border-coffee-400 transition-all duration-300 resize-none text-lg"
-                    rows={3}
-                    value={form.review} 
-                    onChange={e => setForm(prev => ({...prev, review: e.target.value}))} 
-                    placeholder="오늘 마신 커피에 대한 소감을 자유롭게 남겨보세요"
-                  />
-                </div>
-
-                {/* 저장 버튼 */}
-                <motion.button 
-                  type="submit" 
-                  disabled={submitting || !form.bean || !form.cafe}
-                  whileHover={{ scale: submitting ? 1 : 1.02 }}
-                  whileTap={{ scale: submitting ? 1 : 0.98 }}
-                  className="w-full flex items-center justify-center gap-4 px-8 py-6 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-2xl font-bold text-xl shadow-2xl hover:shadow-3xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                      <span>저장 중...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-2xl">💾</span>
-                      <span>커피 기록 저장하기</span>
-                    </>
-                  )}
-                </motion.button>
-              </form>
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      {/* 플레이버 휠 모달 */}
-      <AnimatePresence>
-        {showFlavorWheel && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowFlavorWheel(false)}
+        {/* AI Analysis Button */}
+        {preview && !analysisResult && !analyzing && (
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="btn-primary w-full flex items-center justify-center gap-3 py-4 mb-6"
+            onClick={handleAnalyze}
           >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white rounded-3xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-3xl font-bold text-brown-800">커피 플레이버 휠</h2>
-                <button
-                  onClick={() => setShowFlavorWheel(false)}
-                  className="w-12 h-12 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-300"
-                >
-                  ✕
-                </button>
+            <span className="text-2xl">🤖</span>
+            <span>AI 분석 시작하기</span>
+          </motion.button>
+        )}
+
+        {/* Analysis Progress */}
+        {analyzing && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card-coffee p-8 text-center mb-6"
+          >
+            <div className="loading-spinner w-16 h-16 rounded-full mx-auto mb-6"></div>
+            <h3 className="text-2xl font-bold text-coffee-gold mb-2">AI 분석 진행 중</h3>
+            <p className="text-coffee-light opacity-70 text-lg">{analysisStep}</p>
+            {ocrProgress > 0 && ocrProgress < 100 && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-sm text-coffee-light opacity-70 mb-2">
+                  <span>진행률</span>
+                  <span>{ocrProgress}%</span>
+                </div>
+                <div className="w-full bg-coffee-medium rounded-full h-3">
+                  <div 
+                    className="bg-coffee-gold h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${ocrProgress}%` }}
+                  ></div>
+                </div>
               </div>
-              
-              <p className="text-brown-600 mb-8 text-center">
-                카테고리를 선택해서 향미를 추가해보세요! 🎯
-              </p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {Object.entries(FLAVOR_CATEGORIES).map(([category, data]) => (
-                  <motion.div
-                    key={category}
-                    whileHover={{ scale: 1.02 }}
-                    className={`${data.color} rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300`}
-                  >
-                    <h3 className="text-xl font-bold mb-4 text-center">{category}</h3>
-                    <div className="space-y-2">
-                      {data.items.map((flavor) => (
-                        <motion.button
-                          key={flavor}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            handleFlavorWheelSelect(flavor);
-                            // 선택 피드백
-                            const button = document.activeElement as HTMLButtonElement;
-                            if (button) {
-                              button.style.transform = 'scale(1.1)';
-                              setTimeout(() => {
-                                button.style.transform = 'scale(1)';
-                              }, 200);
-                            }
-                          }}
-                          className={`w-full px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                            form.flavor.includes(flavor)
-                              ? 'bg-white/30 border-2 border-white'
-                              : 'bg-white/10 hover:bg-white/20 border-2 border-transparent'
-                          }`}
-                        >
-                          {flavor}
-                        </motion.button>
-                      ))}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-              
-              <div className="mt-8 text-center">
-                <p className="text-brown-600 mb-4">
-                  선택된 향미: <span className="font-semibold">{form.flavor.length}개</span>
-                </p>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowFlavorWheel(false)}
-                  className="px-8 py-4 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  선택 완료
-                </motion.button>
-              </div>
-            </motion.div>
+            )}
           </motion.div>
         )}
-      </AnimatePresence>
+
+        {/* Analysis Results */}
+        {analysisResult && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card-coffee p-8 mb-6"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <span className="text-4xl">✨</span>
+                <div>
+                  <h3 className="text-2xl font-bold text-coffee-gold">AI 분석 완료!</h3>
+                  <p className="text-coffee-light opacity-70">다음 정보를 추출했어요</p>
+                </div>
+              </div>
+              
+              {/* 신뢰도 점수 표시 */}
+              {analysisResult.confidence !== undefined && (
+                <div className="text-right">
+                  <div className="text-sm text-coffee-light opacity-70 mb-1">신뢰도</div>
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className={`w-3 h-3 rounded-full ${
+                        analysisResult.confidence >= 0.8 
+                          ? 'bg-green-500' 
+                          : analysisResult.confidence >= 0.6 
+                          ? 'bg-yellow-500' 
+                          : 'bg-red-500'
+                      }`}
+                    />
+                    <span className={`font-semibold ${
+                      analysisResult.confidence >= 0.8 
+                        ? 'text-green-500' 
+                        : analysisResult.confidence >= 0.6 
+                        ? 'text-yellow-500' 
+                        : 'text-red-500'
+                    }`}>
+                      {Math.round(analysisResult.confidence * 100)}%
+                    </span>
+                  </div>
+                  <div className="text-xs text-coffee-light opacity-50 mt-1">
+                    {analysisResult.confidence >= 0.8 
+                      ? '높음' 
+                      : analysisResult.confidence >= 0.6 
+                      ? '보통' 
+                      : '낮음'}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {analysisResult.cafe && (
+                <div className="bg-coffee-medium rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">📍</span>
+                    <span className="font-semibold text-coffee-light">카페</span>
+                  </div>
+                  <p className="text-coffee-light opacity-90">{analysisResult.cafe}</p>
+                </div>
+              )}
+              {analysisResult.bean && (
+                <div className="bg-coffee-medium rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">☕</span>
+                    <span className="font-semibold text-coffee-light">원두</span>
+                  </div>
+                  <p className="text-coffee-light opacity-90">{analysisResult.bean}</p>
+                </div>
+              )}
+              {analysisResult.processing && (
+                <div className="bg-coffee-medium rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">⚙️</span>
+                    <span className="font-semibold text-coffee-light">프로세싱</span>
+                  </div>
+                  <p className="text-coffee-light opacity-90">{analysisResult.processing}</p>
+                </div>
+              )}
+              {analysisResult.flavor && analysisResult.flavor.length > 0 && (
+                <div className="bg-coffee-medium rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">🌸</span>
+                    <span className="font-semibold text-coffee-light">향미</span>
+                  </div>
+                  <p className="text-coffee-light opacity-90">{analysisResult.flavor.join(', ')}</p>
+                </div>
+              )}
+            </div>
+            
+            <p className="text-coffee-light opacity-70 text-center">
+              아래에서 정보를 확인하고 수정한 후 저장해보세요!
+            </p>
+          </motion.div>
+        )}
+
+        {/* Manual Input Option */}
+        {preview && !analyzing && (
+          <div className="text-center mb-6">
+            <button
+              onClick={() => {
+                const formSection = document.querySelector('#coffee-form');
+                formSection?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="text-coffee-gold hover:text-coffee-light underline transition-colors"
+            >
+              AI 분석 없이 수동으로 입력하기
+            </button>
+          </div>
+        )}
+
+        {/* Coffee Form - AI 분석 완료 후 또는 수동 입력 모드에서 표시 */}
+        {(analysisResult || (preview && !analyzing)) && (
+          <motion.div
+            id="coffee-form"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="card-coffee p-8"
+          >
+          <h2 className="text-2xl font-bold text-coffee-light mb-6 text-center">
+            정보 확인 및 추가 입력
+          </h2>
+          
+          <form onSubmit={handleFormSubmit} className="space-y-6">
+            {/* AI 분석된 정보 표시 */}
+            <div className="bg-coffee-medium rounded-lg p-4 mb-6">
+              <h3 className="text-coffee-light font-medium mb-3">AI 분석 결과</h3>
+              <div className="space-y-2 text-sm">
+                {analysisResult.bean && (
+                  <div><span className="text-coffee-gold">원두:</span> <span className="text-coffee-light">{analysisResult.bean}</span></div>
+                )}
+                {analysisResult.cafe && (
+                  <div><span className="text-coffee-gold">카페:</span> <span className="text-coffee-light">{analysisResult.cafe}</span></div>
+                )}
+                {analysisResult.flavor && analysisResult.flavor.length > 0 && (
+                  <div><span className="text-coffee-gold">향미:</span> <span className="text-coffee-light">{analysisResult.flavor.join(', ')}</span></div>
+                )}
+                {analysisResult.processing && (
+                  <div><span className="text-coffee-gold">가공방식:</span> <span className="text-coffee-light">{analysisResult.processing}</span></div>
+                )}
+              </div>
+            </div>
+
+            {/* 추가 입력 필드들 */}
+            
+            {/* 카페명 (AI가 찾지 못한 경우 또는 수동 입력 모드) */}
+            {(!analysisResult?.cafe || analysisResult.confidence === 0) && (
+              <div className="relative">
+                <label className="block text-coffee-light font-medium mb-2">
+                  카페명 <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.cafe}
+                  onChange={(e) => {
+                    setForm(prev => ({...prev, cafe: e.target.value}));
+                    setShowCafeSuggestions(e.target.value.length > 0 && cafeSuggestions.length > 0);
+                  }}
+                  onFocus={() => setShowCafeSuggestions(form.cafe.length === 0 && cafeSuggestions.length > 0)}
+                  onBlur={() => setTimeout(() => setShowCafeSuggestions(false), 200)}
+                  placeholder="카페 이름을 입력하세요"
+                  className="input-coffee w-full"
+                  required
+                />
+                
+                {/* 자동완성 드롭다운 */}
+                {showCafeSuggestions && (
+                  <div className="absolute z-10 w-full mt-1 bg-coffee-dark border border-coffee-medium rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {cafeSuggestions
+                      .filter(cafe => 
+                        form.cafe.length === 0 || 
+                        cafe.toLowerCase().includes(form.cafe.toLowerCase())
+                      )
+                      .map((cafe, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            setForm(prev => ({...prev, cafe}));
+                            setShowCafeSuggestions(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-coffee-light hover:bg-coffee-medium transition-colors flex items-center gap-3"
+                        >
+                          <span className="text-coffee-gold">☕</span>
+                          <span>{cafe}</span>
+                        </button>
+                      ))
+                    }
+                    {form.cafe.length === 0 && cafeSuggestions.length > 0 && (
+                      <div className="px-4 py-2 text-coffee-light opacity-50 text-sm border-b border-coffee-medium">
+                        자주 방문하는 카페
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 원두명 (AI가 찾지 못한 경우 또는 수동 입력 모드) */}
+            {(!analysisResult?.bean || analysisResult.confidence === 0) && (
+              <div>
+                <label className="block text-coffee-light font-medium mb-2">
+                  원두명 <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.bean}
+                  onChange={(e) => setForm(prev => ({...prev, bean: e.target.value}))}
+                  placeholder="원두 이름을 입력하세요"
+                  className="input-coffee w-full"
+                  required
+                />
+              </div>
+            )}
+
+            {/* 로스팅 단계 */}
+            <div>
+              <label className="block text-coffee-light font-medium mb-2">로스팅 단계</label>
+              <select
+                value={form.roasting || ''}
+                onChange={(e) => setForm(prev => ({...prev, roasting: e.target.value}))}
+                className="input-coffee w-full"
+              >
+                <option value="">선택하세요</option>
+                <option value="Light">Light (라이트)</option>
+                <option value="Medium-Light">Medium-Light (미디엄 라이트)</option>
+                <option value="Medium">Medium (미디엄)</option>
+                <option value="Medium-Dark">Medium-Dark (미디엄 다크)</option>
+                <option value="Dark">Dark (다크)</option>
+                <option value="French">French (프렌치)</option>
+              </select>
+            </div>
+
+            {/* 추출 방식 */}
+            <div>
+              <label className="block text-coffee-light font-medium mb-2">추출 방식</label>
+              <select
+                value={form.brewMethod || ''}
+                onChange={(e) => setForm(prev => ({...prev, brewMethod: e.target.value}))}
+                className="input-coffee w-full"
+              >
+                <option value="">선택하세요</option>
+                <option value="Espresso">에스프레소</option>
+                <option value="Americano">아메리카노</option>
+                <option value="Drip">드립커피</option>
+                <option value="French Press">프렌치 프레스</option>
+                <option value="V60">V60</option>
+                <option value="Chemex">케멕스</option>
+                <option value="Aeropress">에어로프레스</option>
+                <option value="Cold Brew">콜드브루</option>
+                <option value="기타">기타</option>
+              </select>
+            </div>
+
+            {/* 평점 */}
+            {!form.rating && (
+              <div>
+                <label className="block text-coffee-light font-medium mb-2">평점을 추가해주세요</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setForm(prev => ({...prev, rating: star}))}
+                      className={`text-3xl transition-colors ${
+                        star <= form.rating ? 'text-coffee-gold' : 'text-coffee-light opacity-30'
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 추가 향미 입력 */}
+            <div>
+              <label className="block text-coffee-light font-medium mb-2">추가 향미 (선택사항)</label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {form.flavor.filter(f => !analysisResult.flavor?.includes(f)).map((flavor) => (
+                  <span
+                    key={flavor}
+                    className="bg-coffee-gold text-coffee-dark px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2"
+                  >
+                    {flavor}
+                    <button
+                      type="button"
+                      onClick={() => removeFlavor(flavor)}
+                      className="text-coffee-dark hover:text-red-600"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(FLAVOR_CATEGORIES).flatMap(category => category.items)
+                  .filter(flavor => !form.flavor.includes(flavor))
+                  .slice(0, 12)
+                  .map((flavor) => (
+                  <button
+                    key={flavor}
+                    type="button"
+                    onClick={() => addFlavor(flavor)}
+                    className="px-3 py-1 rounded-full text-sm transition-colors bg-coffee-medium text-coffee-light hover:bg-coffee-gold hover:text-coffee-dark"
+                  >
+                    {flavor}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 리뷰 */}
+            <div>
+              <label className="block text-coffee-light font-medium mb-2">리뷰 (선택사항)</label>
+              <textarea
+                value={form.review}
+                onChange={(e) => setForm(prev => ({...prev, review: e.target.value}))}
+                placeholder="커피에 대한 감상을 적어보세요"
+                rows={3}
+                className="input-coffee w-full resize-none"
+              />
+            </div>
+
+            {/* Submit Button - AI 분석 완료 후에만 표시 */}
+            {analysisResult && (
+              <div className="flex gap-4">
+                <button
+                  type="submit"
+                  disabled={!form.bean || !form.cafe || submitting}
+                  className="btn-primary flex-1 disabled:opacity-50"
+                >
+                  {submitting ? "저장 중..." : "저장하기"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // 추가 입력 폼을 위로 스크롤
+                    const formSection = document.querySelector('#coffee-form');
+                    formSection?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="btn-secondary px-6"
+                >
+                  추가 입력하기
+                </button>
+              </div>
+            )}
+          </form>
+        </motion.div>
+        )}
+      </main>
+      
+      <AlertComponent />
     </div>
   );
 } 
