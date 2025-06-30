@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '../../src/firebase';
+import { auth, db } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useCustomAlert } from '../components/CustomAlert';

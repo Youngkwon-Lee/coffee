@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { db, auth } from "../../src/firebase";
+import { db, auth } from "@/firebase";
 import LazyImage from "../components/LazyImage";
 import { getCafeImageByLocation } from "../utils/imageService";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";

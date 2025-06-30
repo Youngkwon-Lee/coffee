@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { auth, db } from "../../src/firebase";
+import { auth, db } from "@/firebase";
 import { collection, query, orderBy, limit, getDocs, where } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { db, auth } from "../../src/firebase";
+import { db, auth } from "@/firebase";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import BeanDetailModal from "../components/BeanDetailModal";

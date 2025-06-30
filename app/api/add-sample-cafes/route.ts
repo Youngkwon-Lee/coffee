@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../src/firebase';
+import { db } from '@/firebase';
 import { collection, setDoc, doc } from 'firebase/firestore';
 
 const sampleCafes = [

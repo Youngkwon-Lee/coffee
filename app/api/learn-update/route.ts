@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { collection, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../../src/firebase';
+import { db } from '@/firebase';
 
 type LearningData = {
   type: 'flavor' | 'bean' | 'cafe';

@@ -39,7 +39,7 @@ export default function MainPageHero() {
   async function loadFirebaseAuth() {
     try {
       // 동적으로 Firebase 임포트
-      const { auth, db } = await import("../../src/firebase");
+      const { auth, db } = await import("@/firebase");
       const { useAuthState } = await import("react-firebase-hooks/auth");
       const { collection, query, orderBy, limit, getDocs } = await import("firebase/firestore");
       
@@ -88,8 +88,8 @@ export default function MainPageHero() {
             <Link href="/cafes">
               <button className="btn-secondary w-full">
                 카페 찾아보기
-            </button>
-          </Link>
+              </button>
+            </Link>
           </div>
         </div>
       </div>
@@ -130,13 +130,13 @@ export default function MainPageHero() {
             <div className="stats-card hover:bg-coffee-medium transition-colors cursor-pointer">
               <div className="text-2xl mb-2">🏪</div>
               <div className="stats-label">카페 찾기</div>
-          </div>
+            </div>
           </Link>
           <Link href="/history">
             <div className="stats-card hover:bg-coffee-medium transition-colors cursor-pointer">
               <div className="text-2xl mb-2">📊</div>
               <div className="stats-label">기록 보기</div>
-          </div>
+            </div>
           </Link>
         </div>
       </section>
@@ -147,8 +147,8 @@ export default function MainPageHero() {
           <h3 className="font-medium text-coffee-light mb-2">더 많은 기능이 곧 추가됩니다!</h3>
           <p className="text-sm text-coffee-light opacity-70">
             커피 추천, 플레이버 분석, 통계 등
-                    </p>
-                  </div>
+          </p>
+        </div>
       </section>
     </div>
   );

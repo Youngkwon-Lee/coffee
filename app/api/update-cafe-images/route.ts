@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '../../../src/firebase';
+import { db } from '@/firebase';
 import { collection, doc, updateDoc, getDocs } from 'firebase/firestore';
 
 // 카페별 실제 이미지 URL (크롤링된 이미지 또는 공식 이미지)
