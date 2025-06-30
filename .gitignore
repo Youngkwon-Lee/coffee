@@ -70,7 +70,8 @@ var/
 
 # Firebase/Google Cloud
 serviceAccountKey.json
-
+firebase_credentials.json
+*-firebase-adminsdk-*.json
 vision-key.json
 
 # Node.js

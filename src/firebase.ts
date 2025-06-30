@@ -17,18 +17,19 @@ const missingKeys = Object.entries(requiredConfig)
   .filter(([key, value]) => !value)
   .map(([key]) => key);
 
+// 환경변수 필수 체크
 if (missingKeys.length > 0) {
-  console.warn('Missing Firebase environment variables:', missingKeys);
+  throw new Error(`Required Firebase environment variables are missing: ${missingKeys.join(', ')}. Please check your .env.local file.`);
 }
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCcy5cm_7diVnjW0EmbejXWzvwqsDr53gw",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "coffee-37b81.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "coffee-37b81",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "coffee-37b81.firebasestorage.app",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "931541737029",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:931541737029:web:3f24a512e5c157f837cd2c",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-FGG9QFL7M9"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Firebase 앱 초기화 (중복 초기화 방지)
