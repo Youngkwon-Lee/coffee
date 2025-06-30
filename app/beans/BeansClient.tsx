@@ -1,6 +1,8 @@
 "use client";
-import Image from "next/image";
 import { useState, useEffect } from "react";
+import LazyImage from "../components/LazyImage";
+import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
+import { getBeanImageByOrigin } from "../utils/imageService";
 import { collection, getDocs, setDoc, deleteDoc, doc } from "firebase/firestore";
 import { db, auth } from "@/firebase";
 import Fuse from "fuse.js";
@@ -188,16 +190,16 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
     ? fuse.search(search).map(result => result.item)
     : sortedBeans;
 
-  // 페이지네이션 상태
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
-  const totalPages = Math.ceil(finalBeans.length / itemsPerPage);
-  const paginatedBeans = finalBeans.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // 무한 스크롤 적용
+  const { displayedItems: displayedBeans, hasMore, isLoading, resetItems } = useInfiniteScroll({
+    items: finalBeans,
+    initialItemsPerPage: 12
+  });
 
-  // 페이지 변경 시 맨 위로 스크롤
+  // 필터 변경 시 무한 스크롤 초기화
   useEffect(() => {
-    setCurrentPage(1);
-  }, [search, brandFilter, flavorFilter, roastFilter, sortBy, myFlavor, myRoast, myBrand]);
+    resetItems();
+  }, [search, brandFilter, flavorFilter, roastFilter, sortBy, myFlavor, myRoast, myBrand, resetItems]);
 
   return (
     <div className="min-h-screen bg-coffee-dark relative overflow-hidden">
@@ -285,6 +287,11 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
             
             <div className="text-coffee-light opacity-70">
               총 <span className="font-bold text-coffee-gold">{finalBeans.length}</span>개 원두
+              {displayedBeans.length < finalBeans.length && (
+                <span className="text-coffee-gold ml-2">
+                  ({displayedBeans.length}개 표시 중)
+                </span>
+              )}
             </div>
           </div>
 
@@ -334,7 +341,7 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
 
         {/* Beans Grid */}
         <div className="w-full">
-          {paginatedBeans.length === 0 ? (
+          {displayedBeans.length === 0 ? (
             <div className="card-coffee p-12 text-center">
               <div className="text-6xl mb-4">☕</div>
               <h3 className="text-xl font-bold text-coffee-light mb-2">검색 결과가 없습니다</h3>
@@ -344,7 +351,7 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
             <>
               {/* Bean Cards Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                {paginatedBeans.map((bean) => (
+                {displayedBeans.map((bean) => (
                   <motion.div
                     key={bean.id || bean.name}
                     whileHover={{ scale: 1.02, y: -5 }}
@@ -352,12 +359,17 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
                   >
                     {/* Image */}
                     <div className="relative mb-4">
-                      <Image
-                        src={bean.image || "/beans/default.jpg"}
+                      <LazyImage
+                        src={bean.image && bean.image.startsWith('http') 
+                          ? bean.image 
+                          : bean.image 
+                            ? `/beans/${bean.image}` 
+                            : getBeanImageByOrigin(bean.name, bean.brand)
+                        }
                         alt={bean.name}
                         width={200}
                         height={200}
-                        className="w-full h-48 object-cover rounded-xl"
+                        className="w-full h-48"
                       />
                       
                       {/* Wishlist Button */}
@@ -433,43 +445,23 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
                 ))}
               </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className="btn-secondary px-4 py-2 disabled:opacity-50"
-                  >
-                    이전
-                  </button>
-                  
-                  <div className="flex gap-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      const pageNum = Math.max(1, Math.min(totalPages, currentPage - 2 + i));
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`w-10 h-10 rounded-lg font-medium transition-colors ${
-                            currentPage === pageNum
-                              ? "bg-coffee-gold text-coffee-dark"
-                              : "bg-coffee-medium text-coffee-light hover:bg-coffee-gold hover:text-coffee-dark"
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
+              {/* Infinite Scroll Loading Indicator */}
+              {isLoading && (
+                <div className="flex justify-center items-center py-8">
+                  <div className="flex items-center gap-3 text-coffee-light">
+                    <div className="animate-spin w-6 h-6 border-2 border-coffee-gold border-t-transparent rounded-full"></div>
+                    <span>더 많은 원두를 불러오는 중...</span>
                   </div>
-                  
-                  <button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                    className="btn-secondary px-4 py-2 disabled:opacity-50"
-                  >
-                    다음
-                  </button>
+                </div>
+              )}
+              
+              {/* End of list indicator */}
+              {!hasMore && displayedBeans.length > 0 && (
+                <div className="flex justify-center items-center py-8">
+                  <div className="text-center text-coffee-light opacity-70">
+                    <div className="text-2xl mb-2">☕</div>
+                    <p>모든 원두를 다 보여드렸어요!</p>
+                  </div>
                 </div>
               )}
             </>

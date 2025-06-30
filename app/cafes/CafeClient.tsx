@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db, auth } from "../../src/firebase";
+import LazyImage from "../components/LazyImage";
+import { getCafeImageByLocation } from "../utils/imageService";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import GoogleMapView from './GoogleMapView';
@@ -66,11 +68,19 @@ function CafeCard({ cafe, onToggleWishlist, isWishlisted }: {
     <div className="card-coffee p-4 card-hover">
       <div className="flex items-start space-x-3">
         <div className="relative">
-          <img
-            src={cafe.imageUrl || "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=80&h=80&fit=crop"}
+          <LazyImage
+            src={cafe.imageUrl || getCafeImageByLocation(cafe.name, cafe.address)}
             alt={cafe.name}
-            className="w-16 h-16 rounded-lg object-cover"
+            width={64}
+            height={64}
+            className="w-16 h-16 rounded-lg"
           />
+          {/* 이미지 소스 표시 */}
+          {!cafe.imageUrl && (
+            <div className="absolute bottom-0 left-0 bg-black bg-opacity-60 text-white text-xs px-1 rounded-br-lg">
+              AI
+            </div>
+          )}
           <button
             onClick={() => onToggleWishlist(cafe.id)}
             className="absolute -top-2 -right-2 w-6 h-6 bg-coffee-gold rounded-full flex items-center justify-center"

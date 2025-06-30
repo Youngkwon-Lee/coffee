@@ -1,0 +1,24 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="200" height="200" fill="#2D1B09" rx="12"/>
+  
+  <!-- Coffee Cup -->
+  <g transform="translate(60, 60)">
+    <!-- Cup body -->
+    <path d="M10 30 L70 30 L65 70 C65 75 60 80 55 80 L25 80 C20 80 15 75 15 70 Z" fill="#DC9358"/>
+    
+    <!-- Cup handle -->
+    <path d="M70 35 C80 35 85 40 85 50 C85 60 80 65 70 65" stroke="#DC9358" stroke-width="4" fill="none"/>
+    
+    <!-- Coffee surface -->
+    <ellipse cx="40" cy="30" rx="30" ry="5" fill="#4A2C2A"/>
+    
+    <!-- Steam -->
+    <path d="M30 25 Q25 15 30 10" stroke="#DC9358" stroke-width="2" fill="none" opacity="0.6"/>
+    <path d="M40 25 Q35 15 40 10" stroke="#DC9358" stroke-width="2" fill="none" opacity="0.6"/>
+    <path d="M50 25 Q45 15 50 10" stroke="#DC9358" stroke-width="2" fill="none" opacity="0.6"/>
+  </g>
+  
+  <!-- Text -->
+  <text x="100" y="140" text-anchor="middle" fill="#DC9358" font-family="Arial, sans-serif" font-size="14" font-weight="bold">COFFEE</text>
+</svg>

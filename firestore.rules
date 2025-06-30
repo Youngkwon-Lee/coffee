@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // === 공개 읽기 컬렉션 ===
+    
+    // 원두 정보 - 모든 사용자가 읽기 가능, 관리자만 쓰기 가능
+    match /beans/{beanId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSystemUser();
+      allow create: if isAdmin() || isSystemUser();
+      allow update: if isAdmin() || isSystemUser();
+      allow delete: if isAdmin();
+    }
+    
+    // 카페 정보 - 모든 사용자가 읽기 가능, 관리자만 쓰기 가능
+    match /cafes/{cafeId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSystemUser();
+      allow create: if isAdmin() || isSystemUser(); 
+      allow update: if isAdmin() || isSystemUser();
+      allow delete: if isAdmin();
+    }
+    
+    // === 사용자별 개인 데이터 ===
+    
+    // 사용자 프로필 - 본인만 읽기/쓰기 가능
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // 사용자별 커피 기록 - 본인만 접근 가능
+    match /users/{userId}/records/{recordId} {
+      allow read, write: if isOwner(userId);
+      allow create: if isOwner(userId);
+    }
+    
+    // 사용자별 찜 목록 - 본인만 접근 가능
+    match /users/{userId}/favorites/{favoriteId} {
+      allow read, write: if isOwner(userId);
+      allow create: if isOwner(userId);
+    }
+    
+    // 사용자별 원두 찜 목록 - 본인만 접근 가능
+    match /users/{userId}/favorites_beans/{beanId} {
+      allow read, write: if isOwner(userId);
+      allow create: if isOwner(userId);
+    }
+    
+    // === 시스템 데이터 ===
+    
+    // 크롤링 로그 - 시스템만 쓰기, 관리자만 읽기
+    match /crawl_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if isSystemUser();
+      allow create: if isSystemUser();
+    }
+    
+    // 학습 데이터 - 인증된 사용자만 생성, 관리자만 관리
+    match /learn_data/{learnId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+    
+    // === 보안 함수 ===
+    
+    // 인증된 사용자인지 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // 리소스 소유자인지 확인
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // 관리자인지 확인 (커스텀 클레임 기반)
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.get('admin', false) == true;
+    }
+    
+    // 시스템 사용자인지 확인 (크롤러 등)
+    function isSystemUser() {
+      return isAuthenticated() && 
+             request.auth.token.get('system', false) == true;
+    }
+    
+    // 데이터 유효성 검증
+    function isValidBeanData() {
+      return request.resource.data.keys().hasAll(['name', 'brand', 'price']) &&
+             request.resource.data.name is string &&
+             request.resource.data.brand is string &&
+             request.resource.data.price is string;
+    }
+    
+    function isValidCafeData() {
+      return request.resource.data.keys().hasAll(['name', 'address']) &&
+             request.resource.data.name is string &&
+             request.resource.data.address is string;
+    }
+    
+    function isValidRecordData() {
+      return request.resource.data.keys().hasAll(['cafe', 'rating']) &&
+             request.resource.data.cafe is string &&
+             request.resource.data.rating is number &&
+             request.resource.data.rating >= 1 &&
+             request.resource.data.rating <= 5;
+    }
+  }
+}

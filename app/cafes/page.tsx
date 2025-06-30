@@ -1,5 +1,5 @@
-import CafeFinderClient from "./CafeFinderClient";
-import type { Cafe } from "./CafeFinderClient";
+import CafeClient from "./CafeClient";
+import type { Cafe } from "./CafeClient";
 import { db } from "@/firebase";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { auth } from "@/firebase";
@@ -127,7 +127,7 @@ export default async function CafesPage() {
   const matchingCafes = cafes.filter(cafe => cafe.flavor === userPreferenceDefault);
   const todayCafe = getRandomElement(matchingCafes.length > 0 ? matchingCafes : cafes);
   
-  return <CafeFinderClient 
+  return <CafeClient 
     weather={todayWeather} 
     weatherEmoji={weatherEmoji} 
     cafes={cafes} 

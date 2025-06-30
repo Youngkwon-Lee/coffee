@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // === 공개 이미지 (원두, 카페) ===
+    
+    // 원두 이미지 - 모든 사용자 읽기 가능, 시스템/관리자만 쓰기
+    match /beans/{beanImage} {
+      allow read: if true;
+      allow write: if isAdmin() || isSystemUser();
+      allow delete: if isAdmin();
+    }
+    
+    // 카페 이미지 - 모든 사용자 읽기 가능, 시스템/관리자만 쓰기  
+    match /cafes/{cafeImage} {
+      allow read: if true;
+      allow write: if isAdmin() || isSystemUser();
+      allow delete: if isAdmin();
+    }
+    
+    // === 사용자별 개인 이미지 ===
+    
+    // 사용자 프로필 이미지 - 본인만 읽기/쓰기
+    match /users/{userId}/profile/{profileImage} {
+      allow read, write: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+    
+    // 사용자 커피 기록 이미지 - 본인만 읽기/쓰기
+    match /users/{userId}/records/{recordImage} {
+      allow read, write: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+    
+    // 임시 업로드 이미지 (OCR 처리용) - 본인만 접근, 1시간 후 자동 삭제
+    match /temp/{userId}/{tempImage} {
+      allow read, write: if isOwner(userId) && isValidImageFile();
+      allow delete: if isOwner(userId) || isSystemUser();
+    }
+    
+    // === 시스템 파일 ===
+    
+    // 크롤링된 이미지 백업 - 시스템만 접근
+    match /crawl_backup/{backupFile} {
+      allow read: if isAdmin();
+      allow write: if isSystemUser();
+      allow delete: if isAdmin();
+    }
+    
+    // === 보안 함수 ===
+    
+    // 인증된 사용자인지 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // 리소스 소유자인지 확인
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // 관리자인지 확인 (커스텀 클레임 기반)
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.get('admin', false) == true;
+    }
+    
+    // 시스템 사용자인지 확인 (크롤러 등)
+    function isSystemUser() {
+      return isAuthenticated() && 
+             request.auth.token.get('system', false) == true;
+    }
+    
+    // 유효한 이미지 파일인지 확인
+    function isValidImageFile() {
+      return resource.contentType.matches('image/.*') &&
+             resource.size <= 10 * 1024 * 1024; // 10MB 제한
+    }
+    
+    // 파일 크기 제한 (원두/카페 이미지: 5MB)
+    function isValidSize() {
+      return resource.size <= 5 * 1024 * 1024;
+    }
+  }
+}
