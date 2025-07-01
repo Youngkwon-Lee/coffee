@@ -1,8 +1,8 @@
-import CafeClient from "./CafeClient";
+import CafeClient from './CafeClient';
 import type { Cafe } from "./CafeClient";
-import { db } from "@/firebase";
+import { db } from "../../src/firebase";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
-import { auth } from "@/firebase";
+import { auth } from "../../src/firebase";
 
 const WEATHER_MAP: { [key: string]: string } = {
   Clear: "맑음",
@@ -42,7 +42,9 @@ async function getWeather() {
 }
 
 async function getCafes(): Promise<Cafe[]> {
-  const snap = await getDocs(collection(db, "cafes"));
+  // 성능 최적화: 제한된 수의 카페만 가져오기
+  const q = query(collection(db, "cafes"), limit(50));
+  const snap = await getDocs(q);
   return snap.docs.map(doc => {
     const data = doc.data();
     
@@ -110,22 +112,19 @@ async function getUserPreference(userId: string) {
 }
 
 export default async function CafesPage() {
-  const weather = await getWeather();
+  // 병렬 처리로 성능 최적화
+  const [weather, cafes] = await Promise.all([
+    getWeather(),
+    getCafes()
+  ]);
+  
   const main: string = weather?.weather?.[0]?.main || "알 수 없음";
   const todayWeather = WEATHER_MAP[main] || "알 수 없음";
   const weatherEmoji = WEATHER_EMOJI[todayWeather] || "❔";
-  const cafes = await getCafes();
   
-  // 사용자 취향 가져오기
-  let userPreferenceDefault = "Floral";
-  const currentUser = auth.currentUser;
-  
-  if (currentUser) {
-    userPreferenceDefault = await getUserPreference(currentUser.uid);
-  }
-  
-  const matchingCafes = cafes.filter(cafe => cafe.flavor === userPreferenceDefault);
-  const todayCafe = getRandomElement(matchingCafes.length > 0 ? matchingCafes : cafes);
+  // 사용자 취향은 클라이언트에서 처리하도록 기본값만 설정
+  const userPreferenceDefault = "Floral";
+  const todayCafe = getRandomElement(cafes);
   
   return <CafeClient 
     weather={todayWeather} 

@@ -24,7 +24,7 @@ export default function LazyImage({
   sizes
 }: LazyImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isInView, setIsInView] = useState(false);
+  const [isInView, setIsInView] = useState(priority); // priority면 즉시 로드
   const [error, setError] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
 
@@ -44,8 +44,8 @@ export default function LazyImage({
         }
       },
       {
-        rootMargin: "50px", // 50px 전에 미리 로딩
-        threshold: 0.1
+        rootMargin: "100px", // 더 먼저 로딩 시작
+        threshold: 0.01
       }
     );
 

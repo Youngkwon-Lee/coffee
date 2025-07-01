@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { db, auth } from "@/firebase";
 import LazyImage from "../components/LazyImage";
+import CafeDetailModal from "../components/CafeDetailModal";
 import { getCafeImageByLocation } from "../utils/imageService";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -22,6 +23,10 @@ interface Cafe {
   signature_menu?: string[];
   flavor_tags?: string[];
   flavor_main?: string;
+  description?: string;
+  phone?: string;
+  website?: string;
+  operatingHours?: string;
   features?: {
     laptop_friendly?: boolean;
     quiet?: boolean;
@@ -58,74 +63,94 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-// Cafe Card Component
-function CafeCard({ cafe, onToggleWishlist, isWishlisted }: {
+// Cafe Card Component - Grid Layout Optimized & Memoized
+const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, onClick }: {
   cafe: Cafe;
   onToggleWishlist: (cafeId: string) => void;
   isWishlisted: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div className="card-coffee p-4 card-hover">
-      <div className="flex items-start space-x-3">
-        <div className="relative">
-          <LazyImage
-            src={cafe.imageUrl || getCafeImageByLocation(cafe.name, cafe.address)}
-            alt={cafe.name}
-            width={64}
-            height={64}
-            className="w-16 h-16 rounded-lg"
-          />
-          {/* 이미지 소스 표시 */}
-          {!cafe.imageUrl && (
-            <div className="absolute bottom-0 left-0 bg-black bg-opacity-60 text-white text-xs px-1 rounded-br-lg">
-              AI
-            </div>
-          )}
-          <button
-            onClick={() => onToggleWishlist(cafe.id)}
-            className="absolute -top-2 -right-2 w-6 h-6 bg-coffee-gold rounded-full flex items-center justify-center"
-          >
-            <span className="text-xs">
-              {isWishlisted ? "❤️" : "🤍"}
-            </span>
-          </button>
-        </div>
-        
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-medium text-coffee-light">{cafe.name}</h3>
-            {cafe.rating && (
-              <div className="flex items-center">
-                <span className="text-coffee-gold text-sm">⭐</span>
-                <span className="text-sm text-coffee-light ml-1">{cafe.rating}</span>
-              </div>
-            )}
+    <div 
+      className="card-coffee card-hover cursor-pointer overflow-hidden"
+      onClick={onClick}
+    >
+      {/* 이미지 섹션 */}
+      <div className="relative">
+        <LazyImage
+          src={cafe.imageUrl || getCafeImageByLocation(cafe.name, cafe.address)}
+          alt={cafe.name}
+          width={400}
+          height={200}
+          className="w-full h-48 object-cover"
+          priority={false}
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+        />
+        {/* 이미지 소스 표시 */}
+        {!cafe.imageUrl && (
+          <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+            AI 생성
           </div>
-          
-          <p className="text-sm text-coffee-light opacity-70 mb-2">
+        )}
+        {/* 위시리스트 버튼 */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleWishlist(cafe.id);
+          }}
+          className="absolute top-2 right-2 w-8 h-8 bg-black bg-opacity-50 rounded-full flex items-center justify-center backdrop-blur-sm"
+        >
+          <span className="text-sm">
+            {isWishlisted ? "❤️" : "🤍"}
+          </span>
+        </button>
+        {/* 평점 배지 */}
+        {cafe.rating && (
+          <div className="absolute top-2 left-2 bg-coffee-gold bg-opacity-90 px-2 py-1 rounded-full flex items-center">
+            <span className="text-coffee-dark text-xs">⭐ {cafe.rating}</span>
+          </div>
+        )}
+      </div>
+      
+      {/* 콘텐츠 섹션 */}
+      <div className="p-4">
+        <div className="mb-2">
+          <h3 className="font-medium text-coffee-light text-lg mb-1">{cafe.name}</h3>
+          <p className="text-sm text-coffee-medium mb-3 line-clamp-1">
             {cafe.address}
           </p>
-          
-          {/* Features */}
-          <div className="flex flex-wrap gap-1 mb-2">
-            {cafe.tags?.slice(0, 3).map((tag) => (
-              <span key={tag} className="flavor-tag text-xs">
-                {tag}
-              </span>
-            ))}
-          </div>
-          
-          {/* Signature Menu */}
-          {cafe.signature_menu && cafe.signature_menu.length > 0 && (
-            <p className="text-xs text-coffee-light opacity-60">
-              시그니처: {cafe.signature_menu.slice(0, 2).join(", ")}
-            </p>
-          )}
         </div>
+        
+        {/* 설명 (있을 경우) */}
+        {cafe.description && (
+          <p className="text-sm text-coffee-light opacity-80 mb-3 line-clamp-2">
+            {cafe.description}
+          </p>
+        )}
+        
+        {/* 특징 태그 */}
+        <div className="flex flex-wrap gap-1 mb-3">
+          {cafe.tags?.slice(0, 4).map((tag) => (
+            <span key={tag} className="flavor-tag text-xs">
+              {tag}
+            </span>
+          ))}
+        </div>
+        
+        {/* 시그니처 메뉴 */}
+        {cafe.signature_menu && cafe.signature_menu.length > 0 && (
+          <div className="border-t border-coffee-medium pt-3">
+            <p className="text-xs text-coffee-medium mb-1">시그니처 메뉴</p>
+            <p className="text-sm text-coffee-light">
+              {cafe.signature_menu.slice(0, 2).join(", ")}
+              {cafe.signature_menu.length > 2 && ` 외 ${cafe.signature_menu.length - 2}개`}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
-}
+});
 
 export type { Cafe };
 export default function CafeClient({ 
@@ -145,6 +170,10 @@ export default function CafeClient({
   const [selectedFilter, setSelectedFilter] = useState<string>("전체");
   const [user, setUser] = useState<User | null>(null);
   const [wishlist, setWishlist] = useState<string[]>([]);
+  const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12); // 반응형 그리드에 맞춰 12개로 증가
 
   const filters = ["전체", "조용함", "노트북 가능", "채광 좋음", "베이커리", "로스터리"];
 
@@ -186,17 +215,44 @@ export default function CafeClient({
     }
   };
 
-  // Filter cafes based on search and selected filter
-  const filteredCafes = cafes.filter(cafe => {
-    const matchesSearch = cafe.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         cafe.address.toLowerCase().includes(searchTerm.toLowerCase());
+  const handleCafeClick = (cafe: Cafe) => {
+    setSelectedCafe(cafe);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCafe(null);
+  };
+
+  // Filter cafes based on search and selected filter - Memoized
+  const filteredCafes = useMemo(() => {
+    return cafes.filter(cafe => {
+      const matchesSearch = cafe.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           cafe.address.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesFilter = selectedFilter === "전체" || 
+                           cafe.tags?.includes(selectedFilter) ||
+                           cafe.flavor_tags?.includes(selectedFilter);
+      
+      return matchesSearch && matchesFilter;
+    });
+  }, [cafes, searchTerm, selectedFilter]);
+
+  // Pagination logic - Memoized
+  const { totalPages, indexOfLastItem, indexOfFirstItem, currentCafes } = useMemo(() => {
+    const totalPages = Math.ceil(filteredCafes.length / itemsPerPage);
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentCafes = filteredCafes.slice(indexOfFirstItem, indexOfLastItem);
     
-    const matchesFilter = selectedFilter === "전체" || 
-                         cafe.tags?.includes(selectedFilter) ||
-                         cafe.flavor_tags?.includes(selectedFilter);
-    
-    return matchesSearch && matchesFilter;
-  });
+    return { totalPages, indexOfLastItem, indexOfFirstItem, currentCafes };
+  }, [filteredCafes, currentPage, itemsPerPage]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedFilter]);
 
   return (
     <section className="p-4">
@@ -252,20 +308,34 @@ export default function CafeClient({
               cafe={ssrTodayCafe}
               onToggleWishlist={toggleWishlist}
               isWishlisted={wishlist.includes(ssrTodayCafe.id)}
+              onClick={() => handleCafeClick(ssrTodayCafe)}
             />
           </div>
         </div>
       )}
 
-      {/* Cafe Cards */}
-      <div className="space-y-4">
-        {filteredCafes.length > 0 ? (
-          filteredCafes.map((cafe) => (
+      {/* Results Info */}
+      {filteredCafes.length > 0 && (
+        <div className="flex justify-between items-center mb-4 text-sm text-coffee-medium">
+          <span>
+            총 {filteredCafes.length}개 카페 중 {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredCafes.length)}개 표시
+          </span>
+          <span>
+            {currentPage} / {totalPages} 페이지
+          </span>
+        </div>
+      )}
+
+      {/* Cafe Cards - Responsive Grid Layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+        {currentCafes.length > 0 ? (
+          currentCafes.map((cafe) => (
             <CafeCard
               key={cafe.id}
               cafe={cafe}
               onToggleWishlist={toggleWishlist}
               isWishlisted={wishlist.includes(cafe.id)}
+              onClick={() => handleCafeClick(cafe)}
             />
           ))
         ) : (
@@ -278,6 +348,77 @@ export default function CafeClient({
           </div>
         )}
       </div>
+
+      {/* Pagination - Mobile Responsive */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center space-x-1 sm:space-x-2 mt-8 px-4">
+          {/* Previous Button */}
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+              currentPage === 1
+                ? 'bg-coffee-medium text-coffee-light opacity-50 cursor-not-allowed'
+                : 'bg-coffee-medium text-coffee-light hover:bg-coffee-light hover:text-coffee-dark'
+            }`}
+          >
+            이전
+          </button>
+
+          {/* Page Numbers */}
+          {(() => {
+            const pageNumbers = [];
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+            
+            if (endPage - startPage + 1 < maxVisiblePages) {
+              startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+              pageNumbers.push(
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i)}
+                  className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+                    currentPage === i
+                      ? 'bg-coffee-gold text-coffee-dark'
+                      : 'bg-coffee-medium text-coffee-light hover:bg-coffee-light hover:text-coffee-dark'
+                  }`}
+                >
+                  {i}
+                </button>
+              );
+            }
+            return pageNumbers;
+          })()}
+
+          {/* Next Button */}
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+              currentPage === totalPages
+                ? 'bg-coffee-medium text-coffee-light opacity-50 cursor-not-allowed'
+                : 'bg-coffee-medium text-coffee-light hover:bg-coffee-light hover:text-coffee-dark'
+            }`}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
+      {/* 카페 상세보기 모달 */}
+      {selectedCafe && (
+        <CafeDetailModal
+          cafe={selectedCafe}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onToggleWishlist={toggleWishlist}
+          isWishlisted={wishlist.includes(selectedCafe.id)}
+        />
+      )}
     </section>
   );
 } 

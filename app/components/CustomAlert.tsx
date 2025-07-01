@@ -32,7 +32,7 @@ export default function CustomAlert({
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return '✅';
+        return '🎉';  // 성공 축하 이모지
       case 'error':
         return '❌';
       case 'warning':
@@ -45,7 +45,7 @@ export default function CustomAlert({
   const getTypeStyles = () => {
     switch (type) {
       case 'success':
-        return 'border-green-500 bg-green-900/30 backdrop-blur-md';
+        return 'border-coffee-gold bg-gradient-to-br from-coffee-gold/20 to-coffee-600/20 backdrop-blur-md shadow-coffee-gold/20';  // 커피 골드 그라디언트
       case 'error':
         return 'border-red-500 bg-red-900/30 backdrop-blur-md';
       case 'warning':
@@ -85,9 +85,20 @@ export default function CustomAlert({
           >
             {/* 아이콘 */}
             <div className="text-center mb-4">
-              <div className="text-4xl mb-2">{getIcon()}</div>
+              <motion.div 
+                className="text-4xl mb-2"
+                animate={type === 'success' ? { 
+                  scale: [1, 1.2, 1],
+                  rotate: [0, 10, -10, 0]
+                } : {}}
+                transition={{ duration: 0.6, ease: "easeInOut" }}
+              >
+                {getIcon()}
+              </motion.div>
               {title && (
-                <h3 className="text-lg font-semibold text-coffee-light mb-2">
+                <h3 className={`text-lg font-semibold mb-2 ${
+                  type === 'success' ? 'text-coffee-gold' : 'text-coffee-light'
+                }`}>
                   {title}
                 </h3>
               )}

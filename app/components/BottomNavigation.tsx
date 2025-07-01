@@ -117,7 +117,7 @@ export default function BottomNavigation() {
             whileTap={{ scale: 0.95 }}
             aria-label={isExpanded ? "메뉴 닫기" : "메뉴 열기"}
           >
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center" suppressHydrationWarning>
               <AnimatePresence mode="wait">
                 {isExpanded ? (
                   <motion.div

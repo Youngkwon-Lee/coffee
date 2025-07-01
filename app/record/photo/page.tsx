@@ -98,6 +98,7 @@ export default function PhotoRecordPageSimple() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [analysisStep, setAnalysisStep] = useState<string>("");
   const [ocrProgress, setOcrProgress] = useState(0);
+  const [analysisError, setAnalysisError] = useState<string>("");
   const [showFlavorWheel, setShowFlavorWheel] = useState(false);
   const [cafeSuggestions, setCafeSuggestions] = useState<string[]>([]);
   const [showCafeSuggestions, setShowCafeSuggestions] = useState(false);
@@ -108,7 +109,19 @@ export default function PhotoRecordPageSimple() {
 
   // 자주 방문하는 카페 목록 로드
   useEffect(() => {
-    loadFrequentCafes();
+    let isMounted = true;
+    
+    const loadData = async () => {
+      if (isMounted) {
+        await loadFrequentCafes();
+      }
+    };
+    
+    loadData();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   const loadFrequentCafes = async () => {
@@ -227,6 +240,28 @@ export default function PhotoRecordPageSimple() {
   // 파일 선택/촬영 시 미리보기 (이미지 압축 포함)
   const handleFileChange = async (file: File) => {
     if (file) {
+      // 파일 크기 제한 (10MB)
+      const maxFileSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxFileSize) {
+        showAlert({
+          type: 'error',
+          title: '파일 크기 초과',
+          message: '이미지 크기가 너무 큽니다. 10MB 이하의 파일을 선택해주세요.'
+        });
+        return;
+      }
+      
+      // 지원되는 파일 형식 확인
+      const supportedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!supportedTypes.includes(file.type)) {
+        showAlert({
+          type: 'error',
+          title: '지원하지 않는 형식',
+          message: 'JPG, PNG, WebP 형식의 이미지만 지원됩니다.'
+        });
+        return;
+      }
+      
       try {
         setAnalysisStep("이미지 최적화 중...");
         
@@ -234,10 +269,19 @@ export default function PhotoRecordPageSimple() {
         const compressedFile = await compressImage(file);
         
         setImage(compressedFile);
-        setPreview(URL.createObjectURL(compressedFile));
+        const previewUrl = URL.createObjectURL(compressedFile);
+        setPreview(previewUrl);
         setAnalysisResult(null);
         setAnalysisStep("");
         setOcrProgress(0);
+        setAnalysisError(""); // 에러 상태도 초기화
+        
+        // 기존 preview URL 정리
+        return () => {
+          if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+          }
+        };
         
         // 압축 완료 알림
         const originalSize = (file.size / 1024 / 1024).toFixed(1);
@@ -291,18 +335,29 @@ export default function PhotoRecordPageSimple() {
     setAnalysisStep("AI가 커피 정보를 분석 중...");
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30초 타임아웃
+
       const response = await fetch('/api/llm-extract', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-                body: JSON.stringify({
+        body: JSON.stringify({
           text: text,
           confidence: 0.9
-        })
+        }),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('API 사용량이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+        } else if (response.status >= 500) {
+          throw new Error('서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        }
         throw new Error('AI 분석에 실패했습니다.');
       }
 
@@ -313,7 +368,15 @@ export default function PhotoRecordPageSimple() {
       };
     } catch (error) {
       console.error('LLM 분석 에러:', error);
-      throw new Error('AI 분석에 실패했습니다.');
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('요청 시간이 초과되었습니다. 다시 시도해주세요.');
+        }
+        throw error;
+      }
+      
+      throw new Error('네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.');
     }
   };
 
@@ -323,16 +386,29 @@ export default function PhotoRecordPageSimple() {
 
     try {
       setAnalyzing(true);
+      setAnalysisError(""); // 에러 상태 초기화
       setAnalysisStep("분석 준비 중...");
 
       // 1단계: OCR로 텍스트 추출
       const extractedText = await performOCR(image);
       
-      if (!extractedText) {
+      if (!extractedText || extractedText.trim().length < 3) {
+        setAnalysisError("이미지에서 텍스트를 찾을 수 없습니다. 수동으로 입력해주세요.");
+        
+        // 수동 입력 모드로 자동 전환
+        setAnalysisResult({
+          cafe: "",
+          bean: "",
+          processing: "",
+          flavor: [],
+          confidence: 0,
+          raw_text: ""
+        });
+        
         showAlert({
           type: 'warning',
           title: '텍스트 인식 실패',
-          message: '이미지에서 텍스트를 찾을 수 없습니다.\n수동으로 입력해주세요.'
+          message: '이미지에서 텍스트를 인식할 수 없었습니다.\n\n💡 촬영 팁:\n• 조명이 밝은 곳에서 촬영\n• 텍스트가 선명하게 보이도록 촬영\n• 카메라를 수직으로 정렬\n\n아래에서 직접 입력해주세요.'
         });
         return;
       }
@@ -355,6 +431,9 @@ export default function PhotoRecordPageSimple() {
     } catch (error) {
       console.error("분석 실패:", error);
       const errorMessage = error instanceof Error ? error.message : "분석 중 오류가 발생했습니다.";
+      
+      // 에러 상태 설정
+      setAnalysisError(errorMessage);
       
       // 분석 실패시 수동 입력 모드로 자동 전환
       setAnalysisResult({
@@ -412,7 +491,34 @@ export default function PhotoRecordPageSimple() {
   // 폼 제출
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !form.bean || !form.cafe) return;
+    
+    // 필수 필드 검증
+    if (!user) {
+      showAlert({
+        type: 'error',
+        title: '로그인 필요',
+        message: '커피 기록을 저장하려면 로그인이 필요합니다.'
+      });
+      return;
+    }
+    
+    if (!form.bean?.trim()) {
+      showAlert({
+        type: 'error',
+        title: '원두명 입력 필요',
+        message: '원두명을 입력해주세요.'
+      });
+      return;
+    }
+    
+    if (!form.cafe?.trim()) {
+      showAlert({
+        type: 'error',
+        title: '카페명 입력 필요',
+        message: '카페명을 입력해주세요.'
+      });
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -440,8 +546,8 @@ export default function PhotoRecordPageSimple() {
       showAlert({
         type: 'success',
         title: '저장 완료',
-        message: '🎉 커피 기록이 성공적으로 저장되었어요!',
-        onConfirm: () => router.push('/')
+        message: '🎉 커피 기록이 성공적으로 저장되었어요!\n\n📋 기록을 확인하시겠어요?',
+        onConfirm: () => router.push('/history')
       });
       
       // 폼 초기화
@@ -668,6 +774,21 @@ export default function PhotoRecordPageSimple() {
                 </div>
               </div>
             )}
+            <button
+              onClick={() => {
+                setAnalyzing(false);
+                setAnalysisStep("");
+                setOcrProgress(0);
+                showAlert({
+                  type: 'info',
+                  title: '분석 취소됨',
+                  message: '아래에서 수동으로 입력해주세요.'
+                });
+              }}
+              className="mt-4 px-6 py-2 bg-coffee-medium hover:bg-coffee-light text-coffee-light hover:text-coffee-dark rounded-lg transition-colors text-sm"
+            >
+              분석 취소
+            </button>
           </motion.div>
         )}
 
@@ -797,28 +918,127 @@ export default function PhotoRecordPageSimple() {
           
           <form onSubmit={handleFormSubmit} className="space-y-6">
             {/* AI 분석된 정보 표시 */}
-            <div className="bg-coffee-medium rounded-lg p-4 mb-6">
-              <h3 className="text-coffee-light font-medium mb-3">AI 분석 결과</h3>
-              <div className="space-y-2 text-sm">
-                {analysisResult.bean && (
-                  <div><span className="text-coffee-gold">원두:</span> <span className="text-coffee-light">{analysisResult.bean}</span></div>
-                )}
-                {analysisResult.cafe && (
-                  <div><span className="text-coffee-gold">카페:</span> <span className="text-coffee-light">{analysisResult.cafe}</span></div>
-                )}
-                {analysisResult.flavor && analysisResult.flavor.length > 0 && (
-                  <div><span className="text-coffee-gold">향미:</span> <span className="text-coffee-light">{analysisResult.flavor.join(', ')}</span></div>
-                )}
-                {analysisResult.processing && (
-                  <div><span className="text-coffee-gold">가공방식:</span> <span className="text-coffee-light">{analysisResult.processing}</span></div>
-                )}
+            {analyzing && (
+              <div className="bg-coffee-medium rounded-lg p-4 mb-6">
+                <h3 className="text-coffee-light font-medium mb-3">AI 분석 중...</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center text-coffee-medium">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-coffee-gold mr-2"></div>
+                    {analysisStep || "이미지를 분석하고 있습니다..."}
+                  </div>
+                  {ocrProgress > 0 && (
+                    <div className="w-full bg-coffee-dark rounded-full h-2">
+                      <div 
+                        className="bg-coffee-gold h-2 rounded-full transition-all duration-300" 
+                        style={{width: `${ocrProgress}%`}}
+                      ></div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+            
+            {analysisResult && !analyzing && (
+              <div className="bg-coffee-medium rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-coffee-light font-medium">AI 분석 결과</h3>
+                  <span className="text-xs text-coffee-gold bg-coffee-gold/20 px-2 py-1 rounded">
+                    아래에서 수정 가능
+                  </span>
+                </div>
+                <div className="space-y-3 text-sm">
+                  {analysisResult?.bean && (
+                    <div className="bg-coffee-dark/50 p-3 rounded">
+                      <div className="flex items-start justify-between">
+                        <span className="text-coffee-gold font-medium">원두:</span>
+                        <span className="text-coffee-light flex-1 ml-2">{analysisResult.bean}</span>
+                      </div>
+                    </div>
+                  )}
+                  {analysisResult?.cafe && (
+                    <div className="bg-coffee-dark/50 p-3 rounded">
+                      <div className="flex items-start justify-between">
+                        <span className="text-coffee-gold font-medium">카페:</span>
+                        <span className="text-coffee-light flex-1 ml-2">{analysisResult.cafe}</span>
+                      </div>
+                    </div>
+                  )}
+                  {analysisResult?.flavor && analysisResult.flavor.length > 0 && (
+                    <div className="bg-coffee-dark/50 p-3 rounded">
+                      <div className="flex items-start justify-between">
+                        <span className="text-coffee-gold font-medium">향미:</span>
+                        <span className="text-coffee-light flex-1 ml-2">{analysisResult.flavor.join(', ')}</span>
+                      </div>
+                    </div>
+                  )}
+                  {analysisResult?.processing && (
+                    <div className="bg-coffee-dark/50 p-3 rounded">
+                      <div className="flex items-start justify-between">
+                        <span className="text-coffee-gold font-medium">가공방식:</span>
+                        <span className="text-coffee-light flex-1 ml-2">{analysisResult.processing}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 pt-3 border-t border-coffee-dark">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-coffee-medium">
+                      💡 AI 분석 결과가 정확하지 않다면 아래에서 수정하세요.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const formSection = document.querySelector('#coffee-form');
+                        formSection?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="text-xs bg-coffee-gold text-coffee-dark px-3 py-1 rounded-full hover:bg-yellow-400 transition-colors"
+                    >
+                      수정하러 가기 ↓
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {analysisError && !analyzing && (
+              <div className="bg-red-900/30 border border-red-500/30 rounded-lg p-4 mb-6">
+                <h3 className="text-red-300 font-medium mb-3">분석 실패</h3>
+                <p className="text-red-200 text-sm mb-3">
+                  {analysisError}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAnalysisError("");
+                    // 재분석 로직이 있다면 여기에 추가
+                  }}
+                  className="text-coffee-gold hover:text-yellow-300 text-sm underline"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
+            
+            {!analyzing && !analysisResult && image && !analysisError && (
+              <div className="bg-coffee-medium rounded-lg p-4 mb-6">
+                <h3 className="text-coffee-light font-medium mb-3">AI 분석 필요</h3>
+                <p className="text-coffee-medium text-sm">
+                  이미지를 업로드했습니다. 원두 정보를 자동으로 분석하려면 분석 버튼을 클릭하세요.
+                </p>
+              </div>
+            )}
 
             {/* 추가 입력 필드들 */}
             
-            {/* 카페명 (AI가 찾지 못한 경우 또는 수동 입력 모드) */}
-            {(!analysisResult?.cafe || analysisResult.confidence === 0) && (
+            {/* 카페명 (항상 편집 가능) */}
+            <div className="relative">
+              {analysisResult?.cafe && (
+                <div className="mb-2 p-2 bg-green-900/30 border border-green-500/30 rounded-lg">
+                  <span className="text-xs text-green-300">✨ AI 분석: </span>
+                  <span className="text-green-200 font-medium">{analysisResult.cafe}</span>
+                  <span className="text-xs text-green-300 ml-2">(아래에서 수정 가능)</span>
+                </div>
+              )}
               <div className="relative">
                 <label className="block text-coffee-light font-medium mb-2">
                   카페명 <span className="text-red-400">*</span>
@@ -868,24 +1088,51 @@ export default function PhotoRecordPageSimple() {
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            {/* 원두명 (AI가 찾지 못한 경우 또는 수동 입력 모드) */}
-            {(!analysisResult?.bean || analysisResult.confidence === 0) && (
-              <div>
-                <label className="block text-coffee-light font-medium mb-2">
-                  원두명 <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.bean}
-                  onChange={(e) => setForm(prev => ({...prev, bean: e.target.value}))}
-                  placeholder="원두 이름을 입력하세요"
-                  className="input-coffee w-full"
-                  required
-                />
-              </div>
-            )}
+            {/* 원두명 (항상 편집 가능) */}
+            <div>
+              {analysisResult?.bean && (
+                <div className="mb-2 p-2 bg-green-900/30 border border-green-500/30 rounded-lg">
+                  <span className="text-xs text-green-300">✨ AI 분석: </span>
+                  <span className="text-green-200 font-medium">{analysisResult.bean}</span>
+                  <span className="text-xs text-green-300 ml-2">(아래에서 수정 가능)</span>
+                </div>
+              )}
+              <label className="block text-coffee-light font-medium mb-2">
+                원두명 <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.bean}
+                onChange={(e) => setForm(prev => ({...prev, bean: e.target.value}))}
+                placeholder="원두 이름을 입력하세요"
+                className="input-coffee w-full"
+                required
+              />
+            </div>
+
+            {/* 가공방식 (항상 편집 가능) */}
+            <div>
+              {analysisResult?.processing && (
+                <div className="mb-2 p-2 bg-green-900/30 border border-green-500/30 rounded-lg">
+                  <span className="text-xs text-green-300">✨ AI 분석: </span>
+                  <span className="text-green-200 font-medium">{analysisResult.processing}</span>
+                  <span className="text-xs text-green-300 ml-2">(아래에서 수정 가능)</span>
+                </div>
+              )}
+              <label className="block text-coffee-light font-medium mb-2">가공방식</label>
+              <select
+                value={form.processing}
+                onChange={(e) => setForm(prev => ({...prev, processing: e.target.value}))}
+                className="input-coffee w-full"
+              >
+                <option value="">선택하세요</option>
+                {PROCESSING_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </div>
 
             {/* 로스팅 단계 */}
             <div>
@@ -947,11 +1194,18 @@ export default function PhotoRecordPageSimple() {
               </div>
             )}
 
-            {/* 추가 향미 입력 */}
+            {/* 향미 입력 (AI 분석 결과 포함) */}
             <div>
-              <label className="block text-coffee-light font-medium mb-2">추가 향미 (선택사항)</label>
+              {analysisResult?.flavor && analysisResult.flavor.length > 0 && (
+                <div className="mb-2 p-2 bg-green-900/30 border border-green-500/30 rounded-lg">
+                  <span className="text-xs text-green-300">✨ AI 분석: </span>
+                  <span className="text-green-200 font-medium">{analysisResult.flavor.join(', ')}</span>
+                  <span className="text-xs text-green-300 ml-2">(아래에서 수정 가능)</span>
+                </div>
+              )}
+              <label className="block text-coffee-light font-medium mb-2">향미</label>
               <div className="flex flex-wrap gap-2 mb-3">
-                {form.flavor.filter(f => !analysisResult.flavor?.includes(f)).map((flavor) => (
+                {form.flavor.map((flavor) => (
                   <span
                     key={flavor}
                     className="bg-coffee-gold text-coffee-dark px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2"
@@ -996,29 +1250,29 @@ export default function PhotoRecordPageSimple() {
               />
             </div>
 
-            {/* Submit Button - AI 분석 완료 후에만 표시 */}
-            {analysisResult && (
-              <div className="flex gap-4">
-                <button
-                  type="submit"
-                  disabled={!form.bean || !form.cafe || submitting}
-                  className="btn-primary flex-1 disabled:opacity-50"
-                >
-                  {submitting ? "저장 중..." : "저장하기"}
-                </button>
+            {/* Submit Button */}
+            <div className="flex gap-4">
+              <button
+                type="submit"
+                disabled={!form.bean || !form.cafe || submitting}
+                className="btn-primary flex-1 disabled:opacity-50"
+              >
+                {submitting ? "저장 중..." : "저장하기"}
+              </button>
+              {analysisResult && (
                 <button
                   type="button"
                   onClick={() => {
-                    // 추가 입력 폼을 위로 스크롤
-                    const formSection = document.querySelector('#coffee-form');
-                    formSection?.scrollIntoView({ behavior: 'smooth' });
+                    // 분석 결과 섹션으로 스크롤
+                    const analysisSection = document.querySelector('.card-coffee:has(.text-coffee-gold)');
+                    analysisSection?.scrollIntoView({ behavior: 'smooth' });
                   }}
                   className="btn-secondary px-6"
                 >
-                  추가 입력하기
+                  분석 결과 보기
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </form>
         </motion.div>
         )}

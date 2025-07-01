@@ -6,15 +6,15 @@ import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firesto
 
 interface CoffeeRecord {
   id: string;
-  beanName: string;
-  flavor: string;
-  rating: number;
-  brewMethod: string;
+  bean: string;          // beanName → bean으로 변경
+  flavor: string | string[];
+  rating?: number;
+  brewMethod?: string;
   createdAt: string | Timestamp;
   imageUrl?: string;
   cafe?: string;
-  notes?: string;
-  flavors?: string[];
+  review?: string;       // notes → review로 변경
+  processing?: string;
 }
 
 // Coffee Card Component for History
@@ -34,7 +34,7 @@ function CoffeeRecordCard({ record, showTime = true, showFlavors = true }: {
   };
 
   const stars = Array.from({ length: 5 }, (_, i) => (
-    <span key={i} className={`text-sm ${i < record.rating ? 'text-coffee-gold' : 'text-coffee-light opacity-30'}`}>
+    <span key={i} className={`text-sm ${i < (record.rating || 0) ? 'text-coffee-gold' : 'text-coffee-light opacity-30'}`}>
       ★
     </span>
   ));
@@ -45,8 +45,9 @@ function CoffeeRecordCard({ record, showTime = true, showFlavors = true }: {
         <div className="w-14 h-14 rounded-xl overflow-hidden bg-coffee-dark flex-shrink-0">
           <img 
             src={record.imageUrl || "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=120&h=120&fit=crop&crop=center"} 
-            alt={record.beanName}
+            alt={record.bean}
             className="w-full h-full object-cover"
+            loading="lazy"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.src = "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=120&h=120&fit=crop&crop=center";
@@ -56,9 +57,9 @@ function CoffeeRecordCard({ record, showTime = true, showFlavors = true }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-coffee-light text-base truncate">{record.beanName}</h3>
+              <h3 className="font-semibold text-coffee-light text-base truncate">{record.bean}</h3>
               <p className="text-sm text-coffee-light opacity-70 truncate">
-                {record.cafe && `${record.cafe} • `}{record.brewMethod}
+                {record.cafe && `${record.cafe} • `}{record.brewMethod || record.processing || '사진으로 기록'}
               </p>
             </div>
             {showTime && (
@@ -72,14 +73,14 @@ function CoffeeRecordCard({ record, showTime = true, showFlavors = true }: {
             <div className="flex items-center">
               {stars}
               <span className="ml-2 text-sm text-coffee-light opacity-70">
-                {record.rating}.0
+                {record.rating || 0}.0
               </span>
             </div>
           </div>
 
-          {showFlavors && record.flavors && record.flavors.length > 0 && (
+          {showFlavors && record.flavor && Array.isArray(record.flavor) && record.flavor.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
-              {record.flavors.slice(0, 3).map((flavor) => (
+              {record.flavor.slice(0, 3).map((flavor) => (
                 <span 
                   key={flavor}
                   className="bg-coffee-gold bg-opacity-20 text-coffee-gold px-2 py-1 rounded-full text-xs font-medium"
@@ -87,17 +88,17 @@ function CoffeeRecordCard({ record, showTime = true, showFlavors = true }: {
                   {flavor}
                 </span>
               ))}
-              {record.flavors.length > 3 && (
+              {record.flavor.length > 3 && (
                 <span className="text-coffee-light opacity-50 text-xs px-2 py-1">
-                  +{record.flavors.length - 3}
+                  +{record.flavor.length - 3}
                 </span>
               )}
             </div>
           )}
 
-          {record.notes && (
+          {record.review && (
             <p className="text-xs text-coffee-light opacity-60 line-clamp-2 leading-relaxed">
-              {record.notes}
+              {record.review}
             </p>
           )}
         </div>
@@ -128,7 +129,7 @@ export default function HistoryClient() {
       setIsLoading(true);
       
       const recordsQuery = query(
-        collection(db, "users", user.uid, "coffee_records"),
+        collection(db, "users", user.uid, "records"),
         orderBy("createdAt", "desc")
       );
       const recordsSnapshot = await getDocs(recordsQuery);
@@ -157,7 +158,7 @@ export default function HistoryClient() {
           return recordDate >= weekAgo;
         });
       case "즐겨찾기":
-        return coffeeRecords.filter(record => record.rating >= 4);
+        return coffeeRecords.filter(record => (record.rating || 0) >= 4);
       default:
         return coffeeRecords;
     }

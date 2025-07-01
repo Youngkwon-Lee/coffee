@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Link from "next/link";
-import { HomeIcon, MagnifyingGlassIcon, BookOpenIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
 import Header from "./components/Header";
 import BottomNavigation from "./components/BottomNavigation";
 
@@ -17,18 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Coffee Tracker",
+  title: "Coffee Journal",
   description: "당신만의 커피 여정을 기록하세요",
   icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/favicon.svg', type: 'image/svg+xml' }
-    ],
-    apple: [
-      { url: '/favicon.svg', sizes: '180x180', type: 'image/svg+xml' }
-    ]
+    icon: '/favicon.ico',
+    apple: '/icon-192.png',
   },
-  manifest: '/manifest.json'
 };
 
 export default function RootLayout({
