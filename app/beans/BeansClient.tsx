@@ -9,6 +9,7 @@ import Fuse from "fuse.js";
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 type Bean = {
   id?: string;
@@ -200,6 +201,37 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
   useEffect(() => {
     resetItems();
   }, [search, brandFilter, flavorFilter, roastFilter, sortBy, myFlavor, myRoast, myBrand, resetItems]);
+
+  if (!user) {
+    return (
+      <div className="p-4">
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">🫘</div>
+          <h2 className="text-2xl font-bold text-coffee-light mb-4">
+            로그인이 필요합니다
+          </h2>
+          <p className="text-coffee-light opacity-70 mb-6">
+            원두 정보를 확인하려면 로그인하세요
+          </p>
+          <div className="space-y-3">
+            <button 
+              onClick={() => {
+                window.location.href = '/login';
+              }}
+              className="btn-primary w-full max-w-xs mx-auto block"
+            >
+              로그인하기
+            </button>
+            <div className="text-center">
+              <Link href="/record/photo" className="text-coffee-gold hover:text-coffee-light underline text-sm">
+                🎁 AI 분석 무료 체험하기
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-coffee-dark relative overflow-hidden">

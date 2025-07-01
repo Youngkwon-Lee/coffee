@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/firebase";
 import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore";
+import Link from "next/link";
 
 interface CoffeeRecord {
   id: string;
@@ -185,6 +186,22 @@ export default function HistoryClient() {
           <p className="text-coffee-light opacity-70 mb-6">
             커피 기록을 확인하려면 로그인하세요
           </p>
+          <div className="space-y-3">
+            <button 
+              onClick={() => {
+                // TODO: 로그인 페이지로 이동
+                window.location.href = '/login';
+              }}
+              className="btn-primary w-full max-w-xs mx-auto block"
+            >
+              로그인하기
+            </button>
+            <div className="text-center">
+              <Link href="/record/photo" className="text-coffee-gold hover:text-coffee-light underline text-sm">
+                🎁 AI 분석 무료 체험하기
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );

@@ -103,6 +103,15 @@ export default function PhotoRecordPageSimple() {
   const [cafeSuggestions, setCafeSuggestions] = useState<string[]>([]);
   const [showCafeSuggestions, setShowCafeSuggestions] = useState(false);
   
+  // 체험 모드 상태
+  const [trialCount, setTrialCount] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('coffee_trial_count') || '0');
+    }
+    return 0;
+  });
+  const MAX_TRIAL_COUNT = 3;
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -384,6 +393,23 @@ export default function PhotoRecordPageSimple() {
   const handleAnalyze = async () => {
     if (!image) return;
 
+    // 체험 모드 체크 (로그인하지 않은 경우)
+    if (!user && trialCount >= MAX_TRIAL_COUNT) {
+      showAlert({
+        type: 'warning',
+        title: '체험 횟수 초과',
+        message: `무료 체험은 ${MAX_TRIAL_COUNT}회까지 가능합니다.\n\n로그인하시면 무제한으로 이용하실 수 있어요!`,
+        confirmText: '로그인하기',
+        showCancel: true,
+        cancelText: '나중에',
+        onConfirm: () => {
+          // TODO: 로그인 페이지로 이동
+          router.push('/login');
+        }
+      });
+      return;
+    }
+
     try {
       setAnalyzing(true);
       setAnalysisError(""); // 에러 상태 초기화
@@ -419,12 +445,26 @@ export default function PhotoRecordPageSimple() {
       setAnalysisResult(result);
       setAnalysisStep("분석 완료!");
       
+      // 체험 카운트 증가 (로그인하지 않은 경우)
+      if (!user) {
+        const newTrialCount = trialCount + 1;
+        setTrialCount(newTrialCount);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('coffee_trial_count', newTrialCount.toString());
+        }
+      }
+      
       // 성공 메시지
       setTimeout(() => {
+        const remainingTrials = user ? null : MAX_TRIAL_COUNT - (trialCount + 1);
+        const trialMessage = !user && remainingTrials !== null && remainingTrials >= 0
+          ? `\n\n🎁 무료 체험 ${remainingTrials}회 남았습니다!`
+          : '';
+          
         showAlert({
           type: 'success',
           title: 'AI 분석 완료',
-          message: '✨ AI 분석이 완료되었습니다!\n아래에서 정보를 확인하고 수정해주세요.'
+          message: `✨ AI 분석이 완료되었습니다!\n아래에서 정보를 확인하고 수정해주세요.${trialMessage}`
         });
       }, 500);
 
@@ -494,10 +534,35 @@ export default function PhotoRecordPageSimple() {
     
     // 필수 필드 검증
     if (!user) {
+      // 체험 모드: 로컬 저장 후 로그인 유도
       showAlert({
-        type: 'error',
-        title: '로그인 필요',
-        message: '커피 기록을 저장하려면 로그인이 필요합니다.'
+        type: 'warning',
+        title: '로그인 후 저장 가능',
+        message: '😊 AI 분석 결과가 마음에 드시나요?\n\n로그인하시면 기록을 저장하고\n언제든지 다시 볼 수 있어요!',
+        confirmText: '로그인하기',
+        showCancel: true,
+        cancelText: '나중에',
+        onConfirm: () => {
+          // 현재 폼 데이터를 로컬 스토리지에 임시 저장
+          if (typeof window !== 'undefined') {
+            const tempRecord = {
+              ...form,
+              analysisResult,
+              imageUrl: preview,
+              createdAt: new Date().toISOString()
+            };
+            localStorage.setItem('coffee_temp_record', JSON.stringify(tempRecord));
+          }
+          // TODO: 로그인 페이지로 이동
+          router.push('/login');
+        },
+        onCancel: () => {
+          showAlert({
+            type: 'info',
+            title: '체험 계속하기',
+            message: '새로운 사진으로 AI 분석을 계속 체험해보세요! 📸'
+          });
+        }
       });
       return;
     }
@@ -742,11 +807,23 @@ export default function PhotoRecordPageSimple() {
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="btn-primary w-full flex items-center justify-center gap-3 py-4 mb-6"
+            className="btn-primary w-full flex items-center justify-center gap-3 py-4 mb-6 relative"
             onClick={handleAnalyze}
           >
             <span className="text-2xl">🤖</span>
-            <span>AI 분석 시작하기</span>
+            <div className="flex flex-col items-center">
+              <span>AI 분석 시작하기</span>
+              {!user && trialCount < MAX_TRIAL_COUNT && (
+                <span className="text-xs opacity-75 mt-1">
+                  🎁 무료 체험 {MAX_TRIAL_COUNT - trialCount}회 남음
+                </span>
+              )}
+              {!user && trialCount >= MAX_TRIAL_COUNT && (
+                <span className="text-xs opacity-75 mt-1 text-red-200">
+                  ⚠️ 로그인 후 무제한 이용
+                </span>
+              )}
+            </div>
           </motion.button>
         )}
 

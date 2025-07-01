@@ -7,6 +7,7 @@ import { getCafeImageByLocation } from "../utils/imageService";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import GoogleMapView from './GoogleMapView';
+import Link from "next/link";
 
 // Cafe 인터페이스
 interface Cafe {
@@ -81,10 +82,10 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
           src={cafe.imageUrl || getCafeImageByLocation(cafe.name, cafe.address)}
           alt={cafe.name}
           width={400}
-          height={200}
-          className="w-full h-48 object-cover"
+          height={300}
+          className="w-full h-56 object-cover"
           priority={false}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
         {/* 이미지 소스 표시 */}
         {!cafe.imageUrl && (
@@ -113,10 +114,10 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
       </div>
       
       {/* 콘텐츠 섹션 */}
-      <div className="p-4">
-        <div className="mb-2">
-          <h3 className="font-medium text-coffee-light text-lg mb-1">{cafe.name}</h3>
-          <p className="text-sm text-coffee-medium mb-3 line-clamp-1">
+      <div className="p-5">
+        <div className="mb-3">
+          <h3 className="font-semibold text-coffee-light text-xl mb-2">{cafe.name}</h3>
+          <p className="text-coffee-medium mb-3 line-clamp-1">
             {cafe.address}
           </p>
         </div>
@@ -173,7 +174,7 @@ export default function CafeClient({
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(12); // 반응형 그리드에 맞춰 12개로 증가
+  const [itemsPerPage] = useState(9); // 더 크게 보이도록 9개로 조정
 
   const filters = ["전체", "조용함", "노트북 가능", "채광 좋음", "베이커리", "로스터리"];
 
@@ -254,6 +255,37 @@ export default function CafeClient({
     setCurrentPage(1);
   }, [searchTerm, selectedFilter]);
 
+  if (!user) {
+    return (
+      <div className="p-4">
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">🏪</div>
+          <h2 className="text-2xl font-bold text-coffee-light mb-4">
+            로그인이 필요합니다
+          </h2>
+          <p className="text-coffee-light opacity-70 mb-6">
+            카페 정보를 확인하려면 로그인하세요
+          </p>
+          <div className="space-y-3">
+            <button 
+              onClick={() => {
+                window.location.href = '/login';
+              }}
+              className="btn-primary w-full max-w-xs mx-auto block"
+            >
+              로그인하기
+            </button>
+            <div className="text-center">
+              <Link href="/record/photo" className="text-coffee-gold hover:text-coffee-light underline text-sm">
+                🎁 AI 분석 무료 체험하기
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <section className="p-4">
       <div className="flex items-center justify-between mb-4">
@@ -327,7 +359,7 @@ export default function CafeClient({
       )}
 
       {/* Cafe Cards - Responsive Grid Layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
         {currentCafes.length > 0 ? (
           currentCafes.map((cafe) => (
             <CafeCard

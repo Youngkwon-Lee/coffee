@@ -1,121 +1,229 @@
 "use client";
 
-import { useState } from "react";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth } from "@/firebase";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { auth, db } from "@/firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { useCustomAlert } from "../components/CustomAlert";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLogin, setIsLogin] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [user, loading] = useAuthState(auth);
+  const { showAlert, AlertComponent } = useCustomAlert();
   const router = useRouter();
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [trialData, setTrialData] = useState<any>(null);
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+  useEffect(() => {
+    // 로그인 상태면 메인 페이지로 리다이렉트
+    if (user) {
+      router.push("/");
+      return;
+    }
 
-    try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+    // 체험 모드 데이터 확인
+    if (typeof window !== "undefined") {
+      const savedData = localStorage.getItem("coffee_trial_data");
+      if (savedData) {
+        try {
+          setTrialData(JSON.parse(savedData));
+        } catch (error) {
+          console.error("체험 데이터 파싱 오류:", error);
+        }
       }
-      router.push("/");
-    } catch (error: any) {
-      setError(error.message);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [user, router]);
 
-  const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    setLoading(true);
-    setError("");
-
+  const handleGoogleSignIn = async () => {
+    setIsSigningIn(true);
+    
     try {
-      await signInWithPopup(auth, provider);
-      router.push("/");
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      showAlert({
+        type: 'success',
+        title: '로그인 성공!',
+        message: `환영합니다, ${user.displayName}님!\n\n이제 무제한으로 AI 분석을 이용하실 수 있어요! ☕`,
+        confirmText: '시작하기'
+      });
+
+      // 체험 데이터가 있다면 실제 데이터베이스에 저장
+      if (trialData && user) {
+        try {
+          await addDoc(collection(db, "users", user.uid, "records"), {
+            ...trialData,
+            createdAt: Timestamp.now()
+          });
+          
+          // 체험 데이터 및 카운트 삭제
+          localStorage.removeItem("coffee_trial_data");
+          localStorage.removeItem("coffee_trial_count");
+          
+          showAlert({
+            type: 'success',
+            title: '데이터 저장 완료',
+            message: '체험 중에 분석한 커피 정보가 성공적으로 저장되었습니다!',
+            confirmText: '확인'
+          });
+        } catch (error) {
+          console.error("체험 데이터 저장 오류:", error);
+        }
+      }
+
+      // 메인 페이지로 이동
+      setTimeout(() => {
+        router.push("/");
+      }, 1500);
+
     } catch (error: any) {
-      setError(error.message);
+      console.error("로그인 오류:", error);
+      
+      let errorMessage = "로그인 중 오류가 발생했습니다.";
+      if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = "로그인이 취소되었습니다.";
+      } else if (error.code === 'auth/popup-blocked') {
+        errorMessage = "팝업이 차단되었습니다. 팝업을 허용해주세요.";
+      }
+      
+      showAlert({
+        type: 'error',
+        title: '로그인 실패',
+        message: errorMessage,
+        confirmText: '다시 시도'
+      });
     } finally {
-      setLoading(false);
+      setIsSigningIn(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-coffee-dark">
+        <div className="loading-spinner w-8 h-8 rounded-full border-2 border-coffee-gold border-t-transparent animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+    <div className="min-h-screen bg-coffee-dark flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* 로고 및 타이틀 */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            ☕ Coffee Journal
+          <div className="text-6xl mb-4">☕</div>
+          <h1 className="text-3xl font-bold text-coffee-light mb-2">
+            커피 트래커
           </h1>
-          <p className="text-gray-600">
-            {isLogin ? "로그인하여 커피 여정을 계속하세요" : "새로운 커피 여정을 시작하세요"}
+          <p className="text-coffee-light opacity-70">
+            AI로 더 스마트하게 커피를 기록하세요
           </p>
         </div>
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+        {/* 체험 데이터 알림 */}
+        {trialData && (
+          <div className="bg-coffee-gold/20 border border-coffee-gold/30 rounded-xl p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">🎁</div>
+              <div>
+                <h3 className="text-coffee-light font-semibold text-sm">
+                  체험 데이터가 있습니다!
+                </h3>
+                <p className="text-coffee-light/70 text-xs">
+                  로그인하시면 분석한 커피 정보를 저장할 수 있어요
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
-        <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
-          <input
-            type="email"
-            placeholder="이메일"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            required
-          />
-          <input
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            required
-          />
+        {/* 로그인 카드 */}
+        <div className="bg-coffee-medium rounded-2xl p-6 shadow-2xl border border-coffee-gold/10">
+          {/* Google 로그인 버튼 */}
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all duration-300 disabled:opacity-50"
+            onClick={handleGoogleSignIn}
+            disabled={isSigningIn}
+            className="w-full bg-white hover:bg-gray-50 text-gray-800 font-semibold py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mb-4"
           >
-            {loading ? "처리 중..." : (isLogin ? "로그인" : "회원가입")}
+            {isSigningIn ? (
+              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+            )}
+            <span>
+              {isSigningIn ? '로그인 중...' : 'Google로 로그인'}
+            </span>
           </button>
-        </form>
 
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full bg-white border-2 border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-2 mb-6"
-        >
-          <span>🔍</span>
-          <span>Google로 {isLogin ? "로그인" : "시작하기"}</span>
-        </button>
+          {/* 로그인 혜택 */}
+          <div className="space-y-3 mb-6">
+            <h3 className="text-coffee-light font-semibold text-sm">
+              로그인하면 이런 혜택이 있어요:
+            </h3>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-coffee-light/80 text-sm">
+                <div className="w-1.5 h-1.5 bg-coffee-gold rounded-full"></div>
+                <span>🤖 AI 분석 무제한 이용</span>
+              </div>
+              <div className="flex items-center gap-3 text-coffee-light/80 text-sm">
+                <div className="w-1.5 h-1.5 bg-coffee-gold rounded-full"></div>
+                <span>💾 커피 기록 자동 저장</span>
+              </div>
+              <div className="flex items-center gap-3 text-coffee-light/80 text-sm">
+                <div className="w-1.5 h-1.5 bg-coffee-gold rounded-full"></div>
+                <span>📊 상세한 분석 및 통계</span>
+              </div>
+              <div className="flex items-center gap-3 text-coffee-light/80 text-sm">
+                <div className="w-1.5 h-1.5 bg-coffee-gold rounded-full"></div>
+                <span>☁️ 모든 기기에서 동기화</span>
+              </div>
+            </div>
+          </div>
 
-        <div className="text-center">
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-amber-600 hover:text-amber-800 transition-colors"
-          >
-            {isLogin ? "계정이 없으신가요? 회원가입" : "이미 계정이 있으신가요? 로그인"}
-          </button>
+          {/* 개인정보 안내 */}
+          <div className="text-center">
+            <p className="text-coffee-light/50 text-xs leading-relaxed">
+              로그인 시 Google 계정의 기본 정보(이름, 이메일)만 사용하며,<br/>
+              개인정보는 안전하게 보호됩니다.
+            </p>
+          </div>
         </div>
 
-        <div className="mt-6 text-center">
-          <Link href="/" className="text-gray-500 hover:text-gray-700 transition-colors">
-            ← 홈으로 돌아가기
+        {/* 체험 모드 링크 */}
+        <div className="text-center mt-6">
+          <Link 
+            href="/record/photo" 
+            className="text-coffee-gold hover:text-coffee-light underline text-sm transition-colors"
+          >
+            🎁 로그인 없이 체험해보기
+          </Link>
+        </div>
+
+        {/* 뒤로가기 */}
+        <div className="text-center mt-4">
+          <Link 
+            href="/" 
+            className="text-coffee-light/70 hover:text-coffee-light text-sm transition-colors inline-flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            메인으로 돌아가기
           </Link>
         </div>
       </div>
+
+      <AlertComponent />
     </div>
   );
 } 
