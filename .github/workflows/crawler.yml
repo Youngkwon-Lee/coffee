@@ -1,0 +1,196 @@
+name: Coffee Bean Crawler
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # 매주 월요일 03:00 UTC (한국시간 12:00)
+  workflow_dispatch:
+    inputs:
+      cafe:
+        description: '크롤링할 카페 (비워두면 모든 HTML 카페 실행)'
+        required: false
+        default: 'all'
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install webdriver-manager==4.0.2
+          pip install firebase-admin
+          pip install httpx Pillow
+      
+      - name: Set environment variables
+        run: |
+          echo "FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "FIREBASE_PRIVATE_KEY_ID=${{ secrets.FIREBASE_PRIVATE_KEY_ID }}" >> $GITHUB_ENV
+          echo "FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}" >> $GITHUB_ENV
+          echo "FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}" >> $GITHUB_ENV
+          echo "FIREBASE_CLIENT_ID=${{ secrets.FIREBASE_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "FIREBASE_CLIENT_CERT_URL=${{ secrets.FIREBASE_CLIENT_CERT_URL }}" >> $GITHUB_ENV
+          echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "USE_SELENIUM=false" >> $GITHUB_ENV
+          echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
+          # GLM-OCR Ollama 터널 URL (로컬 PC에서 ngrok 실행 시)
+          if [ -n "${{ secrets.OLLAMA_TUNNEL_URL }}" ]; then
+            echo "OLLAMA_TUNNEL_URL=${{ secrets.OLLAMA_TUNNEL_URL }}" >> $GITHUB_ENV
+          fi
+      
+      - name: Create directories
+        run: |
+          mkdir -p data logs
+      
+      - name: Check Python and Firebase Admin
+        run: |
+          which python
+          python --version
+          pip show firebase-admin
+          python -c "import firebase_admin; print(firebase_admin.__file__)"
+      
+      - name: Check GLM-OCR tunnel
+        id: ocr_check
+        continue-on-error: true
+        run: |
+          if [ -n "$OLLAMA_TUNNEL_URL" ]; then
+            echo "GLM-OCR 터널 확인: $OLLAMA_TUNNEL_URL"
+            STATUS=$(curl -s -H "ngrok-skip-browser-warning: true" "$OLLAMA_TUNNEL_URL/api/tags" --max-time 10 2>/dev/null || echo "FAIL")
+            if echo "$STATUS" | python -c "import sys,json; d=json.load(sys.stdin); exit(0 if any('glm-ocr' in m['name'] for m in d.get('models',[])) else 1)" 2>/dev/null; then
+              echo "ocr_available=true" >> $GITHUB_OUTPUT
+              echo "GLM-OCR 사용 가능"
+            else
+              echo "ocr_available=false" >> $GITHUB_OUTPUT
+              echo "GLM-OCR 모델 없음 또는 연결 실패 - OCR 없이 크롤링 진행"
+            fi
+          else
+            echo "ocr_available=false" >> $GITHUB_OUTPUT
+            echo "OLLAMA_TUNNEL_URL 미설정 - OCR 없이 크롤링 진행"
+          fi
+
+      - name: Run crawler
+        id: crawler
+        run: |
+          echo "start_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+          
+          # 실행할 카페 설정
+          CAFE="all"
+          if [ "${{ github.event.inputs.cafe }}" != "" ]; then
+            CAFE="${{ github.event.inputs.cafe }}"
+          fi
+          
+          echo "크롤링할 카페: $CAFE"
+          echo "cafe=$CAFE" >> $GITHUB_OUTPUT
+          
+          # 날짜 형식 설정
+          TODAY=$(date +%Y%m%d)
+          echo "date=$TODAY" >> $GITHUB_OUTPUT
+          
+          # 크롤링 실행 (Firebase에 직접 저장)
+          python -m scripts.run_crawler --all
+          
+          # 결과 확인
+          TOTAL_BEAN_COUNT=0
+          for JSON_FILE in data/beans_all_${TODAY}_*.json; do
+            if [ -f "$JSON_FILE" ]; then
+              CAFE_NAME=$(basename $JSON_FILE .json | sed "s/beans_all_${TODAY}_//")
+              BEAN_COUNT=$(grep -o '"name":' "$JSON_FILE" | wc -l || echo 0)
+              TOTAL_BEAN_COUNT=$((TOTAL_BEAN_COUNT + BEAN_COUNT))
+              echo "$CAFE_NAME: $BEAN_COUNT개 원두 수집"
+            fi
+          done
+          
+          echo "총 수집된 원두 수: $TOTAL_BEAN_COUNT"
+          echo "bean_count=$TOTAL_BEAN_COUNT" >> $GITHUB_OUTPUT
+          
+          echo "end_time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+      
+      - name: Save logs to repository
+        if: success() || failure()
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          
+          git add logs/*.log || echo "No files to add"
+          
+          if git diff --staged --quiet; then
+            echo "변경사항 없음"
+          else
+            git commit -m "크롤링 로그 추가 (자동 실행 #${{ github.run_number }})" || echo "No changes to commit"
+            git push || echo "Push failed"
+          fi
+      
+      - name: Upload logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crawler-logs-${{ steps.crawler.outputs.date }}
+          path: logs/*.log
+          retention-days: 14
+      
+      - name: Send Slack notification
+        if: always()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "*커피 원두 크롤링 결과*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*커피 원두 크롤링 결과*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*상태:* ${{ job.status == 'success' && '✅ 성공' || '❌ 실패' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*실행 번호:* #${{ github.run_number }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*크롤링한 카페:* ${{ steps.crawler.outputs.cafe }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*시작 시간:* ${{ steps.crawler.outputs.start_time }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*종료 시간:* ${{ steps.crawler.outputs.end_time }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*수집된 원두 수:* ${{ steps.crawler.outputs.bean_count }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*결과 확인:*\n- Firebase: https://console.firebase.google.com/project/coffee-37b81/firestore\n- 로그: ${{ github.server_url }}/${{ github.repository }}/tree/main/logs"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
