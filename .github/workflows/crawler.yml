@@ -31,6 +31,7 @@ jobs:
           pip install -r requirements.txt
           pip install webdriver-manager==4.0.2
           pip install firebase-admin
+          pip install httpx Pillow
       
       - name: Set environment variables
         run: |
@@ -43,6 +44,10 @@ jobs:
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
           echo "USE_SELENIUM=false" >> $GITHUB_ENV
           echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
+          # GLM-OCR Ollama 터널 URL (로컬 PC에서 ngrok 실행 시)
+          if [ -n "${{ secrets.OLLAMA_TUNNEL_URL }}" ]; then
+            echo "OLLAMA_TUNNEL_URL=${{ secrets.OLLAMA_TUNNEL_URL }}" >> $GITHUB_ENV
+          fi
       
       - name: Create directories
         run: |
@@ -55,6 +60,25 @@ jobs:
           pip show firebase-admin
           python -c "import firebase_admin; print(firebase_admin.__file__)"
       
+      - name: Check GLM-OCR tunnel
+        id: ocr_check
+        continue-on-error: true
+        run: |
+          if [ -n "$OLLAMA_TUNNEL_URL" ]; then
+            echo "GLM-OCR 터널 확인: $OLLAMA_TUNNEL_URL"
+            STATUS=$(curl -s -H "ngrok-skip-browser-warning: true" "$OLLAMA_TUNNEL_URL/api/tags" --max-time 10 2>/dev/null || echo "FAIL")
+            if echo "$STATUS" | python -c "import sys,json; d=json.load(sys.stdin); exit(0 if any('glm-ocr' in m['name'] for m in d.get('models',[])) else 1)" 2>/dev/null; then
+              echo "ocr_available=true" >> $GITHUB_OUTPUT
+              echo "GLM-OCR 사용 가능"
+            else
+              echo "ocr_available=false" >> $GITHUB_OUTPUT
+              echo "GLM-OCR 모델 없음 또는 연결 실패 - OCR 없이 크롤링 진행"
+            fi
+          else
+            echo "ocr_available=false" >> $GITHUB_OUTPUT
+            echo "OLLAMA_TUNNEL_URL 미설정 - OCR 없이 크롤링 진행"
+          fi
+
       - name: Run crawler
         id: crawler
         run: |

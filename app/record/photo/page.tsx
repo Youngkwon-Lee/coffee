@@ -309,6 +309,43 @@ export default function PhotoRecordPageSimple() {
     }
   };
 
+  // GLM-OCR (로컬 Ollama)로 커피 정보 직접 추출
+  const performGlmOcr = async (imageFile: File): Promise<AnalysisResult> => {
+    setAnalysisStep("로컬 AI(GLM-OCR)로 커피 정보 분석 중...");
+    setOcrProgress(30);
+
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    formData.append('mode', 'coffee');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+    const response = await fetch('/api/glm-ocr', {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    setOcrProgress(90);
+
+    if (!response.ok) {
+      throw new Error('GLM-OCR 서버 오류');
+    }
+
+    const result = await response.json();
+    setOcrProgress(100);
+    return {
+      cafe: result.cafe || '',
+      bean: result.bean || '',
+      processing: result.processing || '',
+      flavor: Array.isArray(result.flavor) ? result.flavor : [],
+      confidence: result.confidence || 0.85,
+      raw_text: result.raw_text || '',
+    };
+  };
+
   // OCR 수행 (CoffeeScanPro 스타일)
   const performOCR = async (imageFile: File): Promise<string> => {
     if (!Tesseract) {
@@ -321,7 +358,7 @@ export default function PhotoRecordPageSimple() {
     try {
       const { data: { text } } = await Tesseract.recognize(
         imageFile,
-        'kor+eng', // 한글+영어 동시 인식으로 개선
+        'kor+eng',
         {
           logger: (m: any) => {
             if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
@@ -345,7 +382,7 @@ export default function PhotoRecordPageSimple() {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30초 타임아웃
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       const response = await fetch('/api/llm-extract', {
         method: 'POST',
@@ -377,14 +414,14 @@ export default function PhotoRecordPageSimple() {
       };
     } catch (error) {
       console.error('LLM 분석 에러:', error);
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           throw new Error('요청 시간이 초과되었습니다. 다시 시도해주세요.');
         }
         throw error;
       }
-      
+
       throw new Error('네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.');
     }
   };
@@ -412,38 +449,52 @@ export default function PhotoRecordPageSimple() {
 
     try {
       setAnalyzing(true);
-      setAnalysisError(""); // 에러 상태 초기화
+      setAnalysisError("");
       setAnalysisStep("분석 준비 중...");
 
-      // 1단계: OCR로 텍스트 추출
-      const extractedText = await performOCR(image);
-      
-      if (!extractedText || extractedText.trim().length < 3) {
-        setAnalysisError("이미지에서 텍스트를 찾을 수 없습니다. 수동으로 입력해주세요.");
-        
-        // 수동 입력 모드로 자동 전환
-        setAnalysisResult({
-          cafe: "",
-          bean: "",
-          processing: "",
-          flavor: [],
-          confidence: 0,
-          raw_text: ""
-        });
-        
-        showAlert({
-          type: 'warning',
-          title: '텍스트 인식 실패',
-          message: '이미지에서 텍스트를 인식할 수 없었습니다.\n\n💡 촬영 팁:\n• 조명이 밝은 곳에서 촬영\n• 텍스트가 선명하게 보이도록 촬영\n• 카메라를 수직으로 정렬\n\n아래에서 직접 입력해주세요.'
-        });
-        return;
+      let result: AnalysisResult | null = null;
+
+      // 1단계: GLM-OCR (로컬 Ollama)로 직접 추출 시도
+      try {
+        setAnalysisStep("로컬 AI 연결 확인 중...");
+        const healthCheck = await fetch('/api/glm-ocr', { method: 'GET', signal: AbortSignal.timeout(3000) });
+        const health = await healthCheck.json();
+
+        if (health.status === 'ok') {
+          result = await performGlmOcr(image);
+          if (result && result.bean) {
+            setAnalysisResult(result);
+            setAnalysisStep("분석 완료! (GLM-OCR)");
+          } else {
+            result = null; // 유의미한 결과 없으면 폴백
+          }
+        }
+      } catch (glmErr) {
+        console.log('GLM-OCR 사용 불가, Tesseract+LLM 폴백:', glmErr);
       }
 
-      // 2단계: AI로 정보 추출
-      const result = await extractCoffeeInfo(extractedText);
-      
-      setAnalysisResult(result);
-      setAnalysisStep("분석 완료!");
+      // 2단계: GLM-OCR 실패 시 기존 Tesseract + OpenAI 파이프라인
+      if (!result || !result.bean) {
+        const extractedText = await performOCR(image);
+
+        if (!extractedText || extractedText.trim().length < 3) {
+          setAnalysisError("이미지에서 텍스트를 찾을 수 없습니다. 수동으로 입력해주세요.");
+          setAnalysisResult({
+            cafe: "", bean: "", processing: "", flavor: [],
+            confidence: 0, raw_text: ""
+          });
+          showAlert({
+            type: 'warning',
+            title: '텍스트 인식 실패',
+            message: '이미지에서 텍스트를 인식할 수 없었습니다.\n\n💡 촬영 팁:\n• 조명이 밝은 곳에서 촬영\n• 텍스트가 선명하게 보이도록 촬영\n• 카메라를 수직으로 정렬\n\n아래에서 직접 입력해주세요.'
+          });
+          return;
+        }
+
+        result = await extractCoffeeInfo(extractedText);
+        setAnalysisResult(result);
+        setAnalysisStep("분석 완료!");
+      }
       
       // 체험 카운트 증가 (로그인하지 않은 경우)
       if (!user) {
