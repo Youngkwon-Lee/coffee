@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "./components/Header";
 import BottomNavigation from "./components/BottomNavigation";
 import UserButton from "./components/UserButton";
+import { Coffee } from "lucide-react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,7 +42,7 @@ export default function RootLayout({
           <header className="header-coffee">
             <div className="flex items-center space-x-3" suppressHydrationWarning>
               <div className="header-logo">
-                <span className="text-coffee-dark text-sm">☕</span>
+                <Coffee className="w-5 h-5 text-coffee-dark" strokeWidth={2.5} />
               </div>
               <h1 className="text-lg font-semibold text-coffee-light">Coffee Tracker</h1>
             </div>

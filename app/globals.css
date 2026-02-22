@@ -106,30 +106,38 @@
 
 /* Card styles */
 .card-coffee {
-  background-color: #3b2f26;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(59, 47, 38, 0.5);
+  background: rgba(59, 47, 38, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 1rem;
+  border: 1px solid rgba(197, 139, 60, 0.15);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
 }
 
 .card-coffee:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  border-color: rgba(197, 139, 60, 0.3);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 /* Button styles */
 .btn-primary {
-  background-color: #c58b3c;
+  background: linear-gradient(135deg, #c58b3c 0%, #a67028 100%);
   color: #2e221b;
   border-radius: 0.75rem;
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1.75rem;
   font-weight: 600;
-  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 15px rgba(197, 139, 60, 0.3);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border: none;
 }
 
 .btn-primary:hover {
-  background-color: #b8803a;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(197, 139, 60, 0.5);
+  filter: brightness(1.1);
 }
 
 .btn-secondary {
@@ -439,11 +447,14 @@
 
 /* Stats card */
 .stats-card {
-  background-color: #3b2f26;
-  border-radius: 0.75rem;
-  padding: 1rem;
+  background: rgba(59, 47, 38, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 1.5rem;
+  padding: 1.25rem 1rem;
   text-align: center;
   border: 1px solid rgba(197, 139, 60, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .stats-number {

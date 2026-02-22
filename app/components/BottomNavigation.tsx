@@ -1,19 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { Coffee, Home, MapPin, Bean, User, Camera, PenLine, Plus, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
 
 const navItems = [
-  { path: "/", label: "홈", icon: "🏠" },
-  { path: "/cafes", label: "카페찾기", icon: "📍" },
+  { path: "/", label: "홈", icon: Home },
+  { path: "/cafes", label: "카페찾기", icon: MapPin },
 ];
 
 const navItemsRight = [
-  { path: "/beans", label: "원두찾기", icon: "☕" },
-  { path: "/history", label: "내기록", icon: "👤" },
+  { path: "/beans", label: "원두찾기", icon: Bean },
+  { path: "/history", label: "내기록", icon: User },
 ];
 
 export default function BottomNavigation() {
@@ -27,7 +27,7 @@ export default function BottomNavigation() {
 
   const actionItems = [
     {
-      icon: "📸",
+      icon: <Camera className="w-6 h-6" />,
       title: "사진으로 기록",
       subtitle: "사진과 함께 상태 기록",
       action: () => {
@@ -36,7 +36,7 @@ export default function BottomNavigation() {
       }
     },
     {
-      icon: "✍️", 
+      icon: <PenLine className="w-6 h-6" />,
       title: "직접 입력",
       subtitle: "수동으로 입력",
       action: () => {
@@ -61,23 +61,23 @@ export default function BottomNavigation() {
               <motion.button
                 key={item.title}
                 initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                animate={{ 
-                  opacity: 1, 
-                  y: 0, 
+                animate={{
+                  opacity: 1,
+                  y: 0,
                   scale: 1,
                   transition: { delay: index * 0.1 }
                 }}
-                exit={{ 
-                  opacity: 0, 
-                  y: 20, 
+                exit={{
+                  opacity: 0,
+                  y: 20,
                   scale: 0.8,
                   transition: { delay: (actionItems.length - 1 - index) * 0.1 }
                 }}
                 onClick={item.action}
                 className="fab-action-item"
               >
-                <div className="fab-action-icon">
-                  <span className="text-2xl">{item.icon}</span>
+                <div className="fab-action-icon text-coffee-100">
+                  {item.icon}
                 </div>
                 <div className="fab-action-content">
                   <div className="fab-action-title">{item.title}</div>
@@ -103,7 +103,7 @@ export default function BottomNavigation() {
                 href={item.path}
                 className={`nav-item ${pathname === item.path ? "active" : ""}`}
               >
-                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-icon"><item.icon className="w-5 h-5" /></span>
                 <span>{item.label}</span>
               </Link>
             ))}
@@ -126,9 +126,8 @@ export default function BottomNavigation() {
                     animate={{ scale: 1, rotate: 0 }}
                     exit={{ scale: 0, rotate: 90 }}
                     transition={{ duration: 0.2 }}
-                    className="text-2xl font-bold"
                   >
-                    ×
+                    <X className="w-6 h-6" />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -137,9 +136,8 @@ export default function BottomNavigation() {
                     animate={{ scale: 1, rotate: 0 }}
                     exit={{ scale: 0, rotate: -90 }}
                     transition={{ duration: 0.2 }}
-                    className="text-2xl font-bold"
                   >
-                    +
+                    <Plus className="w-7 h-7" />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -154,7 +152,7 @@ export default function BottomNavigation() {
                 href={item.path}
                 className={`nav-item ${pathname === item.path ? "active" : ""}`}
               >
-                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-icon"><item.icon className="w-5 h-5" /></span>
                 <span>{item.label}</span>
               </Link>
             ))}

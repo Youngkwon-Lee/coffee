@@ -54,18 +54,26 @@ module.exports = {
         'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
         'card': '0 4px 20px -2px rgba(0, 0, 0, 0.1)',
         'hover': '0 8px 30px -2px rgba(0, 0, 0, 0.15)',
+        'glow': '0 0 20px rgba(197, 139, 60, 0.5)',
+        'glow-lg': '0 0 40px rgba(197, 139, 60, 0.6)',
       },
       backdropBlur: {
-        'glass': '40px',
+        'glass': '20px',
+        'glass-md': '30px',
+        'glass-lg': '40px',
       },
       borderRadius: {
         'card': '16px',
         'button': '12px',
+        'widget': '24px',
       },
       animation: {
-        'fade-in': 'fadeIn 0.5s ease-in-out',
-        'slide-up': 'slideUp 0.5s ease-in-out',
+        'fade-in': 'fadeIn 0.5s ease-out',
+        'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
         'float': 'float 6s ease-in-out infinite',
+        'shimmer': 'shimmer 2.5s infinite',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'glow-pulse': 'glowPulse 2s infinite',
       },
       keyframes: {
         fadeIn: {
@@ -78,8 +86,16 @@ module.exports = {
         },
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-20px)' },
+          '50%': { transform: 'translateY(-15px)' },
         },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+        glowPulse: {
+          '0%, 100%': { boxShadow: '0 0 15px rgba(197, 139, 60, 0.4)' },
+          '50%': { boxShadow: '0 0 30px rgba(197, 139, 60, 0.8)' },
+        }
       },
     },
   },
