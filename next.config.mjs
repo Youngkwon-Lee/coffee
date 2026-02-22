@@ -81,8 +81,7 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['framer-motion', 'firebase'],
   },
-  
-  
+
   // 웹팩 최적화
   webpack: (config, { dev }) => {
     if (dev) {

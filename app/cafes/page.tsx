@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import CafeClient from './CafeClient';
 import type { Cafe } from "./CafeClient";
 import { db } from "../../src/firebase";

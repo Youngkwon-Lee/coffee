@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
 import BeanFinderClient from "./BeanFinderClient";

@@ -7,8 +7,15 @@ import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useCustomAlert } from "./CustomAlert";
 
+function useFirebaseAuth() {
+  // auth가 null이면(환경변수 미설정) 빈 상태 반환
+  if (!auth) return [null, false, undefined] as const;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useAuthState(auth);
+}
+
 export default function UserButton() {
-  const [user, loading] = useAuthState(auth);
+  const [user, loading] = useFirebaseAuth();
   const { showAlert, AlertComponent } = useCustomAlert();
   const router = useRouter();
   const [showDropdown, setShowDropdown] = useState(false);
