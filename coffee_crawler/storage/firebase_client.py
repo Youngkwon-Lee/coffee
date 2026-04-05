@@ -228,11 +228,11 @@ class FirebaseClient:
                     
                     # 비활성화
                     doc_ref = self.db.collection('beans').document(bean['id'])
-            doc_ref.update({
+                    doc_ref.update({
                         'isActive': False,
                         'lastUpdated': datetime.now()
-            })
-            
+                    })
+                    
                     logger.info(f"원두 비활성화: {bean.get('name')} ({bean.get('brand')})")
                     deactivated_count += 1
             

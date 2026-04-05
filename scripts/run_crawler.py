@@ -220,8 +220,7 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
         
     except Exception as e:
         logger.error(f"크롤링 중 오류 발생: {e}")
-        if args.verbose:
-            logger.debug(traceback.format_exc())
+        logger.debug(traceback.format_exc())
         return None
 
 def main():
