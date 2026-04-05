@@ -1,9 +1,9 @@
 name: Coffee Crawler Auto Update
 
 on:
-  # 2주마다 실행 (매월 1일, 15일 오전 9시 KST)
+  # 매주 실행 (월요일 오전 9시 KST)
   schedule:
-    - cron: '0 0 1,15 * *'
+    - cron: '0 0 * * 1'
   
   # 수동 실행 가능
   workflow_dispatch:
@@ -132,6 +132,7 @@ jobs:
       if: always()
       env:
         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID }}
       run: |
         if [ -n "$DISCORD_WEBHOOK" ] && [ -f "reports/crawl_summary.json" ]; then
           python -c "
@@ -141,6 +142,11 @@ jobs:
           from datetime import datetime
           
           webhook_url = os.getenv('DISCORD_WEBHOOK')
+          thread_id = os.getenv('DISCORD_THREAD_ID', '').strip()
+          target_url = webhook_url
+          if thread_id:
+              sep = '&' if '?' in webhook_url else '?'
+              target_url = f"{webhook_url}{sep}thread_id={thread_id}"
           
           try:
               with open('reports/crawl_summary.json', 'r', encoding='utf-8') as f:
@@ -151,10 +157,12 @@ jobs:
               
               # 상태에 따른 색상
               color = 0x00ff00 if total > 50 else (0xffff00 if total > 20 else 0xff0000)
+              top_lines = [f'{cafe}: {count}개' for cafe, count in list(cafes.items())[:10]]
+              cafe_text = '\n'.join(top_lines) if top_lines else '수집 데이터 없음'
               
               embed = {
-                  'title': '☕️ 커피 크롤러 자동 실행 완료',
-                  'description': f'2주 정기 업데이트가 완료되었습니다',
+                  'title': '☕️ 커피 크롤러 주간 실행 완료',
+                  'description': '주간 크롤링이 완료되었습니다.',
                   'color': color,
                   'timestamp': datetime.now().isoformat(),
                   'fields': [
@@ -164,18 +172,18 @@ jobs:
                           'inline': True
                       },
                       {
-                          'name': '🏪 처리된 카페',
-                          'value': '\n'.join([f'{cafe}: {count}개' for cafe, count in list(cafes.items())[:5]]),
+                          'name': '🏪 처리된 카페(최대 10개)',
+                          'value': cafe_text,
                           'inline': False
                       }
                   ],
                   'footer': {
-                      'text': 'GitHub Actions로 자동 실행됨'
+                      'text': 'GitHub Actions 주간 자동 실행'
                   }
               }
               
               payload = {'embeds': [embed]}
-              response = requests.post(webhook_url, json=payload)
+              response = requests.post(target_url, json=payload, timeout=20)
               
               if response.status_code == 204:
                   print('✅ Discord 알림 전송 완료')
@@ -191,7 +199,7 @@ jobs:
                   'color': 0xff0000,
                   'timestamp': datetime.now().isoformat()
               }
-              requests.post(webhook_url, json={'embeds': [error_embed]})
+              requests.post(target_url, json={'embeds': [error_embed]}, timeout=20)
           "
         else
           echo "Discord 웹훅이 설정되지 않았거나 리포트 파일이 없습니다."
