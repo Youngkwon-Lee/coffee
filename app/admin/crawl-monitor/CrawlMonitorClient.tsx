@@ -27,6 +27,7 @@ type BeanDoc = {
   updatedAt?: Timestamp | string | Date;
   createdAt?: Timestamp | string | Date;
   isActive?: boolean;
+  isSample?: boolean;
 };
 
 type BrandStat = {
@@ -69,6 +70,7 @@ export default function CrawlMonitorClient() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [hideSamples, setHideSamples] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -134,6 +136,7 @@ export default function CrawlMonitorClient() {
   const filteredBeans = useMemo(() => {
     const q = search.trim().toLowerCase();
     return beans.filter((bean) => {
+      if (hideSamples && bean.isSample) return false;
       if (selectedBrand !== "all" && (bean.brand || "unknown") !== selectedBrand) return false;
       if (!q) return true;
 
@@ -143,7 +146,7 @@ export default function CrawlMonitorClient() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [beans, search, selectedBrand]);
+  }, [beans, search, selectedBrand, hideSamples]);
 
   return (
     <div className="p-4 pb-24">
@@ -224,11 +227,20 @@ export default function CrawlMonitorClient() {
               placeholder="원두명/원산지/프로세스 검색"
               className="flex-1 bg-coffee-dark border border-coffee-gold border-opacity-20 rounded-lg px-3 py-2 text-sm"
             />
+            <label className="px-3 py-2 rounded-lg bg-coffee-dark border border-coffee-gold border-opacity-20 text-sm flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={hideSamples}
+                onChange={(e) => setHideSamples(e.target.checked)}
+              />
+              샘플 숨기기
+            </label>
             <button
               type="button"
               onClick={() => {
                 setSelectedBrand("all");
                 setSearch("");
+                setHideSamples(true);
               }}
               className="px-3 py-2 rounded-lg bg-coffee-dark border border-coffee-gold border-opacity-20 text-sm"
             >
@@ -259,7 +271,14 @@ export default function CrawlMonitorClient() {
                       }}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{bean.name || "(이름 없음)"}</div>
+                      <div className="font-medium truncate flex items-center gap-2">
+                        <span>{bean.name || "(이름 없음)"}</span>
+                        {bean.isSample && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-700/40 border border-yellow-500/40 text-yellow-200">
+                            SAMPLE
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs opacity-70 truncate">{bean.brand || "unknown"}</div>
                       <div className="text-xs mt-1">가격: {bean.price ?? "-"}</div>
                       <div className="text-xs opacity-80 truncate">원산지: {originText}</div>

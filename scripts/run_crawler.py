@@ -173,6 +173,8 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
             from coffee_crawler.utils.sample_data import generate_sample_beans
             logger.info(f"테스트 모드: 결과가 없어 샘플 데이터 생성")
             results = generate_sample_beans(5, cafe_id)
+            for item in results:
+                item['isSample'] = True
             
         elapsed_time = time.time() - start_time
         logger.info(f"'{cafe_id}' 크롤링 완료: {len(results)} 개의 원두 정보 수집, 소요시간: {elapsed_time:.2f}초")
@@ -193,6 +195,10 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
             
             # 중복 검사
             unique_beans = deduplicate(normalized_beans)
+
+            # 샘플 데이터 여부 플래그 통일
+            for bean in unique_beans:
+                bean['isSample'] = bool(bean.get('isSample', False))
             
             # Firebase 비활성화 설정이면 Firebase 저장 건너뛰기
             is_firebase_disabled = os.environ.get('DISABLE_FIREBASE') == 'true'
