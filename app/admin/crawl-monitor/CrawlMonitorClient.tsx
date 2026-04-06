@@ -8,6 +8,12 @@ type BeanDoc = {
   id: string;
   name?: string;
   brand?: string;
+  price?: string | number;
+  origin?: string;
+  process?: string;
+  flavor_notes?: string;
+  image?: string;
+  link?: string;
   updatedAt?: Timestamp | string | Date;
   createdAt?: Timestamp | string | Date;
   isActive?: boolean;
@@ -19,6 +25,9 @@ type BrandStat = {
   active: number;
   latest: Date | null;
 };
+
+const fallbackImg =
+  "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=300&fit=crop&crop=center";
 
 const toDate = (value: unknown): Date | null => {
   if (!value) return null;
@@ -41,6 +50,8 @@ export default function CrawlMonitorClient() {
   const [error, setError] = useState<string | null>(null);
   const [beans, setBeans] = useState<BeanDoc[]>([]);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<string>("all");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -103,13 +114,25 @@ export default function CrawlMonitorClient() {
     return stats[0].latest;
   }, [stats]);
 
+  const filteredBeans = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return beans.filter((bean) => {
+      if (selectedBrand !== "all" && (bean.brand || "unknown") !== selectedBrand) return false;
+      if (!q) return true;
+
+      const hay = [bean.name, bean.brand, bean.origin, bean.process, bean.flavor_notes]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [beans, search, selectedBrand]);
+
   return (
     <div className="p-4 pb-24">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-coffee-light">크롤링 모니터</h1>
-        <p className="text-sm text-coffee-light opacity-70 mt-1">
-          Firestore beans 컬렉션 기준 최근 크롤링 상태
-        </p>
+        <p className="text-sm text-coffee-light opacity-70 mt-1">Firestore beans 기준 수집 현황 + 상세 원두 목록</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
@@ -134,34 +157,104 @@ export default function CrawlMonitorClient() {
       )}
 
       {error && !loading && (
-        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 text-red-200 text-sm mb-4">
-          {error}
-        </div>
+        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 text-red-200 text-sm mb-4">{error}</div>
       )}
 
       {!loading && !error && (
-        <div className="bg-coffee-medium rounded-xl border border-coffee-gold border-opacity-10 overflow-hidden">
-          <div className="px-4 py-3 border-b border-coffee-gold border-opacity-10 text-sm opacity-80">
-            카페별 최신 상태
+        <>
+          <div className="bg-coffee-medium rounded-xl border border-coffee-gold border-opacity-10 overflow-hidden mb-4">
+            <div className="px-4 py-3 border-b border-coffee-gold border-opacity-10 text-sm opacity-80">카페별 최신 상태</div>
+            <div className="divide-y divide-coffee-gold divide-opacity-10">
+              {stats.map((item) => (
+                <button
+                  key={item.brand}
+                  type="button"
+                  onClick={() => setSelectedBrand(item.brand)}
+                  className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-coffee-dark/30 transition ${
+                    selectedBrand === item.brand ? "bg-coffee-dark/40" : ""
+                  }`}
+                >
+                  <div>
+                    <div className="font-medium text-coffee-light">{item.brand}</div>
+                    <div className="text-xs opacity-70">최근 업데이트: {formatDateTime(item.latest)}</div>
+                  </div>
+                  <div className="text-right text-sm">
+                    <div>전체 {item.total}</div>
+                    <div className="opacity-70">활성 {item.active}</div>
+                  </div>
+                </button>
+              ))}
+              {stats.length === 0 && <div className="px-4 py-8 text-center text-sm opacity-70">표시할 데이터가 없습니다.</div>}
+            </div>
           </div>
-          <div className="divide-y divide-coffee-gold divide-opacity-10">
-            {stats.map((item) => (
-              <div key={item.brand} className="px-4 py-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-medium text-coffee-light">{item.brand}</div>
-                  <div className="text-xs opacity-70">최근 업데이트: {formatDateTime(item.latest)}</div>
-                </div>
-                <div className="text-right text-sm">
-                  <div>전체 {item.total}</div>
-                  <div className="opacity-70">활성 {item.active}</div>
-                </div>
-              </div>
-            ))}
-            {stats.length === 0 && (
-              <div className="px-4 py-8 text-center text-sm opacity-70">표시할 데이터가 없습니다.</div>
-            )}
+
+          <div className="bg-coffee-medium rounded-xl border border-coffee-gold border-opacity-10 p-3 mb-4 flex flex-col md:flex-row gap-3">
+            <select
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="bg-coffee-dark border border-coffee-gold border-opacity-20 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="all">전체 카페</option>
+              {stats.map((s) => (
+                <option key={s.brand} value={s.brand}>
+                  {s.brand}
+                </option>
+              ))}
+            </select>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="원두명/원산지/프로세스 검색"
+              className="flex-1 bg-coffee-dark border border-coffee-gold border-opacity-20 rounded-lg px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedBrand("all");
+                setSearch("");
+              }}
+              className="px-3 py-2 rounded-lg bg-coffee-dark border border-coffee-gold border-opacity-20 text-sm"
+            >
+              초기화
+            </button>
           </div>
-        </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {filteredBeans.map((bean) => {
+              const updated = toDate(bean.updatedAt) || toDate(bean.createdAt);
+              return (
+                <div key={bean.id} className="bg-coffee-medium rounded-xl p-3 border border-coffee-gold border-opacity-10">
+                  <div className="flex gap-3">
+                    <img
+                      src={bean.image || fallbackImg}
+                      alt={bean.name || "bean"}
+                      className="w-20 h-20 rounded-lg object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = fallbackImg;
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{bean.name || "(이름 없음)"}</div>
+                      <div className="text-xs opacity-70 truncate">{bean.brand || "unknown"}</div>
+                      <div className="text-xs mt-1">가격: {bean.price ?? "-"}</div>
+                      <div className="text-xs opacity-80 truncate">원산지: {bean.origin || "-"}</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs opacity-80">프로세스: {bean.process || "-"}</div>
+                  <div className="mt-1 text-xs opacity-70 line-clamp-2">노트: {bean.flavor_notes || "-"}</div>
+                  <div className="mt-2 text-[11px] opacity-60">업데이트: {formatDateTime(updated)}</div>
+                  {bean.link && (
+                    <a href={bean.link} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-coffee-gold underline">
+                      원문 보기
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {filteredBeans.length === 0 && <div className="text-center text-sm opacity-70 py-10">조건에 맞는 원두가 없습니다.</div>}
+        </>
       )}
     </div>
   );
