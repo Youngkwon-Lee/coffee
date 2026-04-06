@@ -10,10 +10,20 @@ type BeanDoc = {
   brand?: string;
   price?: string | number;
   origin?: string;
+  region?: string;
+  producer?: string;
   process?: string;
+  processing?: string;
   flavor_notes?: string;
+  tasting_notes?: string;
+  flavor?: string | string[];
   image?: string;
+  imageUrl?: string;
+  img?: string;
+  thumbnail?: string;
   link?: string;
+  url?: string;
+  product_url?: string;
   updatedAt?: Timestamp | string | Date;
   createdAt?: Timestamp | string | Date;
   isActive?: boolean;
@@ -43,6 +53,13 @@ const toDate = (value: unknown): Date | null => {
 const formatDateTime = (value: Date | null) => {
   if (!value) return "-";
   return value.toLocaleString("ko-KR", { hour12: false });
+};
+
+const pickText = (...vals: Array<unknown>) => {
+  for (const v of vals) {
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "-";
 };
 
 export default function CrawlMonitorClient() {
@@ -222,11 +239,19 @@ export default function CrawlMonitorClient() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filteredBeans.map((bean) => {
               const updated = toDate(bean.updatedAt) || toDate(bean.createdAt);
+              const imgSrc = pickText(bean.image, bean.imageUrl, bean.img, bean.thumbnail, fallbackImg);
+              const originText = pickText(bean.origin, bean.region, bean.producer);
+              const processText = pickText(bean.process, bean.processing);
+              const noteText = Array.isArray(bean.flavor)
+                ? bean.flavor.join(", ")
+                : pickText(bean.flavor_notes, bean.tasting_notes, bean.flavor);
+              const sourceLink = pickText(bean.link, bean.url, bean.product_url);
+
               return (
                 <div key={bean.id} className="bg-coffee-medium rounded-xl p-3 border border-coffee-gold border-opacity-10">
                   <div className="flex gap-3">
                     <img
-                      src={bean.image || fallbackImg}
+                      src={imgSrc}
                       alt={bean.name || "bean"}
                       className="w-20 h-20 rounded-lg object-cover"
                       onError={(e) => {
@@ -237,14 +262,14 @@ export default function CrawlMonitorClient() {
                       <div className="font-medium truncate">{bean.name || "(이름 없음)"}</div>
                       <div className="text-xs opacity-70 truncate">{bean.brand || "unknown"}</div>
                       <div className="text-xs mt-1">가격: {bean.price ?? "-"}</div>
-                      <div className="text-xs opacity-80 truncate">원산지: {bean.origin || "-"}</div>
+                      <div className="text-xs opacity-80 truncate">원산지: {originText}</div>
                     </div>
                   </div>
-                  <div className="mt-2 text-xs opacity-80">프로세스: {bean.process || "-"}</div>
-                  <div className="mt-1 text-xs opacity-70 line-clamp-2">노트: {bean.flavor_notes || "-"}</div>
+                  <div className="mt-2 text-xs opacity-80">프로세스: {processText}</div>
+                  <div className="mt-1 text-xs opacity-70 line-clamp-2">노트: {noteText}</div>
                   <div className="mt-2 text-[11px] opacity-60">업데이트: {formatDateTime(updated)}</div>
-                  {bean.link && (
-                    <a href={bean.link} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-coffee-gold underline">
+                  {sourceLink !== "-" && (
+                    <a href={sourceLink} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-coffee-gold underline">
                       원문 보기
                     </a>
                   )}
