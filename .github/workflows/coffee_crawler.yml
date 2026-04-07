@@ -122,6 +122,7 @@ jobs:
         "
     
     - name: Send Notion summary
+      id: notion_sync
       if: always()
       env:
         NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
@@ -147,6 +148,8 @@ jobs:
       env:
         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        NOTION_RESULT: ${{ steps.notion_sync.outcome }}
       run: |
         if [ -n "$DISCORD_WEBHOOK" ] && [ -f "reports/crawl_summary.json" ]; then
           python -c "
@@ -157,6 +160,8 @@ jobs:
           
           webhook_url = os.getenv('DISCORD_WEBHOOK')
           thread_id = os.getenv('DISCORD_THREAD_ID', '').strip()
+          run_url = os.getenv('RUN_URL', '').strip()
+          notion_result = os.getenv('NOTION_RESULT', 'unknown').strip()
           target_url = webhook_url
           if thread_id:
               sep = '&' if '?' in webhook_url else '?'
@@ -186,8 +191,18 @@ jobs:
                           'inline': True
                       },
                       {
+                          'name': '🧾 Notion 적재',
+                          'value': f'{notion_result}',
+                          'inline': True
+                      },
+                      {
                           'name': '🏪 처리된 카페(최대 10개)',
                           'value': cafe_text,
+                          'inline': False
+                      },
+                      {
+                          'name': '🔗 실행 링크',
+                          'value': run_url if run_url else '없음',
                           'inline': False
                       }
                   ],
