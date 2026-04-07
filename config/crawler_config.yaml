@@ -66,20 +66,14 @@ cafes:
 
   terarosa:
     label: "테라로사"
-    type: "html"
+    type: "terarosa"
     # 기존 /market 경로는 robots.txt 에서 차단(Disallow) + 404 반환됨
     url: "https://terarosa.com/product/list/?category=12"
+    api_url: "https://terarosa.com/api/product/list/"
     schedule: "0 0 * * *"
     active: true
-    selectors:
-      product_list_container: ".listWrap"
-      product_item: "li"
-      product_link: "a"
-      product_title: ".title"
-      product_price: ".price"
-      product_image: "img"
-      pagination_container: "div.pagination"
-      next_page: "a.next"
+    page_size: 60
+    goto_page: 1
 
   momoscoffee:
     label: "모모스커피"
