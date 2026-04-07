@@ -67,7 +67,8 @@ cafes:
   terarosa:
     label: "테라로사"
     type: "html"
-    url: "https://www.terarosa.com/market/product/list?categoryId=482"
+    # 기존 /market 경로는 robots.txt 에서 차단(Disallow) + 404 반환됨
+    url: "https://terarosa.com/product/list/?category=12"
     schedule: "0 0 * * *"
     active: true
     selectors:
