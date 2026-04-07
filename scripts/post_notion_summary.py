@@ -4,12 +4,12 @@ import os
 import urllib.request
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 NOTION_VERSION = "2022-06-28"
 
 
-def notion_request(token: str, url: str, method: str = "GET", payload: Dict[str, Any] | None = None) -> Dict[str, Any]:
+def notion_request(token: str, url: str, method: str = "GET", payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     data = None
     headers = {
         "Authorization": f"Bearer {token}",
