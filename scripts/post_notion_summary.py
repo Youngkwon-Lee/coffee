@@ -20,6 +20,8 @@ def main() -> int:
     total = report.get("total_beans", 0)
     cafes = report.get("cafe_breakdown", {})
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    today = datetime.now().strftime("%Y-%m-%d")
+    workflow_status = os.getenv("WORKFLOW_STATUS", "success").lower()
 
     req = urllib.request.Request(
         f"https://api.notion.com/v1/databases/{notion_db_id}",
@@ -39,41 +41,33 @@ def main() -> int:
     if not title_prop:
         raise RuntimeError("Notion DB에서 title property를 찾지 못했습니다")
 
-    cafe_lines = [f"{k}: {v}개" for k, v in list(cafes.items())[:20]] or ["수집 데이터 없음"]
+    cafe_lines = [f"{k}:{v}" for k, v in cafes.items()]
+    cafe_summary = ", ".join(cafe_lines) if cafe_lines else "no-data"
 
-    children = [
-        {
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {"rich_text": [{"type": "text", "text": {"content": f"☕ 주간 크롤링 결과 ({now})"}}]},
-        },
-        {
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {"rich_text": [{"type": "text", "text": {"content": f"총 수집 원두: {total}개"}}]},
-        },
-    ]
-    for line in cafe_lines:
-        children.append(
-            {
-                "object": "block",
-                "type": "bulleted_list_item",
-                "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": line}}]},
-            }
-        )
-    if run_url:
-        children.append(
-            {
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {"rich_text": [{"type": "text", "text": {"content": f"GitHub Actions: {run_url}"}}]},
-            }
-        )
+    # 표(데이터베이스 row) 중심으로 저장
+    props = {
+        title_prop: {"title": [{"text": {"content": f"Coffee Crawl {now}"}}]},
+        "Date": {"date": {"start": today}},
+        "Total": {"number": float(total)},
+        "Run URL": {"url": run_url or None},
+        "Notes": {"rich_text": [{"text": {"content": cafe_summary[:1800]}}]},
+    }
+
+    # Cafe 컬럼은 단일 카페 실행이면 해당 값, 아니면 all
+    if len(cafes) == 1:
+        one_cafe = next(iter(cafes.keys()))
+        props["Cafe"] = {"select": {"name": one_cafe}}
+    else:
+        props["Cafe"] = {"select": {"name": "all"}}
+
+    if workflow_status in {"success", "failure", "partial"}:
+        props["Status"] = {"select": {"name": workflow_status}}
+    else:
+        props["Status"] = {"select": {"name": "success"}}
 
     payload = {
         "parent": {"database_id": notion_db_id},
-        "properties": {title_prop: {"title": [{"text": {"content": f"Coffee Crawl {now}"}}]}},
-        "children": children,
+        "properties": props,
     }
 
     req2 = urllib.request.Request(

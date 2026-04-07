@@ -127,6 +127,7 @@ jobs:
         NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
         NOTION_DB_ID: ${{ secrets.NOTION_DB_ID }}
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        WORKFLOW_STATUS: ${{ job.status }}
       run: |
         python scripts/post_notion_summary.py
 
