@@ -51,6 +51,19 @@ def ensure_db_schema(token: str, db_id: str) -> Dict[str, Any]:
         "Process": {"rich_text": {}},
         "Product URL": {"url": {}},
         "Image": {"files": {}},
+        # cup-note fields
+        "Aroma": {"rich_text": {}},
+        "Flavor": {"multi_select": {"options": []}},
+        "Acidity": {"number": {"format": "number"}},
+        "Body": {"number": {"format": "number"}},
+        "Sweetness": {"number": {"format": "number"}},
+        "Aftertaste": {"rich_text": {}},
+        "Overall": {"number": {"format": "number"}},
+        "Roast Level": {"select": {"options": [
+            {"name": "Light", "color": "yellow"},
+            {"name": "Medium", "color": "orange"},
+            {"name": "Dark", "color": "brown"}
+        ]}},
     }
 
     missing = {k: v for k, v in expected.items() if k not in props}
@@ -87,6 +100,43 @@ def load_beans_from_data_dir() -> List[Dict[str, Any]]:
 def rt(text: Any) -> Dict[str, Any]:
     s = "" if text is None else str(text)
     return {"rich_text": [{"text": {"content": s[:1800]}}]}
+
+
+def parse_flavor_multi(bean: Dict[str, Any]) -> List[Dict[str, str]]:
+    flavors: List[str] = []
+    raw = bean.get("flavor")
+    if isinstance(raw, list):
+        flavors.extend([str(x).strip() for x in raw if str(x).strip()])
+    elif isinstance(raw, str) and raw.strip():
+        # comma/slash split
+        parts = [p.strip() for p in raw.replace("/", ",").split(",")]
+        flavors.extend([p for p in parts if p])
+
+    notes = bean.get("flavor_notes") or bean.get("tasting_notes")
+    if isinstance(notes, str) and notes.strip() and not flavors:
+        parts = [p.strip() for p in notes.replace("/", ",").split(",")]
+        flavors.extend([p for p in parts if p])
+
+    uniq: List[str] = []
+    seen = set()
+    for f in flavors:
+        k = f.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append(f[:100])
+    return [{"name": u} for u in uniq[:6]]
+
+
+def guess_roast_level(bean: Dict[str, Any]) -> Optional[str]:
+    roast = str(bean.get("roast") or "").lower()
+    if "light" in roast or "라이트" in roast:
+        return "Light"
+    if "dark" in roast or "다크" in roast:
+        return "Dark"
+    if roast:
+        return "Medium"
+    return None
 
 
 def main() -> int:
@@ -137,6 +187,8 @@ def main() -> int:
     # 무료 플랜/속도 고려: 상위 20개만 업서트
     for bean in beans[:20]:
         image_url = bean.get("image") or bean.get("imageUrl") or bean.get("img") or bean.get("thumbnail")
+        flavor_multi = parse_flavor_multi(bean)
+        roast_level = guess_roast_level(bean)
         bean_props: Dict[str, Any] = {
             title_prop: {"title": [{"text": {"content": f"Bean {bean.get('name', 'unknown')[:80]}"}}]},
             "Type": {"select": {"name": "bean"}},
@@ -149,7 +201,13 @@ def main() -> int:
             "Process": rt(bean.get("process") or bean.get("processing") or ""),
             "Product URL": {"url": (bean.get("link") or bean.get("url") or bean.get("product_url") or None)},
             "Notes": rt((bean.get("flavor_notes") or bean.get("tasting_notes") or "")[:800]),
+            "Aroma": rt(bean.get("flavor_notes") or bean.get("tasting_notes") or ""),
+            "Aftertaste": rt(bean.get("flavor_notes") or bean.get("tasting_notes") or ""),
         }
+        if flavor_multi:
+            bean_props["Flavor"] = {"multi_select": flavor_multi}
+        if roast_level:
+            bean_props["Roast Level"] = {"select": {"name": roast_level}}
         if image_url:
             bean_props["Image"] = {
                 "files": [
