@@ -37,6 +37,18 @@ type BrandStat = {
   latest: Date | null;
 };
 
+type WorkflowRun = {
+  id: number;
+  name?: string;
+  status: string;
+  conclusion: string | null;
+  run_number: number;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  head_branch?: string;
+};
+
 const fallbackImg =
   "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=300&fit=crop&crop=center";
 
@@ -56,11 +68,30 @@ const formatDateTime = (value: Date | null) => {
   return value.toLocaleString("ko-KR", { hour12: false });
 };
 
+const formatApiDateTime = (iso: string) => {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString("ko-KR", { hour12: false });
+};
+
 const pickText = (...vals: Array<unknown>) => {
   for (const v of vals) {
     if (typeof v === "string" && v.trim()) return v.trim();
   }
   return "-";
+};
+
+const fmtRunStatus = (status: string, conclusion: string | null) => {
+  const s = status.toLowerCase();
+  const c = (conclusion || "").toLowerCase();
+  if (s === "completed") {
+    if (c === "success") return { text: "성공", tone: "text-green-300" };
+    if (c === "failure") return { text: "실패", tone: "text-red-300" };
+    if (c === "cancelled") return { text: "취소", tone: "text-yellow-300" };
+    return { text: c || "완료", tone: "text-blue-300" };
+  }
+  if (s === "in_progress") return { text: "진행중", tone: "text-cyan-300" };
+  if (s === "queued") return { text: "대기", tone: "text-yellow-300" };
+  return { text: s, tone: "text-white/70" };
 };
 
 export default function CrawlMonitorClient() {
@@ -71,6 +102,9 @@ export default function CrawlMonitorClient() {
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [hideSamples, setHideSamples] = useState(true);
+
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
+  const [workflowLoadError, setWorkflowLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -99,7 +133,57 @@ export default function CrawlMonitorClient() {
       }
     };
 
+    const loadWorkflowRuns = async () => {
+      try {
+        const res = await fetch(
+          "https://api.github.com/repos/Youngkwon-Lee/coffee/actions/workflows/coffee_crawler.yml/runs?per_page=8",
+          {
+            headers: {
+              Accept: "application/vnd.github+json",
+            },
+          }
+        );
+        if (!res.ok) {
+          setWorkflowLoadError(`GitHub Actions 실행 이력 호출 실패 (${res.status})`);
+          return;
+        }
+
+        const data = await res.json();
+        const rows = (data?.workflow_runs || []) as Array<{
+          id: number;
+          name?: string;
+          status: string;
+          conclusion: string | null;
+          run_number: number;
+          html_url: string;
+          created_at: string;
+          updated_at: string;
+          head_branch?: string;
+        }>;
+
+        setWorkflowRuns(
+          rows
+            .filter((r) => !!r?.id)
+            .map((r) => ({
+              id: r.id,
+              name: r.name,
+              status: r.status,
+              conclusion: r.conclusion,
+              run_number: r.run_number,
+              html_url: r.html_url,
+              created_at: r.created_at,
+              updated_at: r.updated_at,
+              head_branch: r.head_branch,
+            }))
+        );
+      } catch (e) {
+        console.error(e);
+        setWorkflowLoadError("GitHub Actions 실행 이력 네트워크 오류");
+      }
+    };
+
     load();
+    loadWorkflowRuns();
   }, []);
 
   const stats = useMemo(() => {
@@ -148,11 +232,13 @@ export default function CrawlMonitorClient() {
     });
   }, [beans, search, selectedBrand, hideSamples]);
 
+  const hasRuns = workflowRuns.length > 0;
+
   return (
     <div className="p-4 pb-24">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-coffee-light">크롤링 모니터</h1>
-        <p className="text-sm text-coffee-light opacity-70 mt-1">Firestore beans 기준 수집 현황 + 상세 원두 목록</p>
+        <p className="text-sm text-coffee-light opacity-70 mt-1">Firestore beans 기준 수집 현황 + 실행 run 로그(공개 GitHub Actions)</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
@@ -167,6 +253,41 @@ export default function CrawlMonitorClient() {
         <div className="bg-coffee-medium rounded-xl p-4 border border-coffee-gold border-opacity-10">
           <div className="text-xs opacity-70">가장 최근 업데이트</div>
           <div className="text-sm font-medium mt-1">{formatDateTime(latestUpdate)}</div>
+        </div>
+      </div>
+
+      <div className="bg-coffee-medium rounded-xl border border-coffee-gold border-opacity-10 overflow-hidden mb-4">
+        <div className="px-4 py-3 border-b border-coffee-gold border-opacity-10 text-sm opacity-80">최근 GitHub Actions 실행 로그</div>
+        {workflowLoadError && <div className="px-4 py-3 text-sm text-red-300">{workflowLoadError}</div>}
+        <div className="divide-y divide-coffee-gold divide-opacity-10">
+          {!hasRuns && !workflowLoadError && (
+            <div className="px-4 py-6 text-sm opacity-70">실행 로그를 불러오지 못했거나 아직 이력이 없습니다.</div>
+          )}
+          {workflowRuns.slice(0, 6).map((run) => {
+            const badge = fmtRunStatus(run.status, run.conclusion);
+            return (
+              <div key={run.id} className="px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-sm">
+                <div className="min-w-0">
+                  <div className="font-medium text-coffee-light">{run.name || `coffee_crawler #${run.run_number}`}</div>
+                  <div className="text-xs opacity-70">ID: {run.id}</div>
+                  <div className="text-xs opacity-70">branch: {run.head_branch || "-"}</div>
+                </div>
+                <div className="text-xs md:text-right opacity-80">
+                  <div className={`${badge.tone} font-semibold`}>상태: {badge.text} ({run.status})</div>
+                  <div>시작: {formatApiDateTime(run.created_at)}</div>
+                  <div>업데이트: {formatApiDateTime(run.updated_at)}</div>
+                </div>
+                <a
+                  href={run.html_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-coffee-gold underline md:self-start"
+                >
+                  실행 링크
+                </a>
+              </div>
+            );
+          })}
         </div>
       </div>
 
