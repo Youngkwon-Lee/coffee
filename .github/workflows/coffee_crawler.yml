@@ -34,11 +34,19 @@ jobs:
         cache: 'pip'
     
     - name: Install system dependencies
+      if: ${{ github.event.inputs.test_mode != 'true' }}
       run: |
         sudo apt-get update
         sudo apt-get install -y libgl1-mesa-dev libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1 libglib2.0-dev
     
-    - name: Install Python dependencies
+    - name: Install Python dependencies (test mode fast)
+      if: ${{ github.event.inputs.test_mode == 'true' }}
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.test.txt
+
+    - name: Install Python dependencies (full)
+      if: ${{ github.event.inputs.test_mode != 'true' }}
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
