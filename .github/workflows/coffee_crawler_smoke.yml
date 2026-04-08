@@ -8,6 +8,10 @@ on:
 jobs:
   smoke-check:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cafe: [terarosa, centercoffee]
 
     steps:
       - name: Checkout repository
@@ -27,35 +31,36 @@ jobs:
       - name: Ensure output directories
         run: mkdir -p data reports logs
 
-      - name: Run smoke crawler (terarosa)
+      - name: Run smoke crawler (${{ matrix.cafe }})
         env:
           GITHUB_ACTIONS: "true"
           DISABLE_FIREBASE: "true"
         run: |
-          python scripts/run_crawler.py --cafe terarosa --test --notify --output data/beans_terarosa_smoke.json
+          python scripts/run_crawler.py --cafe ${{ matrix.cafe }} --test --notify --output data/beans_${{ matrix.cafe }}_smoke.json
 
-      - name: Validate smoke result
+      - name: Validate smoke result (${{ matrix.cafe }})
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
 
-          p = Path('data/beans_terarosa_smoke.json')
+          cafe = "${{ matrix.cafe }}"
+          p = Path(f"data/beans_{cafe}_smoke.json")
           if not p.exists():
-              raise SystemExit('❌ smoke output not found')
+              raise SystemExit(f"❌ {cafe} smoke output not found")
 
           data = json.loads(p.read_text(encoding='utf-8'))
           if not isinstance(data, list) or len(data) == 0:
-              raise SystemExit('❌ smoke output is empty')
+              raise SystemExit(f"❌ {cafe} smoke output is empty")
 
-          print(f'✅ smoke beans: {len(data)}')
+          print(f"✅ {cafe} smoke beans: {len(data)}")
           PY
 
-      - name: Upload smoke artifacts
+      - name: Upload smoke artifacts (${{ matrix.cafe }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coffee-smoke-${{ github.run_number }}
+          name: coffee-smoke-${{ matrix.cafe }}-${{ github.run_number }}
           path: |
             data/
             logs/
@@ -76,10 +81,11 @@ jobs:
             webhook = os.getenv('DISCORD_WEBHOOK', '').strip()
             thread_id = os.getenv('DISCORD_THREAD_ID', '').strip()
             run_url = os.getenv('RUN_URL', '').strip()
+            cafe = "${{ matrix.cafe }}"
             target = webhook + (("&" if "?" in webhook else "?") + f"thread_id={thread_id}" if thread_id else "")
 
             embed = {
-              'title': '🚨 Coffee Smoke 실패 (terarosa)',
+              'title': f'🚨 Coffee Smoke 실패 ({cafe})',
               'description': f'스모크 체크 실패\n실행 링크: {run_url}',
               'color': 0xff0000,
               'timestamp': datetime.now().isoformat(),
