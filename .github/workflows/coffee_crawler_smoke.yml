@@ -1,0 +1,92 @@
+name: Coffee Crawler Smoke Check
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  smoke-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install Python dependencies (fast)
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.test.txt
+
+      - name: Ensure output directories
+        run: mkdir -p data reports logs
+
+      - name: Run smoke crawler (terarosa)
+        env:
+          GITHUB_ACTIONS: "true"
+          DISABLE_FIREBASE: "true"
+        run: |
+          python scripts/run_crawler.py --cafe terarosa --test --notify --output data/beans_terarosa_smoke.json
+
+      - name: Validate smoke result
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path('data/beans_terarosa_smoke.json')
+          if not p.exists():
+              raise SystemExit('❌ smoke output not found')
+
+          data = json.loads(p.read_text(encoding='utf-8'))
+          if not isinstance(data, list) or len(data) == 0:
+              raise SystemExit('❌ smoke output is empty')
+
+          print(f'✅ smoke beans: {len(data)}')
+          PY
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coffee-smoke-${{ github.run_number }}
+          path: |
+            data/
+            logs/
+          retention-days: 14
+
+      - name: Send Discord notification (on failure)
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            python - <<'PY'
+            import os, requests
+            from datetime import datetime
+
+            webhook = os.getenv('DISCORD_WEBHOOK', '').strip()
+            thread_id = os.getenv('DISCORD_THREAD_ID', '').strip()
+            run_url = os.getenv('RUN_URL', '').strip()
+            target = webhook + (("&" if "?" in webhook else "?") + f"thread_id={thread_id}" if thread_id else "")
+
+            embed = {
+              'title': '🚨 Coffee Smoke 실패 (terarosa)',
+              'description': f'스모크 체크 실패\n실행 링크: {run_url}',
+              'color': 0xff0000,
+              'timestamp': datetime.now().isoformat(),
+            }
+            requests.post(target, json={'embeds':[embed]}, timeout=20)
+            print('failure notification sent')
+            PY
+          else
+            echo 'DISCORD_WEBHOOK not set'
+          fi
