@@ -108,24 +108,74 @@ def parse_flavor_multi(bean: Dict[str, Any]) -> List[Dict[str, str]]:
     if isinstance(raw, list):
         flavors.extend([str(x).strip() for x in raw if str(x).strip()])
     elif isinstance(raw, str) and raw.strip():
-        # comma/slash split
         parts = [p.strip() for p in raw.replace("/", ",").split(",")]
         flavors.extend([p for p in parts if p])
 
     notes = bean.get("flavor_notes") or bean.get("tasting_notes")
     if isinstance(notes, str) and notes.strip() and not flavors:
-        parts = [p.strip() for p in notes.replace("/", ",").split(",")]
+        parts = [p.strip() for p in notes.replace("/", ",").replace("|", ",").split(",")]
         flavors.extend([p for p in parts if p])
+
+    # 노이즈 제거 + 태그형 정규화
+    stopwords = ["원", "g", "kg", "시즌", "한정", "정상가", "배송비", "로스팅", "품절"]
+    normalized: List[str] = []
+    for f in flavors:
+        s = str(f).strip()
+        if not s:
+            continue
+        if len(s) > 35:
+            continue
+        if any(sw in s for sw in stopwords):
+            continue
+        normalized.append(s)
 
     uniq: List[str] = []
     seen = set()
-    for f in flavors:
+    for f in normalized:
         k = f.lower()
         if k in seen:
             continue
         seen.add(k)
         uniq.append(f[:100])
     return [{"name": u} for u in uniq[:6]]
+
+
+def score_from_notes(bean: Dict[str, Any]) -> Dict[str, float]:
+    text = str(bean.get("flavor_notes") or bean.get("tasting_notes") or bean.get("description") or "").lower()
+
+    def has_any(words: List[str]) -> bool:
+        return any(w in text for w in words)
+
+    acidity = 3.0
+    body = 3.0
+    sweetness = 3.0
+
+    if has_any(["산미", "acidity", "시트러스", "레몬", "자몽", "베리", "꽃", "화사"]):
+        acidity += 1.0
+    if has_any(["부드", "밸런스", "은은"]):
+        acidity -= 0.5
+
+    if has_any(["바디", "묵직", "진한", "묵직한", "heavy", "full"]):
+        body += 1.0
+    if has_any(["티라이크", "깔끔", "라이트", "light"]):
+        body -= 0.5
+
+    if has_any(["단맛", "sweet", "꿀", "카라멜", "초콜릿", "과일", "복숭아", "자두"]):
+        sweetness += 1.0
+    if has_any(["드라이", "쌉쌀", "bitter"]):
+        sweetness -= 0.5
+
+    acidity = max(1.0, min(5.0, acidity))
+    body = max(1.0, min(5.0, body))
+    sweetness = max(1.0, min(5.0, sweetness))
+    overall = round((acidity + body + sweetness) / 3.0, 1)
+
+    return {
+        "Acidity": round(acidity, 1),
+        "Body": round(body, 1),
+        "Sweetness": round(sweetness, 1),
+        "Overall": overall,
+    }
 
 
 def guess_roast_level(bean: Dict[str, Any]) -> Optional[str]:
@@ -184,11 +234,15 @@ def main() -> int:
     print("✅ Notion summary row created:", res.get("id"))
 
     beans = load_beans_from_data_dir()
+    price_prop_type = db.get("properties", {}).get("Price", {}).get("type")
+
     # 무료 플랜/속도 고려: 상위 20개만 업서트
     for bean in beans[:20]:
         image_url = bean.get("image") or bean.get("imageUrl") or bean.get("img") or bean.get("thumbnail")
         flavor_multi = parse_flavor_multi(bean)
         roast_level = guess_roast_level(bean)
+        note_text = (bean.get("flavor_notes") or bean.get("tasting_notes") or "")
+        scores = score_from_notes(bean)
         bean_props: Dict[str, Any] = {
             title_prop: {"title": [{"text": {"content": f"Bean {bean.get('name', 'unknown')[:80]}"}}]},
             "Type": {"select": {"name": "bean"}},
@@ -196,14 +250,27 @@ def main() -> int:
             "Cafe": {"select": {"name": str(bean.get("brand") or "all")[:100]}},
             "Status": {"select": {"name": "success"}},
             "Bean Name": rt(bean.get("name", "")),
-            "Price": rt(bean.get("price", "")),
             "Origin": rt(bean.get("origin") or bean.get("region") or ""),
             "Process": rt(bean.get("process") or bean.get("processing") or ""),
             "Product URL": {"url": (bean.get("link") or bean.get("url") or bean.get("product_url") or None)},
-            "Notes": rt((bean.get("flavor_notes") or bean.get("tasting_notes") or "")[:800]),
-            "Aroma": rt(bean.get("flavor_notes") or bean.get("tasting_notes") or ""),
-            "Aftertaste": rt(bean.get("flavor_notes") or bean.get("tasting_notes") or ""),
+            "Notes": rt(note_text[:800]),
+            "Aroma": rt(note_text),
+            "Aftertaste": rt(note_text),
+            "Acidity": {"number": scores["Acidity"]},
+            "Body": {"number": scores["Body"]},
+            "Sweetness": {"number": scores["Sweetness"]},
+            "Overall": {"number": scores["Overall"]},
         }
+
+        raw_price = bean.get("price")
+        if price_prop_type == "number":
+            try:
+                bean_props["Price"] = {"number": float(raw_price) if raw_price is not None and str(raw_price).strip() != "" else None}
+            except Exception:
+                bean_props["Price"] = {"number": None}
+        else:
+            bean_props["Price"] = rt(raw_price if raw_price is not None else "")
+
         if flavor_multi:
             bean_props["Flavor"] = {"multi_select": flavor_multi}
         if roast_level:
