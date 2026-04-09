@@ -109,6 +109,7 @@ export default function CrawlMonitorClient() {
 
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [workflowLoadError, setWorkflowLoadError] = useState<string | null>(null);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -237,6 +238,19 @@ export default function CrawlMonitorClient() {
   }, [beans, search, selectedBrand, hideSamples]);
 
   const hasRuns = workflowRuns.length > 0;
+
+  const compareBeans = useMemo(() => {
+    const idSet = new Set(compareIds);
+    return beans.filter((b) => idSet.has(b.id)).slice(0, 5);
+  }, [beans, compareIds]);
+
+  const toggleCompare = (id: string) => {
+    setCompareIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 5) return prev;
+      return [...prev, id];
+    });
+  };
 
   return (
     <div className="p-4 pb-24">
@@ -373,6 +387,31 @@ export default function CrawlMonitorClient() {
             </button>
           </div>
 
+          {compareBeans.length > 0 && (
+            <div className="bg-coffee-medium rounded-xl border border-coffee-gold border-opacity-10 p-3 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium">비교함 ({compareBeans.length}/5)</div>
+                <button
+                  type="button"
+                  onClick={() => setCompareIds([])}
+                  className="text-xs px-2 py-1 rounded border border-coffee-gold/30"
+                >
+                  비우기
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+                {compareBeans.map((b) => (
+                  <div key={`cmp-${b.id}`} className="bg-coffee-dark/40 rounded-lg p-2 text-xs border border-coffee-gold/10">
+                    <div className="font-medium truncate">{b.name || "(이름 없음)"}</div>
+                    <div className="opacity-70 truncate">{b.brand || "unknown"}</div>
+                    <div className="mt-1">가격: {b.price ?? "-"}</div>
+                    <div className="mt-1">산미/바디/단맛: {typeof b.acidity === "number" ? b.acidity : "-"} / {typeof b.body === "number" ? b.body : "-"} / {typeof b.sweetness === "number" ? b.sweetness : "-"}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filteredBeans.map((bean) => {
               const updated = toDate(bean.updatedAt) || toDate(bean.createdAt);
@@ -435,21 +474,32 @@ export default function CrawlMonitorClient() {
 
                   {noteText !== "-" && <div className="mt-1 text-xs opacity-70 line-clamp-2">노트: {noteText}</div>}
                   <div className="mt-2 text-[11px] opacity-60">업데이트: {formatDateTime(updated)}</div>
-                  {sourceLink !== "-" && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <a
-                        href={sourceLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-coffee-gold/20 border border-coffee-gold/40 text-coffee-gold"
-                      >
-                        구매하기
-                      </a>
-                      <a href={sourceLink} target="_blank" rel="noreferrer" className="text-xs text-coffee-gold underline">
-                        원문 보기
-                      </a>
-                    </div>
-                  )}
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => toggleCompare(bean.id)}
+                      className={`inline-flex items-center px-2 py-1 rounded-md text-xs border ${compareIds.includes(bean.id) ? "bg-green-700/30 border-green-400/40" : "bg-coffee-dark border-coffee-gold/30"}`}
+                    >
+                      {compareIds.includes(bean.id) ? "비교함 해제" : "비교함 담기"}
+                    </button>
+
+                    {sourceLink !== "-" && (
+                      <>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-coffee-gold/30 text-coffee-gold/90">외부몰 이동</span>
+                        <a
+                          href={sourceLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-coffee-gold/20 border border-coffee-gold/40 text-coffee-gold"
+                        >
+                          구매하기
+                        </a>
+                        <a href={sourceLink} target="_blank" rel="noreferrer" className="text-xs text-coffee-gold underline">
+                          원문 보기
+                        </a>
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })}
