@@ -155,8 +155,11 @@ def parse_flavor_multi(bean: Dict[str, Any]) -> List[Dict[str, str]]:
     return [{"name": u} for u in uniq[:6]]
 
 
-def score_from_notes(bean: Dict[str, Any]) -> Dict[str, float]:
+def score_from_notes(bean: Dict[str, Any]) -> Optional[Dict[str, float]]:
     text = str(bean.get("flavor_notes") or bean.get("tasting_notes") or bean.get("description") or "").lower()
+
+    if not text.strip():
+        return None
 
     def has_any(words: List[str]) -> bool:
         return any(w in text for w in words)
@@ -164,21 +167,32 @@ def score_from_notes(bean: Dict[str, Any]) -> Dict[str, float]:
     acidity = 3.0
     body = 3.0
     sweetness = 3.0
+    evidence = 0
 
     if has_any(["산미", "acidity", "시트러스", "레몬", "자몽", "베리", "꽃", "화사"]):
         acidity += 1.0
+        evidence += 1
     if has_any(["부드", "밸런스", "은은"]):
         acidity -= 0.5
+        evidence += 1
 
     if has_any(["바디", "묵직", "진한", "묵직한", "heavy", "full"]):
         body += 1.0
+        evidence += 1
     if has_any(["티라이크", "깔끔", "라이트", "light"]):
         body -= 0.5
+        evidence += 1
 
     if has_any(["단맛", "sweet", "꿀", "카라멜", "초콜릿", "과일", "복숭아", "자두"]):
         sweetness += 1.0
+        evidence += 1
     if has_any(["드라이", "쌉쌀", "bitter"]):
         sweetness -= 0.5
+        evidence += 1
+
+    # 근거 키워드가 없으면 점수 자체를 적재하지 않음
+    if evidence == 0:
+        return None
 
     acidity = max(1.0, min(5.0, acidity))
     body = max(1.0, min(5.0, body))
@@ -271,10 +285,6 @@ def main() -> int:
             "Notes": rt(note_text[:800]),
             "Aroma": rt(note_text),
             "Aftertaste": rt(note_text),
-            "Acidity": {"number": scores["Acidity"]},
-            "Body": {"number": scores["Body"]},
-            "Sweetness": {"number": scores["Sweetness"]},
-            "Overall": {"number": scores["Overall"]},
         }
 
         raw_price = bean.get("price")
@@ -288,6 +298,11 @@ def main() -> int:
 
         if flavor_multi:
             bean_props["Flavor"] = {"multi_select": flavor_multi}
+        if scores:
+            bean_props["Acidity"] = {"number": scores["Acidity"]}
+            bean_props["Body"] = {"number": scores["Body"]}
+            bean_props["Sweetness"] = {"number": scores["Sweetness"]}
+            bean_props["Overall"] = {"number": scores["Overall"]}
         if roast_level:
             bean_props["Roast Level"] = {"select": {"name": roast_level}}
         if image_url:
