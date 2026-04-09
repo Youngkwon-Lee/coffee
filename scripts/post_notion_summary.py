@@ -103,40 +103,55 @@ def rt(text: Any) -> Dict[str, Any]:
 
 
 def parse_flavor_multi(bean: Dict[str, Any]) -> List[Dict[str, str]]:
-    flavors: List[str] = []
+    text = " ".join(
+        [
+            str(bean.get("flavor") or ""),
+            str(bean.get("flavor_notes") or ""),
+            str(bean.get("tasting_notes") or ""),
+            str(bean.get("description") or ""),
+            str(bean.get("name") or ""),
+        ]
+    ).lower()
+
+    # 가격/단위 노이즈 제거
+    text = text.replace("<br>", " ").replace("|", " ")
+
+    keyword_map = {
+        "berry": ["베리", "블루베리", "딸기", "라즈베리"],
+        "citrus": ["시트러스", "레몬", "오렌지", "자몽", "유자"],
+        "stone fruit": ["복숭아", "살구", "자두"],
+        "tropical": ["망고", "파인애플", "열대"],
+        "floral": ["플로럴", "꽃", "자스민", "화사"],
+        "chocolate": ["초콜릿", "카카오"],
+        "caramel": ["카라멜", "토피", "당밀"],
+        "nutty": ["견과", "너티", "아몬드", "헤이즐넛", "캐슈넛"],
+        "sweet": ["단맛", "달콤", "꿀", "설탕"],
+        "tea-like": ["티라이크", "홍차", "차"],
+        "spice": ["스파이스", "시나몬", "향신료"],
+    }
+
+    hits: List[str] = []
+    for label, words in keyword_map.items():
+        if any(w in text for w in words):
+            hits.append(label)
+
+    # 기존 flavor 필드가 list면 우선 포함 (짧은 태그만)
     raw = bean.get("flavor")
     if isinstance(raw, list):
-        flavors.extend([str(x).strip() for x in raw if str(x).strip()])
-    elif isinstance(raw, str) and raw.strip():
-        parts = [p.strip() for p in raw.replace("/", ",").split(",")]
-        flavors.extend([p for p in parts if p])
-
-    notes = bean.get("flavor_notes") or bean.get("tasting_notes")
-    if isinstance(notes, str) and notes.strip() and not flavors:
-        parts = [p.strip() for p in notes.replace("/", ",").replace("|", ",").split(",")]
-        flavors.extend([p for p in parts if p])
-
-    # 노이즈 제거 + 태그형 정규화
-    stopwords = ["원", "g", "kg", "시즌", "한정", "정상가", "배송비", "로스팅", "품절"]
-    normalized: List[str] = []
-    for f in flavors:
-        s = str(f).strip()
-        if not s:
-            continue
-        if len(s) > 35:
-            continue
-        if any(sw in s for sw in stopwords):
-            continue
-        normalized.append(s)
+        for r in raw:
+            s = str(r).strip()
+            if s and len(s) <= 20:
+                hits.append(s.lower())
 
     uniq: List[str] = []
     seen = set()
-    for f in normalized:
-        k = f.lower()
-        if k in seen:
+    for h in hits:
+        k = h.strip().lower()
+        if not k or k in seen:
             continue
         seen.add(k)
-        uniq.append(f[:100])
+        uniq.append(h[:100])
+
     return [{"name": u} for u in uniq[:6]]
 
 
