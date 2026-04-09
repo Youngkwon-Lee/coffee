@@ -17,6 +17,10 @@ type BeanDoc = {
   flavor_notes?: string;
   tasting_notes?: string;
   flavor?: string | string[];
+  acidity?: number;
+  body?: number;
+  sweetness?: number;
+  overall?: number;
   image?: string;
   imageUrl?: string;
   img?: string;
@@ -375,9 +379,12 @@ export default function CrawlMonitorClient() {
               const imgSrc = pickText(bean.image, bean.imageUrl, bean.img, bean.thumbnail, fallbackImg);
               const originText = pickText(bean.origin, bean.region, bean.producer);
               const processText = pickText(bean.process, bean.processing);
-              const noteText = Array.isArray(bean.flavor)
-                ? bean.flavor.join(", ")
-                : pickText(bean.flavor_notes, bean.tasting_notes, bean.flavor);
+              const flavorTags = Array.isArray(bean.flavor)
+                ? bean.flavor.filter((v) => typeof v === "string" && v.trim())
+                : typeof bean.flavor === "string" && bean.flavor.trim()
+                ? bean.flavor.split(",").map((s) => s.trim()).filter(Boolean)
+                : [];
+              const noteText = pickText(bean.flavor_notes, bean.tasting_notes);
               const sourceLink = pickText(bean.link, bean.url, bean.product_url);
 
               return (
@@ -406,7 +413,27 @@ export default function CrawlMonitorClient() {
                     </div>
                   </div>
                   <div className="mt-2 text-xs opacity-80">프로세스: {processText}</div>
-                  <div className="mt-1 text-xs opacity-70 line-clamp-2">노트: {noteText}</div>
+
+                  {flavorTags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {flavorTags.slice(0, 6).map((tag, i) => (
+                        <span key={`${bean.id}-flavor-${i}`} className="text-[10px] px-1.5 py-0.5 rounded bg-coffee-dark border border-coffee-gold/20">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {(typeof bean.acidity === "number" || typeof bean.body === "number" || typeof bean.sweetness === "number" || typeof bean.overall === "number") && (
+                    <div className="mt-2 text-[11px] opacity-80 grid grid-cols-2 gap-x-2 gap-y-1">
+                      {typeof bean.acidity === "number" && <div>산미: {bean.acidity}</div>}
+                      {typeof bean.body === "number" && <div>바디: {bean.body}</div>}
+                      {typeof bean.sweetness === "number" && <div>단맛: {bean.sweetness}</div>}
+                      {typeof bean.overall === "number" && <div>Overall: {bean.overall}</div>}
+                    </div>
+                  )}
+
+                  {noteText !== "-" && <div className="mt-1 text-xs opacity-70 line-clamp-2">노트: {noteText}</div>}
                   <div className="mt-2 text-[11px] opacity-60">업데이트: {formatDateTime(updated)}</div>
                   {sourceLink !== "-" && (
                     <a href={sourceLink} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-coffee-gold underline">
