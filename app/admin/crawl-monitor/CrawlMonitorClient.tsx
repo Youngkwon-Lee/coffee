@@ -436,9 +436,19 @@ export default function CrawlMonitorClient() {
                   {noteText !== "-" && <div className="mt-1 text-xs opacity-70 line-clamp-2">노트: {noteText}</div>}
                   <div className="mt-2 text-[11px] opacity-60">업데이트: {formatDateTime(updated)}</div>
                   {sourceLink !== "-" && (
-                    <a href={sourceLink} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-coffee-gold underline">
-                      원문 보기
-                    </a>
+                    <div className="mt-2 flex items-center gap-2">
+                      <a
+                        href={sourceLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-coffee-gold/20 border border-coffee-gold/40 text-coffee-gold"
+                      >
+                        구매하기
+                      </a>
+                      <a href={sourceLink} target="_blank" rel="noreferrer" className="text-xs text-coffee-gold underline">
+                        원문 보기
+                      </a>
+                    </div>
                   )}
                 </div>
               );
