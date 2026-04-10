@@ -4,7 +4,6 @@ import CafeClient from './CafeClient';
 import type { Cafe } from "./CafeClient";
 import { db } from "../../src/firebase";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
-import { auth } from "../../src/firebase";
 
 const WEATHER_MAP: { [key: string]: string } = {
   Clear: "맑음",
@@ -33,6 +32,10 @@ const WEATHER_EMOJI: { [key: string]: string } = {
 
 export const revalidate = 10800;
 
+function norm(s: string) {
+  return (s || "").toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9가-힣]/g, "");
+}
+
 async function getWeather() {
   const lat = 37.5665;
   const lon = 126.9780;
@@ -43,14 +46,47 @@ async function getWeather() {
   return res.json();
 }
 
+async function getBeanImageMap() {
+  try {
+    const q = query(collection(db, "beans"), orderBy("updatedAt", "desc"), limit(800));
+    const snap = await getDocs(q);
+
+    const map = new Map<string, { imageUrl: string; updatedAt?: string }>();
+
+    const convertTimestamp = (timestamp: any) => {
+      if (timestamp && typeof timestamp === 'object' && timestamp.toDate) return timestamp.toDate().toISOString();
+      if (timestamp instanceof Date) return timestamp.toISOString();
+      return timestamp || undefined;
+    };
+
+    for (const doc of snap.docs) {
+      const data = doc.data() as any;
+      const brand = String(data.brand || "").trim();
+      const imageUrl = data.image || data.imageUrl || data.img || data.thumbnail;
+      if (!brand || !imageUrl) continue;
+
+      const key = norm(brand);
+      if (!map.has(key)) {
+        map.set(key, { imageUrl: String(imageUrl), updatedAt: convertTimestamp(data.updatedAt || data.createdAt) });
+      }
+    }
+
+    return map;
+  } catch (error) {
+    console.error("Error fetching bean image map:", error);
+    return new Map<string, { imageUrl: string; updatedAt?: string }>();
+  }
+}
+
 async function getCafes(): Promise<Cafe[]> {
-  // 성능 최적화: 제한된 수의 카페만 가져오기
-  const q = query(collection(db, "cafes"), limit(50));
-  const snap = await getDocs(q);
-  return snap.docs.map(doc => {
+  const [cafeSnap, beanImageMap] = await Promise.all([
+    getDocs(query(collection(db, "cafes"), limit(50))),
+    getBeanImageMap(),
+  ]);
+
+  return cafeSnap.docs.map(doc => {
     const data = doc.data();
-    
-    // Timestamp 객체들을 안전하게 문자열로 변환
+
     const convertTimestamp = (timestamp: any) => {
       if (timestamp && typeof timestamp === 'object' && timestamp.toDate) {
         return timestamp.toDate().toISOString();
@@ -61,18 +97,29 @@ async function getCafes(): Promise<Cafe[]> {
       return timestamp || null;
     };
 
-    // crawlConfig 내의 timestamp 처리
     const crawlConfig = data.crawlConfig ? {
       ...data.crawlConfig,
       lastCrawled: convertTimestamp(data.crawlConfig.lastCrawled)
     } : undefined;
 
+    const cafeName = String(data.name || doc.id || "");
+    const cafeKey = norm(cafeName);
+
+    let imageFromBeans: { imageUrl: string; updatedAt?: string } | undefined;
+    for (const [brandKey, v] of beanImageMap.entries()) {
+      if (brandKey && (cafeKey.includes(brandKey) || brandKey.includes(cafeKey))) {
+        imageFromBeans = v;
+        break;
+      }
+    }
+
     return {
       id: doc.id,
       ...data,
+      imageUrl: data.imageUrl || imageFromBeans?.imageUrl || data.image || "",
       crawlConfig,
       createdAt: convertTimestamp(data.createdAt),
-      lastUpdated: convertTimestamp(data.lastUpdated)
+      lastUpdated: convertTimestamp(data.lastUpdated || imageFromBeans?.updatedAt)
     } as Cafe;
   });
 }
@@ -82,57 +129,24 @@ function getRandomElement<T>(arr: T[]): T | null {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-async function getUserPreference(userId: string) {
-  try {
-    const q = query(
-      collection(db, `users/${userId}/records`),
-      orderBy("createdAt", "desc"),
-      limit(10)
-    );
-    const snap = await getDocs(q);
-    const records = snap.docs.map(doc => doc.data());
-    
-    // 향미 빈도수 계산
-    const flavorCount: { [key: string]: number } = {};
-    records.forEach(record => {
-      if (record.flavor && Array.isArray(record.flavor)) {
-        record.flavor.forEach((f: string) => {
-          flavorCount[f] = (flavorCount[f] || 0) + 1;
-        });
-      }
-    });
-    
-    // 가장 많이 선택된 향미 반환
-    const sortedFlavors = Object.entries(flavorCount)
-      .sort(([,a], [,b]) => b - a);
-    
-    return sortedFlavors.length > 0 ? sortedFlavors[0][0] : "Floral";
-  } catch (error) {
-    console.error("Error fetching user preference:", error);
-    return "Floral";
-  }
-}
-
 export default async function CafesPage() {
-  // 병렬 처리로 성능 최적화
   const [weather, cafes] = await Promise.all([
     getWeather(),
     getCafes()
   ]);
-  
+
   const main: string = weather?.weather?.[0]?.main || "알 수 없음";
   const todayWeather = WEATHER_MAP[main] || "알 수 없음";
   const weatherEmoji = WEATHER_EMOJI[todayWeather] || "❔";
-  
-  // 사용자 취향은 클라이언트에서 처리하도록 기본값만 설정
+
   const userPreferenceDefault = "Floral";
   const todayCafe = getRandomElement(cafes);
-  
-  return <CafeClient 
-    weather={todayWeather} 
-    weatherEmoji={weatherEmoji} 
-    cafes={cafes} 
-    todayCafe={todayCafe} 
+
+  return <CafeClient
+    weather={todayWeather}
+    weatherEmoji={weatherEmoji}
+    cafes={cafes}
+    todayCafe={todayCafe}
     userPreferenceDefault={userPreferenceDefault}
   />;
-} 
+}
