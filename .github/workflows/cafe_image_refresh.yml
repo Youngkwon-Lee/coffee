@@ -1,0 +1,65 @@
+name: Cafe Image Refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 0 * * 2'
+
+jobs:
+  refresh-cafe-images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install deps
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.test.txt
+
+      - name: Setup Firebase credentials
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: |
+          echo "$FIREBASE_CREDENTIALS" > firebase_credentials.json
+          export GOOGLE_APPLICATION_CREDENTIALS="firebase_credentials.json"
+
+      - name: Refresh cafe images from sites
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: "firebase_credentials.json"
+        run: |
+          python scripts/update_cafe_images_from_sites.py
+
+      - name: Send Discord notification (on failure)
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            python - <<'PY'
+            import os, requests
+            from datetime import datetime
+
+            webhook = os.getenv('DISCORD_WEBHOOK', '').strip()
+            thread_id = os.getenv('DISCORD_THREAD_ID', '').strip()
+            run_url = os.getenv('RUN_URL', '').strip()
+            target = webhook + (("&" if "?" in webhook else "?") + f"thread_id={thread_id}" if thread_id else "")
+
+            embed = {
+              'title': '🚨 Cafe image refresh 실패',
+              'description': f'실행 링크: {run_url}',
+              'color': 0xff0000,
+              'timestamp': datetime.now().isoformat(),
+            }
+            requests.post(target, json={'embeds':[embed]}, timeout=20)
+            PY
+          fi
