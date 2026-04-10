@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, getAdditionalUserInfo } from "firebase/auth";
 import { auth, db } from "@/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
@@ -51,6 +51,7 @@ export default function LoginPage() {
       
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
+      const isNewUser = !!getAdditionalUserInfo(result)?.isNewUser;
 
       showAlert({
         type: 'success',
@@ -82,9 +83,9 @@ export default function LoginPage() {
         }
       }
 
-      // 메인 페이지로 이동
+      // 신규 유저는 온보딩으로 이동
       setTimeout(() => {
-        router.push("/");
+        router.push(isNewUser ? "/onboarding" : "/");
       }, 1500);
 
     } catch (error: any) {
@@ -132,6 +133,7 @@ export default function LoginPage() {
       }
 
       const user = result.user;
+      const isNewSignup = !isLogin;
 
       showAlert({
         type: 'success',
@@ -163,7 +165,7 @@ export default function LoginPage() {
       }
 
       setTimeout(() => {
-        router.push("/");
+        router.push(isNewSignup ? "/onboarding" : "/");
       }, 1500);
 
     } catch (error: any) {

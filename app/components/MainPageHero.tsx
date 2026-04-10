@@ -139,6 +139,18 @@ export default function MainPageHero() {
         </div>
       </section>
 
+      <section className="p-4 pt-2 animate-slide-up" style={{ animationDelay: "80ms" }}>
+        <div className="bg-coffee-medium/60 border border-coffee-gold/20 rounded-xl p-3 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-coffee-light">처음 오셨나요?</div>
+            <div className="text-xs text-coffee-light/70">1분 온보딩으로 취향 설정하고 바로 시작하세요.</div>
+          </div>
+          <Link href="/onboarding" className="text-xs px-3 py-2 rounded-lg bg-coffee-gold/20 border border-coffee-gold/40 text-coffee-gold whitespace-nowrap">
+            온보딩 시작
+          </Link>
+        </div>
+      </section>
+
       {/* 메인 커피 기록 액션 */}
       <section className="p-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
         <Link href="/record/photo">
