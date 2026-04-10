@@ -255,37 +255,6 @@ export default function CafeClient({
     setCurrentPage(1);
   }, [searchTerm, selectedFilter]);
 
-  if (!user) {
-    return (
-      <div className="p-4">
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">🏪</div>
-          <h2 className="text-2xl font-bold text-coffee-light mb-4">
-            로그인이 필요합니다
-          </h2>
-          <p className="text-coffee-light opacity-70 mb-6">
-            카페 정보를 확인하려면 로그인하세요
-          </p>
-          <div className="space-y-3">
-            <button 
-              onClick={() => {
-                window.location.href = '/login';
-              }}
-              className="btn-primary w-full max-w-xs mx-auto block"
-            >
-              로그인하기
-            </button>
-            <div className="text-center">
-              <Link href="/record/photo" className="text-coffee-gold hover:text-coffee-light underline text-sm">
-                🎁 AI 분석 무료 체험하기
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <section className="p-4">
       <div className="flex items-center justify-between mb-4">
@@ -297,7 +266,19 @@ export default function CafeClient({
           필터
         </button>
       </div>
-      
+
+      {!user && (
+        <div className="mb-5 bg-coffee-medium/70 border border-coffee-gold/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-coffee-light">비회원 모드로 탐색 중</div>
+            <div className="text-xs text-coffee-light/70">찜 저장/개인화 추천은 로그인 후 사용할 수 있어요.</div>
+          </div>
+          <Link href="/login" className="inline-flex items-center px-3 py-2 rounded-lg text-sm bg-coffee-gold/20 border border-coffee-gold/40 text-coffee-gold">
+            로그인하고 이어서 사용
+          </Link>
+        </div>
+      )}
+
       {/* Search Bar - CoffeeTrackr Style */}
       <div className="search-bar">
         <input

@@ -202,37 +202,6 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
     resetItems();
   }, [search, brandFilter, flavorFilter, roastFilter, sortBy, myFlavor, myRoast, myBrand, resetItems]);
 
-  if (!user) {
-    return (
-      <div className="p-4">
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">🫘</div>
-          <h2 className="text-2xl font-bold text-coffee-light mb-4">
-            로그인이 필요합니다
-          </h2>
-          <p className="text-coffee-light opacity-70 mb-6">
-            원두 정보를 확인하려면 로그인하세요
-          </p>
-          <div className="space-y-3">
-            <button 
-              onClick={() => {
-                window.location.href = '/login';
-              }}
-              className="btn-primary w-full max-w-xs mx-auto block"
-            >
-              로그인하기
-            </button>
-            <div className="text-center">
-              <Link href="/record/photo" className="text-coffee-gold hover:text-coffee-light underline text-sm">
-                🎁 AI 분석 무료 체험하기
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-coffee-dark relative overflow-hidden">
       {/* Background decorations */}
@@ -249,6 +218,18 @@ export default function BeansClient({ beans: initialBeans }: { beans: Bean[] }) 
           </h1>
           <p className="text-coffee-light opacity-70">전 세계의 다양한 원두를 탐색해보세요</p>
         </div>
+
+        {!user && (
+          <div className="mb-6 bg-coffee-medium/70 border border-coffee-gold/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-coffee-light">비회원 모드로 둘러보는 중</div>
+              <div className="text-xs text-coffee-light/70">저장/찜/개인화 추천은 로그인 후 사용할 수 있어요.</div>
+            </div>
+            <Link href="/login" className="inline-flex items-center px-3 py-2 rounded-lg text-sm bg-coffee-gold/20 border border-coffee-gold/40 text-coffee-gold">
+              로그인하고 이어서 사용
+            </Link>
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="card-coffee p-6 mb-8">
