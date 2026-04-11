@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { db, auth } from "@/firebase";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -146,6 +146,7 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
   const [selectedBean, setSelectedBean] = useState<Bean | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareSort, setCompareSort] = useState<"none" | "priceAsc" | "priceDesc">("none");
 
   // 동적으로 필터 옵션 생성
   const generateFilterOptions = (field: keyof Bean, label: string) => {
@@ -349,7 +350,24 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
     });
   };
 
-  const compareBeans = filteredBeans.filter((b) => compareIds.includes(beanKey(b))).slice(0, 5);
+  const parsePrice = (value: unknown): number => {
+    const s = String(value ?? "");
+    const n = Number(s.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const compareBeans = useMemo(() => {
+    const base = filteredBeans.filter((b) => compareIds.includes(beanKey(b))).slice(0, 5);
+    if (compareSort === "none") return base;
+    const sorted = [...base].sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
+    return compareSort === "priceAsc" ? sorted : sorted.reverse();
+  }, [filteredBeans, compareIds, compareSort]);
+
+  const openCompareLinks = () => {
+    compareBeans.forEach((b) => {
+      if (b.link) window.open(String(b.link), "_blank", "noopener,noreferrer");
+    });
+  };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -424,15 +442,34 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
 
       {compareBeans.length > 0 && (
         <div className="mb-4 bg-coffee-medium rounded-xl border border-coffee-gold/20 p-3">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
             <div className="text-sm font-semibold text-coffee-light">비교함 ({compareBeans.length}/5)</div>
-            <button
-              type="button"
-              onClick={() => setCompareIds([])}
-              className="text-xs px-2 py-1 rounded border border-coffee-gold/30 text-coffee-light"
-            >
-              비우기
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={compareSort}
+                onChange={(e) => setCompareSort(e.target.value as "none" | "priceAsc" | "priceDesc")}
+                className="text-xs bg-coffee-dark border border-coffee-gold/30 rounded px-2 py-1"
+              >
+                <option value="none">정렬 없음</option>
+                <option value="priceAsc">가격 낮은순</option>
+                <option value="priceDesc">가격 높은순</option>
+              </select>
+              <button
+                type="button"
+                onClick={openCompareLinks}
+                disabled={compareBeans.filter((b) => !!b.link).length === 0}
+                className="text-xs px-2 py-1 rounded border border-coffee-gold/30 text-coffee-light disabled:opacity-50"
+              >
+                선택항목 일괄 구매
+              </button>
+              <button
+                type="button"
+                onClick={() => setCompareIds([])}
+                className="text-xs px-2 py-1 rounded border border-coffee-gold/30 text-coffee-light"
+              >
+                비우기
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
             {compareBeans.map((b) => (
