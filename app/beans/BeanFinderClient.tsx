@@ -24,11 +24,13 @@ type Bean = {
 };
 
 // Bean Card Component
-function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick }: {
+function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare, onToggleCompare }: {
   bean: Bean;
   onToggleWishlist: (beanId: string) => void;
   isWishlisted: boolean;
   onCardClick: (bean: Bean) => void;
+  inCompare: boolean;
+  onToggleCompare: (bean: Bean) => void;
 }) {
   const getBeanOriginFlag = (flavor: string | any) => {
     // flavor를 안전하게 문자열로 변환
@@ -106,6 +108,27 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick }: {
             {typeof bean.desc === 'string' ? bean.desc : String(bean.desc)}
           </p>
         )}
+
+        <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => onToggleCompare(bean)}
+            className={`text-xs px-2 py-1 rounded border ${inCompare ? "bg-green-700/30 border-green-400/40" : "bg-coffee-dark border-coffee-gold/30 text-coffee-light"}`}
+          >
+            {inCompare ? "비교함 해제" : "비교함 담기"}
+          </button>
+
+          {bean.link && (
+            <a
+              href={String(bean.link)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs px-2 py-1 rounded bg-coffee-gold/20 border border-coffee-gold/40 text-coffee-gold"
+            >
+              구매하기
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -122,6 +145,7 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
   const [itemsPerPage] = useState(12);
   const [selectedBean, setSelectedBean] = useState<Bean | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
 
   // 동적으로 필터 옵션 생성
   const generateFilterOptions = (field: keyof Bean, label: string) => {
@@ -314,6 +338,19 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
     setIsModalOpen(true);
   };
 
+  const beanKey = (bean: Bean) => String(bean.id || bean.name);
+
+  const toggleCompare = (bean: Bean) => {
+    const id = beanKey(bean);
+    setCompareIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 5) return prev;
+      return [...prev, id];
+    });
+  };
+
+  const compareBeans = filteredBeans.filter((b) => compareIds.includes(beanKey(b))).slice(0, 5);
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedBean(null);
@@ -385,6 +422,30 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
         )}
       </div>
 
+      {compareBeans.length > 0 && (
+        <div className="mb-4 bg-coffee-medium rounded-xl border border-coffee-gold/20 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold text-coffee-light">비교함 ({compareBeans.length}/5)</div>
+            <button
+              type="button"
+              onClick={() => setCompareIds([])}
+              className="text-xs px-2 py-1 rounded border border-coffee-gold/30 text-coffee-light"
+            >
+              비우기
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            {compareBeans.map((b) => (
+              <div key={`cmp-${beanKey(b)}`} className="bg-coffee-dark/40 rounded-lg p-2 text-xs border border-coffee-gold/10">
+                <div className="font-medium text-coffee-light line-clamp-1">{b.name}</div>
+                <div className="opacity-70 line-clamp-1">{b.brand || "-"}</div>
+                <div className="mt-1">가격: {b.price || "-"}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Results count */}
       <div className="mb-4 flex justify-between items-center">
         <p className="text-sm text-coffee-light opacity-70">
@@ -402,11 +463,13 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
         {currentBeans.length > 0 ? (
           currentBeans.map((bean) => (
             <BeanCard
-              key={bean.id || bean.name}
+              key={beanKey(bean)}
               bean={bean}
               onToggleWishlist={toggleWishlist}
-              isWishlisted={wishlist.includes(bean.id || bean.name)}
+              isWishlisted={wishlist.includes(beanKey(bean))}
               onCardClick={handleCardClick}
+              inCompare={compareIds.includes(beanKey(bean))}
+              onToggleCompare={toggleCompare}
             />
           ))
         ) : (
