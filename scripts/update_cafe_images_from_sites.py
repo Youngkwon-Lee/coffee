@@ -31,6 +31,14 @@ logger = logging.getLogger("update_cafe_images")
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
+# 카페별 수동 보정 이미지(공식 사이트 내 실제 사진 우선)
+MANUAL_IMAGE_OVERRIDES: Dict[str, str] = {
+    "fritz": "https://www.fritz.co.kr/web/product/small/201801/directtrade.png",
+    "namusairo": "https://www.namusairo.com/_images/visual_02_3.jpg",
+    "momoscoffee": "https://file.cafe24cos.com/banner-admin-live/upload/momos2007/5e46fece-6994-4c19-88e7-dd3bd4db141c.jpeg",
+    "deepbluelake": "https://dblcoffee.com/web/upload/supload/img/about/about.jpg",
+}
+
 
 def norm(s: str) -> str:
     return re.sub(r"[^a-z0-9가-힣]", "", (s or "").lower())
@@ -196,6 +204,12 @@ def main() -> int:
             continue
 
         img = pick_site_image(url)
+
+        # 수동 보정 우선 적용 (해당 카페 키가 있으면 강제)
+        manual_img = MANUAL_IMAGE_OVERRIDES.get(cafe_key)
+        if manual_img and is_likely_photo(manual_img):
+            img = manual_img
+
         if not img:
             logger.warning(f"no image: {cafe_key} ({url})")
             # 기존 site-crawl 이미지가 명백히 아이콘/로딩 자산이면 제거
