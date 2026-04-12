@@ -38,8 +38,34 @@ def norm(s: str) -> str:
 
 def is_bad_image(url: str) -> bool:
     u = (url or "").lower()
-    bad = ["logo", "icon", "favicon", "sprite", "thumb", "dummyimage", "placeholder", "bean", "product"]
+    bad = [
+        "logo", "icon", "favicon", "sprite", "thumb", "thum", "dummyimage", "placeholder",
+        "bean", "product", "progress", "loading", "btn_back", "arrow", "banner_small",
+        ".gif", "txt_progress", "spinner", "etc/"
+    ]
     return any(x in u for x in bad)
+
+
+def is_likely_photo(url: str) -> bool:
+    """아이콘/로딩 이미지가 아닌 실제 사진인지 대략 판별"""
+    try:
+        r = requests.head(url, timeout=8, allow_redirects=True, headers={"User-Agent": UA})
+        ctype = (r.headers.get("content-type") or "").lower()
+        clen = int(r.headers.get("content-length") or 0)
+
+        # 이미지가 아니면 제외
+        if "image/" not in ctype:
+            return False
+        # gif는 대표 사진 후보에서 제외
+        if "gif" in ctype:
+            return False
+        # 너무 작은 파일은 제외 (아이콘 가능성)
+        if 0 < clen < 15000:
+            return False
+        return True
+    except Exception:
+        # HEAD 불가 사이트는 URL 패턴으로만 통과
+        return not is_bad_image(url)
 
 
 def abs_url(base: str, src: str) -> str:
@@ -69,7 +95,7 @@ def pick_site_image(url: str) -> Optional[str]:
             tag = soup.find("meta", attrs={key: val})
             src = (tag.get("content") if tag else "") or ""
             full = abs_url(url, src)
-            if full and not is_bad_image(full):
+            if full and not is_bad_image(full) and is_likely_photo(full):
                 return full
 
         # 2) 후보 img 중 관련성 스코어로 선택
@@ -78,6 +104,8 @@ def pick_site_image(url: str) -> Optional[str]:
             src = img.get("src") or img.get("data-src") or img.get("data-lazy") or ""
             full = abs_url(url, src)
             if not full or is_bad_image(full):
+                continue
+            if not is_likely_photo(full):
                 continue
 
             alt = (img.get("alt") or "").lower()
