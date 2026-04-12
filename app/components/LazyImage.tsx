@@ -102,6 +102,7 @@ export default function LazyImage({
           height={fill ? undefined : height}
           fill={fill}
           sizes={sizes}
+          unoptimized
           className={`transition-opacity duration-300 ${
             isLoaded ? 'opacity-100' : 'opacity-0'
           } ${fill ? 'object-cover' : 'w-full h-48 object-cover rounded-xl'}`}
