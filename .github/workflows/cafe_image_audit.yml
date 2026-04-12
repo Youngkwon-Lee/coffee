@@ -1,0 +1,119 @@
+name: Cafe Image Audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install firebase-admin requests
+
+      - name: Setup Firebase credentials
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: |
+          echo "$FIREBASE_CREDENTIALS" > firebase_credentials.json
+          export GOOGLE_APPLICATION_CREDENTIALS="firebase_credentials.json"
+
+      - name: Audit cafe images
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: firebase_credentials.json
+        run: |
+          python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          import requests
+          import firebase_admin
+          from firebase_admin import credentials, firestore
+
+          bad_kw = ["logo","icon","favicon","progress","loading","btn_back","sprite","dummy","placeholder",".gif"]
+
+          cred = credentials.Certificate('firebase_credentials.json')
+          try:
+            firebase_admin.get_app()
+          except Exception:
+            firebase_admin.initialize_app(cred)
+
+          db = firestore.client()
+          docs = list(db.collection('cafes').stream())
+
+          rows = []
+          for d in docs:
+            data = d.to_dict() or {}
+            name = str(data.get('name') or d.id)
+            img = str(data.get('imageUrl') or data.get('image') or '').strip()
+            status = 'missing'
+            http = None
+            ctype = ''
+            reason = ''
+
+            if img:
+              low = img.lower()
+              if any(k in low for k in bad_kw):
+                status = 'needs_fix'
+                reason = 'bad_keyword'
+              else:
+                try:
+                  r = requests.get(img, timeout=15, headers={'User-Agent':'Mozilla/5.0'}, allow_redirects=True)
+                  http = r.status_code
+                  ctype = (r.headers.get('content-type') or '').lower()
+                  if r.status_code != 200:
+                    status = 'needs_fix'
+                    reason = f'http_{r.status_code}'
+                  elif 'image/' not in ctype:
+                    status = 'needs_fix'
+                    reason = 'not_image'
+                  elif 'gif' in ctype:
+                    status = 'needs_fix'
+                    reason = 'gif'
+                  else:
+                    status = 'ok'
+                except Exception as e:
+                  status = 'needs_fix'
+                  reason = 'request_error'
+            rows.append({
+              'id': d.id,
+              'name': name,
+              'imageUrl': img,
+              'status': status,
+              'http': http,
+              'ctype': ctype,
+              'reason': reason,
+            })
+
+          out_dir = Path('reports')
+          out_dir.mkdir(parents=True, exist_ok=True)
+          (out_dir / 'cafe_image_audit.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+
+          summary = {
+            'total': len(rows),
+            'ok': sum(1 for r in rows if r['status']=='ok'),
+            'needs_fix': sum(1 for r in rows if r['status']=='needs_fix'),
+            'missing': sum(1 for r in rows if r['status']=='missing'),
+          }
+          (out_dir / 'cafe_image_audit_summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
+
+          print('SUMMARY', summary)
+          print('--- NEEDS FIX ---')
+          for r in rows:
+            if r['status'] != 'ok':
+              print(f"{r['id']} | {r['name']} | {r['status']} | {r['reason']} | {r['imageUrl']}")
+          PY
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cafe-image-audit-${{ github.run_number }}
+          path: reports/
