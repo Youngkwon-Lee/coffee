@@ -172,6 +172,7 @@ def main() -> int:
         {"id": d.id, **(d.to_dict() or {})}
         for d in fb.db.collection("cafes").stream()
     ]
+    cafe_doc_map = {d["id"]: d for d in cafe_docs}
 
     updated = 0
     checked = 0
@@ -189,14 +190,24 @@ def main() -> int:
             continue
 
         checked += 1
-        img = pick_site_image(url)
-        if not img:
-            logger.warning(f"no image: {cafe_key} ({url})")
-            continue
-
         doc_id = find_cafe_doc_id(cafe_key, label, cafe_docs)
         if not doc_id:
             logger.warning(f"no matching cafe doc: {cafe_key} / {label}")
+            continue
+
+        img = pick_site_image(url)
+        if not img:
+            logger.warning(f"no image: {cafe_key} ({url})")
+            # 기존 site-crawl 이미지가 명백히 아이콘/로딩 자산이면 제거
+            cur = cafe_doc_map.get(doc_id, {})
+            cur_img = str(cur.get("imageUrl") or "")
+            cur_src = str(cur.get("imageSource") or "")
+            if cur_src == "site-crawl" and cur_img and is_bad_image(cur_img):
+                try:
+                    fb.db.collection("cafes").document(doc_id).set({"imageUrl": "", "imageSource": ""}, merge=True)
+                    logger.info(f"cleared bad site-crawl image: {doc_id} <- {cur_img}")
+                except Exception as e:
+                    logger.error(f"clear bad image failed {doc_id}: {e}")
             continue
 
         try:
