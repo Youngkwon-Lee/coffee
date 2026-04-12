@@ -26,7 +26,16 @@ export default function LazyImage({
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(priority); // priority면 즉시 로드
   const [error, setError] = useState(false);
+  const [imageSrc, setImageSrc] = useState(src);
+  const [fallbackTried, setFallbackTried] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setImageSrc(src);
+    setFallbackTried(false);
+    setError(false);
+    setIsLoaded(false);
+  }, [src]);
 
   // Intersection Observer로 뷰포트 진입 감지
   useEffect(() => {
@@ -61,6 +70,14 @@ export default function LazyImage({
   };
 
   const handleError = () => {
+    // 1차 실패 시 placeholder로 재시도
+    if (!fallbackTried) {
+      setFallbackTried(true);
+      setImageSrc("/images/coffee-placeholder.jpg");
+      return;
+    }
+
+    // placeholder까지 실패한 경우에만 에러 오버레이
     setError(true);
     setIsLoaded(true);
   };
@@ -79,7 +96,7 @@ export default function LazyImage({
       {/* 실제 이미지 */}
       {isInView && (
         <Image
-          src={error ? "/images/coffee-placeholder.svg" : src}
+          src={imageSrc || "/images/coffee-placeholder.jpg"}
           alt={alt}
           width={fill ? undefined : width}
           height={fill ? undefined : height}
