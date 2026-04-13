@@ -32,13 +32,24 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: firebase_credentials.json
         run: |
           python - <<'PY'
-          import json, os, re
+          import json
           from pathlib import Path
           import requests
           import firebase_admin
           from firebase_admin import credentials, firestore
 
-          bad_kw = ["logo","icon","favicon","progress","loading","btn_back","sprite","dummy","placeholder",".gif"]
+          SITE_BASE = 'https://coffee-omega-lovat.vercel.app'
+          bad_kw = ["logo","icon","favicon","progress","loading","btn_back","sprite","dummy",".gif"]
+          placeholder_kw = ["via.placeholder.com", "placeholder", "placehold.co"]
+
+          def abs_url(url: str) -> str:
+            if not url:
+              return ''
+            if url.startswith('http://') or url.startswith('https://'):
+              return url
+            if url.startswith('/'):
+              return SITE_BASE + url
+            return SITE_BASE + '/' + url
 
           cred = credentials.Certificate('firebase_credentials.json')
           try:
@@ -53,17 +64,24 @@ jobs:
           for d in docs:
             data = d.to_dict() or {}
             name = str(data.get('name') or d.id)
-            img = str(data.get('imageUrl') or data.get('image') or '').strip()
+            raw_img = str(data.get('imageUrl') or data.get('image') or '').strip()
+            img = abs_url(raw_img)
             status = 'missing'
             http = None
             ctype = ''
             reason = ''
+            priority = 3
 
-            if img:
-              low = img.lower()
-              if any(k in low for k in bad_kw):
+            if raw_img:
+              low = raw_img.lower()
+              if any(k in low for k in placeholder_kw):
+                status = 'needs_fix'
+                reason = 'placeholder'
+                priority = 1
+              elif any(k in low for k in bad_kw):
                 status = 'needs_fix'
                 reason = 'bad_keyword'
+                priority = 1
               else:
                 try:
                   r = requests.get(img, timeout=15, headers={'User-Agent':'Mozilla/5.0'}, allow_redirects=True)
@@ -72,44 +90,60 @@ jobs:
                   if r.status_code != 200:
                     status = 'needs_fix'
                     reason = f'http_{r.status_code}'
+                    priority = 2
                   elif 'image/' not in ctype:
                     status = 'needs_fix'
                     reason = 'not_image'
+                    priority = 2
                   elif 'gif' in ctype:
                     status = 'needs_fix'
                     reason = 'gif'
+                    priority = 1
                   else:
                     status = 'ok'
-                except Exception as e:
+                    reason = 'ok'
+                    priority = 9
+                except Exception:
                   status = 'needs_fix'
                   reason = 'request_error'
+                  priority = 2
+            else:
+              priority = 2
+
             rows.append({
               'id': d.id,
               'name': name,
-              'imageUrl': img,
+              'imageUrl': raw_img,
+              'resolvedImageUrl': img,
               'status': status,
               'http': http,
               'ctype': ctype,
               'reason': reason,
+              'priority': priority,
             })
 
           out_dir = Path('reports')
           out_dir.mkdir(parents=True, exist_ok=True)
+
+          needs_fix = [r for r in rows if r['status'] != 'ok']
+          needs_fix_sorted = sorted(needs_fix, key=lambda r: (r['priority'], r['reason'], r['name']))
+
           (out_dir / 'cafe_image_audit.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+          (out_dir / 'cafe_image_needs_fix.json').write_text(json.dumps(needs_fix_sorted, ensure_ascii=False, indent=2), encoding='utf-8')
 
           summary = {
             'total': len(rows),
             'ok': sum(1 for r in rows if r['status']=='ok'),
             'needs_fix': sum(1 for r in rows if r['status']=='needs_fix'),
             'missing': sum(1 for r in rows if r['status']=='missing'),
+            'placeholder': sum(1 for r in rows if r['reason']=='placeholder'),
           }
           (out_dir / 'cafe_image_audit_summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
 
           print('SUMMARY', summary)
-          print('--- NEEDS FIX ---')
-          for r in rows:
-            if r['status'] != 'ok':
-              print(f"{r['id']} | {r['name']} | {r['status']} | {r['reason']} | {r['imageUrl']}")
+          print('--- NEEDS FIX (priority order) ---')
+          for r in needs_fix_sorted:
+            print(f"{r['id']} | {r['name']} | {r['status']} | {r['reason']} | {r['resolvedImageUrl']}")
           PY
 
       - name: Upload report
