@@ -1,12 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+function heuristicExtract(text: string, confidence = 0.4) {
+  const t = text || '';
+
+  const cafeHints = ['센터커피','테라로사','프릳츠','프리츠','모모스','로우키','엘카페','보난자','나무사이로','딥블루레이크'];
+  const processingHints = ['Natural','Washed','Honey','Semi-Washed','Anaerobic','Carbonic'];
+
+  let cafe = '';
+  for (const c of cafeHints) {
+    if (t.includes(c)) { cafe = c; break; }
+  }
+
+  let processing = '';
+  for (const p of processingHints) {
+    if (new RegExp(p, 'i').test(t)) { processing = p; break; }
+  }
+
+  const flavorHints = ['초콜릿','견과류','베리','시트러스','카라멜','플로럴','과일','자스민','꿀','복숭아','자두'];
+  const flavor = flavorHints.filter((f) => t.includes(f)).slice(0, 5);
+
+  const lines = t.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  let bean = '';
+  for (const ln of lines) {
+    if (/원두|bean|blend|에티오피아|콜롬비아|케냐|과테말라/i.test(ln) && ln.length <= 60) {
+      bean = ln;
+      break;
+    }
+  }
+
+  return {
+    cafe,
+    bean,
+    processing,
+    flavor,
+    confidence,
+    raw_text: text,
+    llm_response: '',
+    source: 'heuristic-fallback',
+  };
+}
+
 export async function POST(request: NextRequest) {
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
+
+  let inputText = '';
+  let inputConfidence: number | undefined = undefined;
+
   try {
     const { text, confidence } = await request.json();
+    inputText = text || '';
+    inputConfidence = confidence;
 
     if (!text) {
       return NextResponse.json(
@@ -109,13 +155,14 @@ ${text}
 
   } catch (error) {
     console.error('LLM extraction error:', error);
-    return NextResponse.json(
-      { 
-        error: 'LLM extraction failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+
+    // OpenAI 실패 시 휴리스틱 폴백 (서비스 중단 방지)
+    const fallback = heuristicExtract(inputText, inputConfidence || 0.4);
+    return NextResponse.json({
+      ...fallback,
+      error: 'LLM extraction failed; fallback used',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 }
 
