@@ -93,7 +93,7 @@ export default function RecordManualPage() {
     }
 
     try {
-      await addDoc(collection(db, `users/${userId}/coffee_records`), {
+      await addDoc(collection(db, `users/${userId}/records`), {
         ...form,
         createdAt: new Date(),
         type: 'manual'
