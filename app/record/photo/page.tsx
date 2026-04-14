@@ -28,6 +28,7 @@ interface AnalysisResult {
   origin?: string;
   confidence?: number;
   raw_text?: string;
+  source?: string;
 }
 
 // 커피 플레이버 휠 데이터 (이미지 기반)
@@ -641,6 +642,16 @@ export default function PhotoRecordPageSimple() {
       return;
     }
 
+    // 저신뢰도 결과는 저장 전 재확인(검토 모달)
+    if (analysisResult?.confidence !== undefined && analysisResult.confidence < 0.6) {
+      const proceed = window.confirm(
+        `AI 신뢰도가 ${Math.round(analysisResult.confidence * 100)}%로 낮습니다.\n` +
+        `저장 전에 카페/원두/향미를 한 번 더 확인해주세요.\n\n` +
+        `확인: 저장 계속 / 취소: 수정하기`
+      );
+      if (!proceed) return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -938,6 +949,9 @@ export default function PhotoRecordPageSimple() {
                 <div>
                   <h3 className="text-2xl font-bold text-coffee-gold">AI 분석 완료!</h3>
                   <p className="text-coffee-light opacity-70">다음 정보를 추출했어요</p>
+                  {analysisResult.source && (
+                    <p className="text-xs text-coffee-light opacity-50 mt-1">엔진: {analysisResult.source}</p>
+                  )}
                 </div>
               </div>
 
