@@ -102,6 +102,7 @@ export default function PhotoRecordPageSimple() {
   const [analysisStep, setAnalysisStep] = useState<string>("");
   const [ocrProgress, setOcrProgress] = useState(0);
   const [analysisError, setAnalysisError] = useState<string>("");
+  const [glmUnavailable, setGlmUnavailable] = useState(false);
   const [showFlavorWheel, setShowFlavorWheel] = useState(false);
   const [cafeSuggestions, setCafeSuggestions] = useState<string[]>([]);
   const [showCafeSuggestions, setShowCafeSuggestions] = useState(false);
@@ -456,6 +457,7 @@ export default function PhotoRecordPageSimple() {
     try {
       setAnalyzing(true);
       setAnalysisError("");
+      setGlmUnavailable(false);
       setAnalysisStep("분석 준비 중...");
 
       let result: AnalysisResult | null = null;
@@ -477,6 +479,7 @@ export default function PhotoRecordPageSimple() {
         }
       } catch (glmErr) {
         console.log('GLM-OCR 사용 불가, Tesseract+LLM 폴백:', glmErr);
+        setGlmUnavailable(true);
       }
 
       // 2단계: GLM-OCR 실패 시 기존 Tesseract + OpenAI 파이프라인
@@ -545,7 +548,8 @@ export default function PhotoRecordPageSimple() {
       showAlert({
         type: 'warning',
         title: '자동 분석 실패',
-        message: `${errorMessage}\n\n🖋️ 수동 입력 모드로 전환합니다.\n아래 폼에서 직접 입력해주세요.`
+        message: `${errorMessage}\n\n🖋️ 수동 입력 모드로 전환합니다.\n` +
+          `아래에서 카페명/원두명/향미를 직접 입력하면 저장은 정상적으로 가능합니다.`
       });
 
       // 폼으로 스크롤 이동
@@ -740,6 +744,12 @@ export default function PhotoRecordPageSimple() {
           </h1>
           <p className="text-coffee-light opacity-70">커피백이나 메뉴판을 촬영해서 AI 분석을 받아보세요</p>
         </motion.div>
+
+        {glmUnavailable && (
+          <div className="mb-4 bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-3 text-sm text-yellow-100">
+            GLM-OCR 연결이 불안정해 현재는 폴백 엔진(Tesseract + 보조 파서)으로 분석 중입니다.
+          </div>
+        )}
 
         {/* Photo Upload Section */}
         <motion.div
