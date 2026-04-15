@@ -103,6 +103,7 @@ export default function PhotoRecordPageSimple() {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [analysisError, setAnalysisError] = useState<string>("");
   const [glmUnavailable, setGlmUnavailable] = useState(false);
+  const [showValidationHints, setShowValidationHints] = useState(false);
   const [showFlavorWheel, setShowFlavorWheel] = useState(false);
   const [cafeSuggestions, setCafeSuggestions] = useState<string[]>([]);
   const [showCafeSuggestions, setShowCafeSuggestions] = useState(false);
@@ -629,6 +630,7 @@ export default function PhotoRecordPageSimple() {
     }
 
     if (!form.bean?.trim()) {
+      setShowValidationHints(true);
       showAlert({
         type: 'error',
         title: '원두명 입력 필요',
@@ -638,6 +640,7 @@ export default function PhotoRecordPageSimple() {
     }
 
     if (!form.cafe?.trim()) {
+      setShowValidationHints(true);
       showAlert({
         type: 'error',
         title: '카페명 입력 필요',
@@ -655,6 +658,8 @@ export default function PhotoRecordPageSimple() {
       );
       if (!proceed) return;
     }
+
+    setShowValidationHints(false);
 
     try {
       setSubmitting(true);
@@ -1208,9 +1213,12 @@ export default function PhotoRecordPageSimple() {
                     onFocus={() => setShowCafeSuggestions(form.cafe.length === 0 && cafeSuggestions.length > 0)}
                     onBlur={() => setTimeout(() => setShowCafeSuggestions(false), 200)}
                     placeholder="카페 이름을 입력하세요"
-                    className="input-coffee w-full"
+                    className={`input-coffee w-full ${showValidationHints && !form.cafe?.trim() ? 'border-2 border-red-400 bg-red-900/20' : ''}`}
                     required
                   />
+                  {showValidationHints && !form.cafe?.trim() && (
+                    <p className="text-xs text-red-300 mt-1">카페명을 입력해주세요.</p>
+                  )}
 
                   {/* 자동완성 드롭다운 */}
                   {showCafeSuggestions && (
@@ -1262,9 +1270,12 @@ export default function PhotoRecordPageSimple() {
                   value={form.bean}
                   onChange={(e) => setForm(prev => ({ ...prev, bean: e.target.value }))}
                   placeholder="원두 이름을 입력하세요"
-                  className="input-coffee w-full"
+                  className={`input-coffee w-full ${showValidationHints && !form.bean?.trim() ? 'border-2 border-red-400 bg-red-900/20' : ''}`}
                   required
                 />
+                {showValidationHints && !form.bean?.trim() && (
+                  <p className="text-xs text-red-300 mt-1">원두명을 입력해주세요.</p>
+                )}
               </div>
 
               {/* 가공방식 (항상 편집 가능) */}
