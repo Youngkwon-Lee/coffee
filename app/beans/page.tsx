@@ -39,6 +39,12 @@ async function loadBeans(): Promise<Bean[]> {
         return timestamp || null;
       };
 
+      const rawLink = String(data.link || data.url || data.product_url || '');
+      const normalizedLink = rawLink
+        .replace(/\\u0026/g, '&')
+        .replace(/\\+$/g, '')
+        .trim();
+
       return {
         id: doc.id,
         name: data.name || '',
@@ -48,7 +54,7 @@ async function loadBeans(): Promise<Bean[]> {
         desc: data.desc || data.description || '',
         roast: data.roast || '',
         brand: data.brand || '',
-        link: data.link || '',
+        link: data.linkStatus === 'dead' ? '' : normalizedLink,
         category: data.category || '',
         createdAt: convertTimestamp(data.createdAt),
         lastUpdated: convertTimestamp(data.lastUpdated),
