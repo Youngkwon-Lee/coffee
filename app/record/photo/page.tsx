@@ -354,6 +354,54 @@ export default function PhotoRecordPageSimple() {
     };
   };
 
+  const preprocessForOCR = (file: File): Promise<string | File> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(file);
+            return;
+          }
+
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          // 대비/밝기 보정 후 렌더링
+          ctx.filter = 'grayscale(100%) contrast(140%) brightness(110%)';
+          ctx.drawImage(img, 0, 0);
+
+          // 간단 이진화(적응형 대체)로 텍스트 대비 강화
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            const v = data[i];
+            const bin = v > 155 ? 255 : 0;
+            data[i] = bin;
+            data[i + 1] = bin;
+            data[i + 2] = bin;
+          }
+          ctx.putImageData(imageData, 0, 0);
+
+          const out = canvas.toDataURL('image/png');
+          resolve(out);
+        } catch {
+          resolve(file);
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
+  };
+
   // OCR 수행 (CoffeeScanPro 스타일)
   const performOCR = async (imageFile: File): Promise<string> => {
     if (!Tesseract) {
@@ -364,8 +412,9 @@ export default function PhotoRecordPageSimple() {
     setOcrProgress(0);
 
     try {
+      const ocrInput = await preprocessForOCR(imageFile);
       const { data: { text } } = await Tesseract.recognize(
-        imageFile,
+        ocrInput,
         'kor+eng',
         {
           logger: (m: any) => {
@@ -375,7 +424,7 @@ export default function PhotoRecordPageSimple() {
             }
           },
           // OCR 안정화 파라미터 (영수증/라벨 혼합 텍스트에 유리)
-          tessedit_pageseg_mode: 6, // Assume a single uniform block of text
+          tessedit_pageseg_mode: 6,
           preserve_interword_spaces: '1',
           user_defined_dpi: '300',
         }
