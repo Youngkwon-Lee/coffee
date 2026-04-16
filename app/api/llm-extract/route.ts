@@ -29,6 +29,8 @@ function heuristicExtract(text: string, confidence = 0.4) {
     if (/roasted\s+by\s+brothers/i.test(normalized)) cafe = 'Brothers Coffee Roasters';
     else if (/terarosa/i.test(normalized)) cafe = '테라로사';
     else if (/center\s*coffee|centre\s*coffee/i.test(normalized)) cafe = '센터커피';
+    else if (/\bSEY\b|SEY\s+ERIE/i.test(normalized)) cafe = 'SEY';
+    else if (upperTokenCafeCandidates.length > 0) cafe = upperTokenCafeCandidates[0];
   }
 
   let processing = '';
@@ -53,6 +55,11 @@ function heuristicExtract(text: string, confidence = 0.4) {
 
   const lines = normalized.split(/\n+/).map((x) => x.trim()).filter(Boolean);
   let bean = '';
+
+  const upperTokenCafeCandidates = lines
+    .flatMap((l) => l.split(/\s+/))
+    .filter((w) => /^[A-Z]{3,8}$/.test(w))
+    .filter((w) => !['TYPE','ROAST','REGION','NET','WT','WASHED','NATURAL','HONEY','BLENDING','BLEND','FARM','GATE','PRICE'].includes(w));
 
   // 1) 일반적인 원두 라인 탐색
   for (const ln of lines) {
@@ -99,9 +106,26 @@ function heuristicExtract(text: string, confidence = 0.4) {
     }
   }
 
-  // 3) 여전히 비어있으면 문장 내 키워드 기반 fallback
-  if (!bean && /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil)/i.test(lower)) {
-    bean = (normalized.split(/\n|\.|\|/).find((s) => /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil)/i.test(s)) || '').trim();
+  // 3) finca/producer 패턴 우선 (스페셜티 라벨 대응)
+  if (!bean) {
+    const producerLine = lines.find((l) => /\b(FELIPE|LUZON|LAUZON|PRODUCER)\b/i.test(l));
+    const fincaLine = lines.find((l) => /\b(FINCA|FARM|LOS\s+EUCALIPTOS)\b/i.test(l));
+    if (producerLine && fincaLine) {
+      bean = `${producerLine} / ${fincaLine}`.replace(/\s+/g, ' ').trim();
+    } else if (fincaLine) {
+      bean = fincaLine.replace(/\s+/g, ' ').trim();
+    } else {
+      // OCR 깨짐 대응: 텍스트 전체에서 producer/finca 패턴 직접 추출
+      const producer = normalized.match(/FELIPE\s+[A-Z]{3,20}/i)?.[0] || '';
+      const finca = normalized.match(/FINCA\s+LOS\s+EUCALIPTOS/i)?.[0] || '';
+      if (producer && finca) bean = `${producer} / ${finca}`;
+      else if (finca) bean = finca;
+    }
+  }
+
+  // 4) 여전히 비어있으면 문장 내 키워드 기반 fallback
+  if (!bean && /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil|finca|farm)/i.test(lower)) {
+    bean = (normalized.split(/\n|\.|\|/).find((s) => /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil|finca|farm)/i.test(s)) || '').trim();
   }
 
   return {
