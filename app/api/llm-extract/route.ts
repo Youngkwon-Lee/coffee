@@ -41,15 +41,39 @@ function heuristicExtract(text: string, confidence = 0.4) {
     }
   }
 
-  // 2) BLENDING 단독 인식 보정: 앞 단어 2~4개를 붙여 이름 후보 생성
+  // 2) BLENDING 단독 인식 보정: 라인 기반으로 브랜드/블렌드명 복원
   if (!bean || /^blending$/i.test(bean) || /^blend$/i.test(bean)) {
-    const tokens = (t.match(/[A-Za-z]{2,}/g) || []).map((x) => x.toUpperCase());
-    const idx = tokens.findIndex((x) => x === 'BLENDING' || x === 'BLEND');
-    if (idx >= 1) {
-      const start = Math.max(0, idx - 3);
-      const candidate = tokens.slice(start, idx + 1).join(' ').trim();
-      if (candidate.split(' ').length >= 2) {
-        bean = candidate;
+    const upperLines = lines.map((l) => l.toUpperCase());
+    const blendIdx = upperLines.findIndex((l) => /\bBLENDING\b|\bBLEND\b/.test(l));
+
+    const isNoiseLine = (l: string) => /\b(TYPE|ROAST|REGION|NET|WT|WHOLE BEAN|QUALITY|ROASTED BY)\b/.test(l);
+    const isFlavorLine = (l: string) => /\b(CARAMEL|CHOCOLAT|CHOCOLATE|BERRY|CITRUS|FLORAL|PLUM|MACADAMIA|NUT)\b/.test(l);
+
+    if (blendIdx >= 0) {
+      let title = '';
+      for (let i = blendIdx - 1; i >= 0; i--) {
+        const cand = upperLines[i].trim();
+        if (!cand || isNoiseLine(cand) || isFlavorLine(cand)) continue;
+        if (cand.split(' ').length >= 2 && cand.length <= 40) {
+          title = cand;
+          break;
+        }
+      }
+      if (title) {
+        bean = `${title} BLENDING`.trim();
+      }
+    }
+
+    // 라인 기반에서 못 찾으면 토큰 기반 fallback
+    if (!bean) {
+      const tokens = (t.match(/[A-Za-z]{2,}/g) || []).map((x) => x.toUpperCase());
+      const idx = tokens.findIndex((x) => x === 'BLENDING' || x === 'BLEND');
+      if (idx >= 1) {
+        const start = Math.max(0, idx - 3);
+        const candidate = tokens.slice(start, idx + 1).join(' ').trim();
+        if (candidate.split(' ').length >= 2) {
+          bean = candidate;
+        }
       }
     }
   }
