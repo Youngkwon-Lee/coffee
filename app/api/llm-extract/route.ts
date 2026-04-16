@@ -3,34 +3,42 @@ import OpenAI from 'openai';
 
 function heuristicExtract(text: string, confidence = 0.4) {
   const t = text || '';
-  const lower = t.toLowerCase();
+
+  // OCR 오탈자/축약 보정
+  const normalized = t
+    .replace(/CHOCOLAT\b/gi, 'CHOCOLATE')
+    .replace(/MACATAMA\b/gi, 'MACADAMIA')
+    .replace(/BLENDlNG/gi, 'BLENDING')
+    .replace(/\|/g, '\n');
+
+  const lower = normalized.toLowerCase();
 
   const cafeHints = ['센터커피','테라로사','프릳츠','프리츠','모모스','로우키','엘카페','보난자','나무사이로','딥블루레이크'];
   const processingHints = ['Natural','Washed','Honey','Semi-Washed','Anaerobic','Carbonic'];
 
   let cafe = '';
   for (const c of cafeHints) {
-    if (t.includes(c)) { cafe = c; break; }
+    if (normalized.includes(c)) { cafe = c; break; }
   }
 
   let processing = '';
   for (const p of processingHints) {
-    if (new RegExp(p, 'i').test(t)) { processing = p; break; }
+    if (new RegExp(p, 'i').test(normalized)) { processing = p; break; }
   }
 
   const flavorHints: Array<[string, RegExp]> = [
-    ['초콜릿', /(초콜릿|chocolate|cacao)/i],
-    ['견과류', /(견과|nut|macadamia|almond|hazelnut)/i],
-    ['베리', /(베리|berry|berries)/i],
+    ['초콜릿', /(초콜릿|chocolate|dark\s*chocolate|cacao|cocoa)/i],
+    ['견과류', /(견과|nut|macadamia|almond|hazelnut|pecan|walnut)/i],
+    ['베리', /(베리|berry|berries|blueberry|raspberry|strawberry)/i],
     ['시트러스', /(시트러스|citrus|orange|lemon|grapefruit)/i],
-    ['카라멜', /(카라멜|caramel|toffee)/i],
-    ['플로럴', /(플로럴|floral|jasmine)/i],
-    ['과일', /(과일|fruit|fruity|plum|peach)/i],
+    ['카라멜', /(카라멜|caramel|toffee|butterscotch)/i],
+    ['플로럴', /(플로럴|floral|jasmine|flower)/i],
+    ['과일', /(과일|fruit|fruity|plum|peach|apple|grape)/i],
     ['꿀', /(꿀|honey)/i],
   ];
-  const flavor = flavorHints.filter(([, re]) => re.test(t)).map(([name]) => name).slice(0, 5);
+  const flavor = flavorHints.filter(([, re]) => re.test(normalized)).map(([name]) => name).slice(0, 6);
 
-  const lines = t.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  const lines = normalized.split(/\n+/).map((x) => x.trim()).filter(Boolean);
   let bean = '';
 
   // 1) 일반적인 원두 라인 탐색
@@ -66,7 +74,7 @@ function heuristicExtract(text: string, confidence = 0.4) {
 
     // 라인 기반에서 못 찾으면 토큰 기반 fallback
     if (!bean) {
-      const tokens = (t.match(/[A-Za-z]{2,}/g) || []).map((x) => x.toUpperCase());
+      const tokens = (normalized.match(/[A-Za-z]{2,}/g) || []).map((x) => x.toUpperCase());
       const idx = tokens.findIndex((x) => x === 'BLENDING' || x === 'BLEND');
       if (idx >= 1) {
         const start = Math.max(0, idx - 3);
@@ -80,7 +88,7 @@ function heuristicExtract(text: string, confidence = 0.4) {
 
   // 3) 여전히 비어있으면 문장 내 키워드 기반 fallback
   if (!bean && /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil)/i.test(lower)) {
-    bean = (t.split(/\n|\.|\|/).find((s) => /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil)/i.test(s)) || '').trim();
+    bean = (normalized.split(/\n|\.|\|/).find((s) => /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil)/i.test(s)) || '').trim();
   }
 
   return {
