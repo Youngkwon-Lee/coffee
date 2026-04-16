@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 
 function heuristicExtract(text: string, confidence = 0.4) {
   const t = text || '';
+  const lower = t.toLowerCase();
 
   const cafeHints = ['센터커피','테라로사','프릳츠','프리츠','모모스','로우키','엘카페','보난자','나무사이로','딥블루레이크'];
   const processingHints = ['Natural','Washed','Honey','Semi-Washed','Anaerobic','Carbonic'];
@@ -17,16 +18,45 @@ function heuristicExtract(text: string, confidence = 0.4) {
     if (new RegExp(p, 'i').test(t)) { processing = p; break; }
   }
 
-  const flavorHints = ['초콜릿','견과류','베리','시트러스','카라멜','플로럴','과일','자스민','꿀','복숭아','자두'];
-  const flavor = flavorHints.filter((f) => t.includes(f)).slice(0, 5);
+  const flavorHints: Array<[string, RegExp]> = [
+    ['초콜릿', /(초콜릿|chocolate|cacao)/i],
+    ['견과류', /(견과|nut|macadamia|almond|hazelnut)/i],
+    ['베리', /(베리|berry|berries)/i],
+    ['시트러스', /(시트러스|citrus|orange|lemon|grapefruit)/i],
+    ['카라멜', /(카라멜|caramel|toffee)/i],
+    ['플로럴', /(플로럴|floral|jasmine)/i],
+    ['과일', /(과일|fruit|fruity|plum|peach)/i],
+    ['꿀', /(꿀|honey)/i],
+  ];
+  const flavor = flavorHints.filter(([, re]) => re.test(t)).map(([name]) => name).slice(0, 5);
 
   const lines = t.split(/\n+/).map((x) => x.trim()).filter(Boolean);
   let bean = '';
+
+  // 1) 일반적인 원두 라인 탐색
   for (const ln of lines) {
-    if (/원두|bean|blend|에티오피아|콜롬비아|케냐|과테말라/i.test(ln) && ln.length <= 60) {
+    if (/원두|bean|blend|blending|에티오피아|콜롬비아|케냐|과테말라|브라질/i.test(ln) && ln.length <= 80) {
       bean = ln;
       break;
     }
+  }
+
+  // 2) BLENDING 단독 인식 보정: 앞 단어 2~4개를 붙여 이름 후보 생성
+  if (!bean || /^blending$/i.test(bean) || /^blend$/i.test(bean)) {
+    const tokens = (t.match(/[A-Za-z]{2,}/g) || []).map((x) => x.toUpperCase());
+    const idx = tokens.findIndex((x) => x === 'BLENDING' || x === 'BLEND');
+    if (idx >= 1) {
+      const start = Math.max(0, idx - 3);
+      const candidate = tokens.slice(start, idx + 1).join(' ').trim();
+      if (candidate.split(' ').length >= 2) {
+        bean = candidate;
+      }
+    }
+  }
+
+  // 3) 여전히 비어있으면 문장 내 키워드 기반 fallback
+  if (!bean && /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil)/i.test(lower)) {
+    bean = (t.split(/\n|\.|\|/).find((s) => /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil)/i.test(s)) || '').trim();
   }
 
   return {

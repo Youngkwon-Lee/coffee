@@ -412,25 +412,37 @@ export default function PhotoRecordPageSimple() {
     setOcrProgress(0);
 
     try {
-      const ocrInput = await preprocessForOCR(imageFile);
-      const { data: { text } } = await Tesseract.recognize(
-        ocrInput,
-        'kor+eng',
-        {
-          logger: (m: any) => {
-            if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
-              const progress = Math.round(m.progress * 100);
-              setOcrProgress(progress);
-            }
-          },
-          // OCR 안정화 파라미터 (영수증/라벨 혼합 텍스트에 유리)
-          tessedit_pageseg_mode: 6,
-          preserve_interword_spaces: '1',
-          user_defined_dpi: '300',
-        }
-      );
+      const config = {
+        logger: (m: any) => {
+          if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
+            const progress = Math.round(m.progress * 100);
+            setOcrProgress(progress);
+          }
+        },
+        tessedit_pageseg_mode: 6,
+        preserve_interword_spaces: '1',
+        user_defined_dpi: '300',
+      } as any;
 
-      return text.trim();
+      // 1차: 원본 이미지 OCR
+      const pass1 = await Tesseract.recognize(imageFile, 'kor+eng', config);
+      const text1 = (pass1?.data?.text || '').trim();
+
+      // 2차: 전처리 이미지 OCR
+      const ocrInput = await preprocessForOCR(imageFile);
+      const pass2 = await Tesseract.recognize(ocrInput, 'kor+eng', config);
+      const text2 = (pass2?.data?.text || '').trim();
+
+      // 두 결과 중 정보량이 더 큰 결과 선택
+      const score = (s: string) => {
+        const cleaned = s.replace(/\s+/g, ' ').trim();
+        const alphaNum = (cleaned.match(/[A-Za-z0-9가-힣]/g) || []).length;
+        const keywords = (cleaned.match(/(blend|blending|natural|washed|honey|ethiopia|colombia|kenya|브렌딩|내추럴|워시드|허니)/gi) || []).length;
+        return alphaNum + keywords * 20;
+      };
+
+      const finalText = score(text2) >= score(text1) ? text2 : text1;
+      return finalText;
     } catch (error) {
       console.error('OCR 에러:', error);
       throw new Error('텍스트 인식에 실패했습니다.');
