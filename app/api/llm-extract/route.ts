@@ -16,6 +16,12 @@ function heuristicExtract(text: string, confidence = 0.4) {
   const cafeHints = ['센터커피','테라로사','프릳츠','프리츠','모모스','로우키','엘카페','보난자','나무사이로','딥블루레이크','브라더스','BROTHERS'];
   const processingHints = ['Natural','Washed','Honey','Semi-Washed','Anaerobic','Carbonic','Blend','Blending'];
 
+  const lines = normalized.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  const upperTokenCafeCandidates = lines
+    .flatMap((l) => l.split(/\s+/))
+    .filter((w) => /^[A-Z]{3,8}$/.test(w))
+    .filter((w) => !['TYPE','ROAST','REGION','NET','WT','WASHED','NATURAL','HONEY','BLENDING','BLEND','FARM','GATE','PRICE'].includes(w));
+
   let cafe = '';
   for (const c of cafeHints) {
     if (normalized.includes(c)) {
@@ -53,13 +59,7 @@ function heuristicExtract(text: string, confidence = 0.4) {
   ];
   const flavor = flavorHints.filter(([, re]) => re.test(normalized)).map(([name]) => name).slice(0, 6);
 
-  const lines = normalized.split(/\n+/).map((x) => x.trim()).filter(Boolean);
   let bean = '';
-
-  const upperTokenCafeCandidates = lines
-    .flatMap((l) => l.split(/\s+/))
-    .filter((w) => /^[A-Z]{3,8}$/.test(w))
-    .filter((w) => !['TYPE','ROAST','REGION','NET','WT','WASHED','NATURAL','HONEY','BLENDING','BLEND','FARM','GATE','PRICE'].includes(w));
 
   // 1) 일반적인 원두 라인 탐색
   for (const ln of lines) {
@@ -126,6 +126,16 @@ function heuristicExtract(text: string, confidence = 0.4) {
   // 4) 여전히 비어있으면 문장 내 키워드 기반 fallback
   if (!bean && /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil|finca|farm)/i.test(lower)) {
     bean = (normalized.split(/\n|\.|\|/).find((s) => /(blending|blend|single origin|ethiopia|colombia|kenya|guatemala|brazil|finca|farm)/i.test(s)) || '').trim();
+  }
+
+  // 5) bean 최종 정제 (OCR 노이즈 토큰 제거)
+  if (bean) {
+    bean = bean
+      .replace(/[\[\]{}()*_`~^]+/g, ' ')
+      .replace(/\b(PRICE|DETAILS|TYPE|ROAST|REGION|NET|WT|FOR|FOB|FARM\s*GATE)\b/gi, ' ')
+      .replace(/\b(P|Wal\.?|rer|ETRE|ERIE)\b/gi, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   }
 
   return {
