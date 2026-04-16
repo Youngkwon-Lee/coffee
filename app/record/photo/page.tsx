@@ -373,7 +373,11 @@ export default function PhotoRecordPageSimple() {
               const progress = Math.round(m.progress * 100);
               setOcrProgress(progress);
             }
-          }
+          },
+          // OCR 안정화 파라미터 (영수증/라벨 혼합 텍스트에 유리)
+          tessedit_pageseg_mode: 6, // Assume a single uniform block of text
+          preserve_interword_spaces: '1',
+          user_defined_dpi: '300',
         }
       );
 
