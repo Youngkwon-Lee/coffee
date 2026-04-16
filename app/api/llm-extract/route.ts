@@ -13,17 +13,30 @@ function heuristicExtract(text: string, confidence = 0.4) {
 
   const lower = normalized.toLowerCase();
 
-  const cafeHints = ['센터커피','테라로사','프릳츠','프리츠','모모스','로우키','엘카페','보난자','나무사이로','딥블루레이크'];
-  const processingHints = ['Natural','Washed','Honey','Semi-Washed','Anaerobic','Carbonic'];
+  const cafeHints = ['센터커피','테라로사','프릳츠','프리츠','모모스','로우키','엘카페','보난자','나무사이로','딥블루레이크','브라더스','BROTHERS'];
+  const processingHints = ['Natural','Washed','Honey','Semi-Washed','Anaerobic','Carbonic','Blend','Blending'];
 
   let cafe = '';
   for (const c of cafeHints) {
-    if (normalized.includes(c)) { cafe = c; break; }
+    if (normalized.includes(c)) {
+      cafe = c === 'BROTHERS' ? 'Brothers Coffee Roasters' : c;
+      break;
+    }
+  }
+
+  // 라벨 하단 브랜드 문구 fallback
+  if (!cafe) {
+    if (/roasted\s+by\s+brothers/i.test(normalized)) cafe = 'Brothers Coffee Roasters';
+    else if (/terarosa/i.test(normalized)) cafe = '테라로사';
+    else if (/center\s*coffee|centre\s*coffee/i.test(normalized)) cafe = '센터커피';
   }
 
   let processing = '';
   for (const p of processingHints) {
-    if (new RegExp(p, 'i').test(normalized)) { processing = p; break; }
+    if (new RegExp(p, 'i').test(normalized)) {
+      processing = /blend/i.test(p) ? 'Blend' : p;
+      break;
+    }
   }
 
   const flavorHints: Array<[string, RegExp]> = [
