@@ -27,12 +27,14 @@ function CoffeeRecordCard({
   showFlavors = true,
   onQuickUpdate,
   updating,
+  onOpenDetail,
 }: {
   record: CoffeeRecord;
   showTime?: boolean;
   showFlavors?: boolean;
   onQuickUpdate?: (recordId: string, cafe: string, bean: string) => Promise<void>;
   updating?: boolean;
+  onOpenDetail?: (record: CoffeeRecord) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editCafe, setEditCafe] = useState(record.cafe || "");
@@ -61,7 +63,10 @@ function CoffeeRecordCard({
   ));
 
   return (
-    <div className="bg-coffee-medium rounded-xl p-4 card-hover border border-coffee-gold border-opacity-10">
+    <div
+      className="bg-coffee-medium rounded-xl p-4 card-hover border border-coffee-gold border-opacity-10 cursor-pointer"
+      onClick={() => onOpenDetail?.(record)}
+    >
       <div className="flex items-start space-x-3">
         <div className="w-14 h-14 rounded-xl overflow-hidden bg-coffee-dark flex-shrink-0">
           <Image
@@ -131,7 +136,10 @@ function CoffeeRecordCard({
                   <button
                     type="button"
                     className="text-xs px-2 py-1 rounded bg-coffee-gold text-coffee-dark font-medium"
-                    onClick={() => setIsEditing(true)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditing(true);
+                    }}
                   >
                     빠른 수정
                   </button>
@@ -154,7 +162,8 @@ function CoffeeRecordCard({
                     <button
                       type="button"
                       className="text-xs px-2 py-1 rounded border border-coffee-light border-opacity-20 text-coffee-light"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setEditCafe(record.cafe || "");
                         setEditBean(record.bean || "");
                         setIsEditing(false);
@@ -166,7 +175,8 @@ function CoffeeRecordCard({
                       type="button"
                       disabled={updating || !editCafe.trim() || !editBean.trim()}
                       className="text-xs px-2 py-1 rounded bg-coffee-gold text-coffee-dark font-medium disabled:opacity-50"
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         await onQuickUpdate(record.id, editCafe.trim(), editBean.trim());
                         setIsEditing(false);
                       }}
@@ -197,6 +207,7 @@ export default function HistoryClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [updatingRecordId, setUpdatingRecordId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string>("");
+  const [selectedRecord, setSelectedRecord] = useState<CoffeeRecord | null>(null);
 
   const getRecordDate = (record: CoffeeRecord) =>
     record.createdAt instanceof Timestamp ? record.createdAt.toDate() : new Date(record.createdAt);
@@ -399,6 +410,7 @@ export default function HistoryClient() {
               showFlavors
               onQuickUpdate={handleQuickUpdate}
               updating={updatingRecordId === record.id}
+              onOpenDetail={setSelectedRecord}
             />
           ))
         ) : (
@@ -437,6 +449,38 @@ export default function HistoryClient() {
           </div>
         )}
       </div>
+
+      {selectedRecord && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm p-4 flex items-end md:items-center justify-center"
+          onClick={() => setSelectedRecord(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-coffee-medium rounded-2xl p-5 border border-coffee-gold border-opacity-20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold text-coffee-light">기록 상세</h3>
+              <button
+                type="button"
+                className="text-coffee-light opacity-70 hover:opacity-100"
+                onClick={() => setSelectedRecord(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 text-sm text-coffee-light">
+              <p><span className="opacity-60">카페</span> {selectedRecord.cafe || "-"}</p>
+              <p><span className="opacity-60">원두</span> {selectedRecord.bean || "-"}</p>
+              <p><span className="opacity-60">평점</span> {selectedRecord.rating || 0}.0</p>
+              <p><span className="opacity-60">추출/가공</span> {selectedRecord.brewMethod || selectedRecord.processing || "-"}</p>
+              <p><span className="opacity-60">향미</span> {Array.isArray(selectedRecord.flavor) ? selectedRecord.flavor.join(", ") : selectedRecord.flavor || "-"}</p>
+              <p><span className="opacity-60">메모</span> {selectedRecord.review || "-"}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-} 
+}
