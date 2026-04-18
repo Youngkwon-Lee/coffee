@@ -23,6 +23,7 @@
   --destructive-foreground: hsl(60, 9.1%, 97.8%);
   --ring: hsl(32, 56%, 50%);
   --radius: 0.75rem;
+  --app-max-width: 28rem;
 }
 
 @layer base {
@@ -266,7 +267,8 @@ h1, h2, h3, .section-heading {
 
 /* Mobile-first responsive design */
 .mobile-container {
-  max-width: 28rem;
+  width: 100%;
+  max-width: var(--app-max-width);
   margin: 0 auto;
   background-color: #2e221b;
   min-height: 100vh;
@@ -303,7 +305,7 @@ h1, h2, h3, .section-heading {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 28rem;
+  max-width: var(--app-max-width);
   background-color: #3b2f26;
   border-top: 1px solid rgba(46, 34, 27, 0.2);
   padding: 0.5rem 0;
@@ -343,7 +345,7 @@ h1, h2, h3, .section-heading {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 28rem;
+  max-width: var(--app-max-width);
   background-color: #3b2f26;
   border-top: 1px solid rgba(46, 34, 27, 0.2);
   padding: 0.5rem 1rem;
@@ -443,6 +445,27 @@ h1, h2, h3, .section-heading {
 /* Content spacing */
 .main-content {
   padding-bottom: 5rem;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-max-width: 56rem;
+  }
+
+  .header-coffee {
+    padding: 1rem 1.25rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --app-max-width: 72rem;
+  }
+
+  .main-content {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
 }
 
 /* Card hover effects enhanced */
