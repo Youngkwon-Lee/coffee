@@ -167,6 +167,10 @@ export default function CafeClient({
   todayCafe: Cafe | null;
   userPreferenceDefault: string;
 }) {
+  const isWeatherFallback = ["알 수 없음", "API키 없음", "날씨 불러오기 실패", "위치 정보 없음", "위치 미지원", "로딩중..."].includes(weather);
+  const recommendationLabel = isWeatherFallback ? "오늘 어울리는 카페" : `${weather} 날씨에 어울리는 카페`;
+  const recommendationEmoji = isWeatherFallback ? "☕" : weatherEmoji;
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<string>("전체");
   const [user, setUser] = useState<User | null>(null);
@@ -310,13 +314,13 @@ export default function CafeClient({
       {ssrTodayCafe && (
         <div className="mb-6">
           <h3 className="section-heading text-lg">오늘의 추천 카페</h3>
-          <div className="card-coffee p-4 border-l-4 border-coffee-gold">
-            <div className="flex items-center mb-2">
-              <span className="text-2xl mr-2">{weatherEmoji}</span>
-              <span className="text-coffee-light font-medium">
-                {weather} 날씨에 어울리는 카페
-              </span>
-            </div>
+            <div className="card-coffee p-4 border-l-4 border-coffee-gold">
+              <div className="flex items-center mb-2">
+                <span className="text-2xl mr-2">{recommendationEmoji}</span>
+                <span className="text-coffee-light font-medium">
+                  {recommendationLabel}
+                </span>
+              </div>
             <CafeCard
               cafe={ssrTodayCafe}
               onToggleWishlist={toggleWishlist}

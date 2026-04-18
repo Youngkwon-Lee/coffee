@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Noto_Sans_KR, Playfair_Display } from "next/font/google";
 import "./globals.css";
-import Header from "./components/Header";
 import BottomNavigation from "./components/BottomNavigation";
 import UserButton from "./components/UserButton";
 import { Coffee } from "lucide-react";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const notoSansKr = Noto_Sans_KR({
+  variable: "--font-noto-sans-kr",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -35,7 +36,7 @@ export default function RootLayout({
       <head>
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-coffee-dark text-coffee-light min-h-screen`} suppressHydrationWarning>
+      <body className={`${notoSansKr.variable} ${playfair.variable} antialiased bg-coffee-dark text-coffee-light min-h-screen`} suppressHydrationWarning>
         {/* Mobile Container */}
         <div className="mobile-container">
           {/* Header */}
@@ -44,7 +45,7 @@ export default function RootLayout({
               <div className="header-logo">
                 <Coffee className="w-5 h-5 text-coffee-dark" strokeWidth={2.5} />
               </div>
-              <h1 className="text-lg font-semibold text-coffee-light">Coffee Tracker</h1>
+              <h1 className="text-lg font-semibold text-coffee-light font-cafe-heading">Coffee Tracker</h1>
             </div>
             <div className="flex items-center space-x-3">
               <UserButton />

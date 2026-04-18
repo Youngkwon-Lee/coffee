@@ -363,7 +363,6 @@ export default function HistoryClient() {
     return (
       <div className="p-4">
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">📘</div>
           <h2 className="text-2xl font-bold text-coffee-light mb-4">
             로그인이 필요합니다
           </h2>
