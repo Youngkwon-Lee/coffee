@@ -78,15 +78,21 @@ function CafeCard({ cafe, onToggleWishlist, isWishlisted, onShowMap }: {
 }) {
   const brandLogoUrl = getBrandLogoUrl(cafe);
   const brandFallbackUrl = getBrandFaviconUrl(cafe);
+  const imageSrc = cafe.imageUrl || brandLogoUrl || brandFallbackUrl || "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=80&h=80&fit=crop";
+  const isLogoPlaceholder = !cafe.imageUrl && !!(brandLogoUrl || brandFallbackUrl);
 
   return (
     <div className="card-coffee p-4 card-hover">
       <div className="flex items-start space-x-3">
         <div className="relative">
           <img
-            src={cafe.imageUrl || "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=80&h=80&fit=crop"}
+            src={imageSrc}
             alt={cafe.name}
-            className="w-16 h-16 rounded-lg object-cover"
+            className={`w-16 h-16 rounded-lg ${isLogoPlaceholder ? 'object-contain bg-white p-1' : 'object-cover'}`}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=80&h=80&fit=crop";
+            }}
           />
           <button
             onClick={() => onToggleWishlist(cafe.id)}
@@ -100,21 +106,7 @@ function CafeCard({ cafe, onToggleWishlist, isWishlisted, onShowMap }: {
         
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <h3 className="font-medium text-coffee-light">{cafe.name}</h3>
-              {brandLogoUrl && (
-                <img
-                  src={brandLogoUrl}
-                  alt={`${cafe.name} 로고`}
-                  className="w-5 h-5 rounded-full bg-white p-0.5"
-                  onError={(e) => {
-                    if (!brandFallbackUrl) return;
-                    const target = e.target as HTMLImageElement;
-                    target.src = brandFallbackUrl;
-                  }}
-                />
-              )}
-            </div>
+            <h3 className="font-medium text-coffee-light">{cafe.name}</h3>
             {cafe.rating && (
               <div className="flex items-center">
                 <span className="text-coffee-gold text-sm">⭐</span>

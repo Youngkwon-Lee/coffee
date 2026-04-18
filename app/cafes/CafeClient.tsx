@@ -103,6 +103,8 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
 }) {
   const brandLogoUrl = getBrandLogoUrl(cafe);
   const brandFallbackUrl = getBrandFaviconUrl(cafe);
+  const isLogoPlaceholder = !cafe.imageUrl && !!brandLogoUrl;
+  const imageSrc = cafe.imageUrl || brandLogoUrl || brandFallbackUrl || getCafeImageByLocation(cafe.name, cafe.address);
 
   return (
     <div 
@@ -112,27 +114,18 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
       {/* 이미지 섹션 */}
       <div className="relative">
         <LazyImage
-          src={cafe.imageUrl || getCafeImageByLocation(cafe.name, cafe.address)}
+          src={imageSrc}
           alt={cafe.name}
           width={400}
           height={300}
-          className="w-full h-56 object-cover"
+          className={`w-full h-56 ${isLogoPlaceholder ? 'bg-white p-6 object-contain' : 'object-cover'}`}
           priority={false}
           sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
-        {brandLogoUrl && (
-          <div className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-white/95 p-1 shadow-md border border-black/10">
-            <img
-              src={brandLogoUrl}
-              alt={`${cafe.name} 로고`}
-              className="w-full h-full object-contain rounded-full"
-            />
-          </div>
-        )}
         {/* 이미지 소스 표시 */}
         {!cafe.imageUrl && (
           <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-            AI 생성
+            {isLogoPlaceholder ? '브랜드 로고' : 'AI 생성'}
           </div>
         )}
         {/* 위시리스트 버튼 */}
@@ -158,21 +151,7 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
       {/* 콘텐츠 섹션 */}
       <div className="p-5">
         <div className="mb-3">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="font-semibold text-coffee-light text-xl">{cafe.name}</h3>
-            {brandLogoUrl && (
-              <img
-                src={brandLogoUrl}
-                alt={`${cafe.name} 로고`}
-                className="w-6 h-6 rounded-full bg-white p-0.5 border border-black/10"
-                onError={(e) => {
-                  if (!brandFallbackUrl) return;
-                  const target = e.target as HTMLImageElement;
-                  target.src = brandFallbackUrl;
-                }}
-              />
-            )}
-          </div>
+          <h3 className="font-semibold text-coffee-light text-xl mb-2">{cafe.name}</h3>
           <p className="text-coffee-medium mb-3 line-clamp-1">
             {cafe.address}
           </p>
