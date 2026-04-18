@@ -212,6 +212,7 @@ export default function HistoryClient() {
   const [detailCafe, setDetailCafe] = useState("");
   const [detailBean, setDetailBean] = useState("");
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const getRecordDate = (record: CoffeeRecord) =>
     record.createdAt instanceof Timestamp ? record.createdAt.toDate() : new Date(record.createdAt);
@@ -323,6 +324,7 @@ export default function HistoryClient() {
     setDetailEditing(false);
     setDetailCafe("");
     setDetailBean("");
+    setShowDeleteConfirm(false);
   };
 
   const handleDetailSave = async () => {
@@ -334,8 +336,6 @@ export default function HistoryClient() {
 
   const handleDeleteRecord = async () => {
     if (!selectedRecord || !user) return;
-    const ok = window.confirm("이 기록을 삭제할까요? 삭제 후 복구할 수 없어요.");
-    if (!ok) return;
 
     try {
       setDeletingRecordId(selectedRecord.id);
@@ -548,14 +548,36 @@ export default function HistoryClient() {
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="text-xs px-3 py-1.5 rounded border border-red-400/40 text-red-300 hover:bg-red-500/10"
-                onClick={handleDeleteRecord}
-                disabled={deletingRecordId === selectedRecord.id || updatingRecordId === selectedRecord.id}
-              >
-                {deletingRecordId === selectedRecord.id ? "삭제 중..." : "삭제"}
-              </button>
+              {!showDeleteConfirm ? (
+                <button
+                  type="button"
+                  className="text-xs px-3 py-1.5 rounded border border-red-400/40 text-red-300 hover:bg-red-500/10"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deletingRecordId === selectedRecord.id || updatingRecordId === selectedRecord.id}
+                >
+                  삭제
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 text-xs mr-auto">
+                  <span className="text-red-300">정말 삭제할까요?</span>
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded border border-coffee-light border-opacity-20 text-coffee-light"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={deletingRecordId === selectedRecord.id}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded bg-red-500 text-white disabled:opacity-60"
+                    onClick={handleDeleteRecord}
+                    disabled={deletingRecordId === selectedRecord.id}
+                  >
+                    {deletingRecordId === selectedRecord.id ? "삭제 중..." : "확인 삭제"}
+                  </button>
+                </div>
+              )}
 
               {!detailEditing ? (
                 <button
