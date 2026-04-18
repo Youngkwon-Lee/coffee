@@ -47,11 +47,18 @@ interface Cafe {
 
 const BRAND_DOMAIN_MAP: { keyword: string; domain: string }[] = [
   { keyword: "블루보틀", domain: "bluebottlecoffee.com" },
+  { keyword: "blue bottle", domain: "bluebottlecoffee.com" },
+  { keyword: "bluebottle", domain: "bluebottlecoffee.com" },
   { keyword: "앤쓰러사이트", domain: "anthracitecoffee.com" },
+  { keyword: "anthracite", domain: "anthracitecoffee.com" },
   { keyword: "커피리브레", domain: "coffeelibre.kr" },
+  { keyword: "coffeelibre", domain: "coffeelibre.kr" },
   { keyword: "센터커피", domain: "centercoffee.co.kr" },
+  { keyword: "center coffee", domain: "centercoffee.co.kr" },
+  { keyword: "centercoffee", domain: "centercoffee.co.kr" },
   { keyword: "디폴트밸류", domain: "defaultvalue.co.kr" },
   { keyword: "디폴트벨류", domain: "defaultvalue.co.kr" },
+  { keyword: "defaultvalue", domain: "defaultvalue.co.kr" },
 ];
 
 function getBrandLogoUrl(cafe: Cafe): string | null {
@@ -143,7 +150,16 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
       {/* 콘텐츠 섹션 */}
       <div className="p-5">
         <div className="mb-3">
-          <h3 className="font-semibold text-coffee-light text-xl mb-2">{cafe.name}</h3>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="font-semibold text-coffee-light text-xl">{cafe.name}</h3>
+            {brandLogoUrl && (
+              <img
+                src={brandLogoUrl}
+                alt={`${cafe.name} 로고`}
+                className="w-6 h-6 rounded-full bg-white p-0.5 border border-black/10"
+              />
+            )}
+          </div>
           <p className="text-coffee-medium mb-3 line-clamp-1">
             {cafe.address}
           </p>

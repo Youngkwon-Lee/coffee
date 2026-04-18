@@ -41,11 +41,18 @@ interface Cafe {
 
 const BRAND_DOMAIN_MAP: { keyword: string; domain: string }[] = [
   { keyword: "블루보틀", domain: "bluebottlecoffee.com" },
+  { keyword: "blue bottle", domain: "bluebottlecoffee.com" },
+  { keyword: "bluebottle", domain: "bluebottlecoffee.com" },
   { keyword: "앤쓰러사이트", domain: "anthracitecoffee.com" },
+  { keyword: "anthracite", domain: "anthracitecoffee.com" },
   { keyword: "커피리브레", domain: "coffeelibre.kr" },
+  { keyword: "coffeelibre", domain: "coffeelibre.kr" },
   { keyword: "센터커피", domain: "centercoffee.co.kr" },
+  { keyword: "center coffee", domain: "centercoffee.co.kr" },
+  { keyword: "centercoffee", domain: "centercoffee.co.kr" },
   { keyword: "디폴트밸류", domain: "defaultvalue.co.kr" },
   { keyword: "디폴트벨류", domain: "defaultvalue.co.kr" },
+  { keyword: "defaultvalue", domain: "defaultvalue.co.kr" },
 ];
 
 function getBrandLogoUrl(cafe: Cafe): string | null {
