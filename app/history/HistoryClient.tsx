@@ -184,13 +184,19 @@ function CoffeeRecordCard({
 }
 
 const filters = ["전체", "이번 주", "즐겨찾기"];
+const sortModes = ["최신순", "오래된순", "평점순"] as const;
+type SortMode = (typeof sortModes)[number];
 
 export default function HistoryClient() {
   const [user] = useAuthState(auth);
   const [coffeeRecords, setCoffeeRecords] = useState<CoffeeRecord[]>([]);
   const [activeFilter, setActiveFilter] = useState("전체");
+  const [activeSort, setActiveSort] = useState<SortMode>("최신순");
   const [isLoading, setIsLoading] = useState(true);
   const [updatingRecordId, setUpdatingRecordId] = useState<string | null>(null);
+
+  const getRecordDate = (record: CoffeeRecord) =>
+    record.createdAt instanceof Timestamp ? record.createdAt.toDate() : new Date(record.createdAt);
 
   const loadCoffeeRecords = useCallback(async () => {
     if (!user) {
@@ -242,6 +248,21 @@ export default function HistoryClient() {
   };
 
   const filteredRecords = getFilteredRecords();
+
+  const sortedRecords = [...filteredRecords].sort((a, b) => {
+    if (activeSort === "평점순") {
+      return (b.rating || 0) - (a.rating || 0);
+    }
+
+    const aTime = getRecordDate(a).getTime();
+    const bTime = getRecordDate(b).getTime();
+    return activeSort === "최신순" ? bTime - aTime : aTime - bTime;
+  });
+
+  const cycleSortMode = () => {
+    const idx = sortModes.indexOf(activeSort);
+    setActiveSort(sortModes[(idx + 1) % sortModes.length]);
+  };
 
   async function handleQuickUpdate(recordId: string, cafe: string, bean: string) {
     if (!user) return;
@@ -313,11 +334,14 @@ export default function HistoryClient() {
           <span className="text-sm text-coffee-light opacity-70">
             총 {coffeeRecords.length}개
           </span>
-          <button className="bg-coffee-gold text-coffee-dark px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors">
+          <button
+            onClick={cycleSortMode}
+            className="bg-coffee-gold text-coffee-dark px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors"
+          >
             <svg className="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
               <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-.293.707L13 10.414V17a1 1 0 01-.447.894l-2 1A1 1 0 019 18v-7.586L5.293 6.707A1 1 0 015 6V4z" />
             </svg>
-            정렬
+            {activeSort}
           </button>
         </div>
       </div>
@@ -342,8 +366,8 @@ export default function HistoryClient() {
 
       {/* Coffee Records */}
       <div className="space-y-3">
-        {filteredRecords.length > 0 ? (
-          filteredRecords.map((record) => (
+        {sortedRecords.length > 0 ? (
+          sortedRecords.map((record) => (
             <CoffeeRecordCard
               key={record.id}
               record={record}
