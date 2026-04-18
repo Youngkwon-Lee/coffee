@@ -4,13 +4,14 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { db, auth } from "@/firebase";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useAuthState } from "react-firebase-hooks/auth";
-import Link from "next/link";
 import { useCustomAlert } from "../../components/CustomAlert";
 
 // Tesseract.js 동적 import (에러 방지)
-let Tesseract: any = null;
+let Tesseract: {
+  recognize: (image: File | Blob, languages?: string, options?: unknown) => Promise<{ data?: { text?: string } }>;
+} | null = null;
 if (typeof window !== "undefined") {
   import('tesseract.js').then(module => {
     Tesseract = module.default;
@@ -104,7 +105,6 @@ export default function PhotoRecordPageSimple() {
   const [analysisError, setAnalysisError] = useState<string>("");
   const [glmUnavailable, setGlmUnavailable] = useState(false);
   const [showValidationHints, setShowValidationHints] = useState(false);
-  const [showFlavorWheel, setShowFlavorWheel] = useState(false);
   const [cafeSuggestions, setCafeSuggestions] = useState<string[]>([]);
   const [showCafeSuggestions, setShowCafeSuggestions] = useState(false);
 
@@ -413,16 +413,23 @@ export default function PhotoRecordPageSimple() {
 
     try {
       const config = {
-        logger: (m: any) => {
-          if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
-            const progress = Math.round(m.progress * 100);
+        logger: (m: unknown) => {
+          if (
+            typeof m === 'object' &&
+            m !== null &&
+            'status' in m &&
+            'progress' in m &&
+            (m as { status?: unknown }).status === 'recognizing text' &&
+            typeof (m as { progress?: unknown }).progress === 'number'
+          ) {
+            const progress = Math.round((m as { progress: number }).progress * 100);
             setOcrProgress(progress);
           }
         },
         tessedit_pageseg_mode: 6,
         preserve_interword_spaces: '1',
         user_defined_dpi: '300',
-      } as any;
+      };
 
       // 1차: 원본 이미지 OCR
       const pass1 = await Tesseract.recognize(imageFile, 'kor+eng', config);
@@ -650,11 +657,6 @@ export default function PhotoRecordPageSimple() {
     }));
   };
 
-  // 플레이버 휠에서 향미 선택
-  const handleFlavorWheelSelect = (flavor: string) => {
-    addFlavor(flavor);
-  };
-
   // 폼 제출
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -723,7 +725,7 @@ export default function PhotoRecordPageSimple() {
       setSubmitting(true);
 
       // undefined 값 제거한 기록 데이터 생성
-      const recordData: any = {
+      const recordData: Record<string, unknown> = {
         bean: safeBean,
         cafe: safeCafe,
         flavor: form.flavor,
@@ -778,14 +780,6 @@ export default function PhotoRecordPageSimple() {
   };
 
   const PROCESSING_OPTIONS = ["Natural", "Washed", "Honey", "Anaerobic", "Semi-washed", "기타"];
-  const MOOD_OPTIONS = [
-    { emoji: "😊", label: "행복해요" },
-    { emoji: "☕", label: "카페인 충전" },
-    { emoji: "🌅", label: "상쾌해요" },
-    { emoji: "💪", label: "에너지 충만" },
-    { emoji: "😌", label: "편안해요" },
-    { emoji: "🔥", label: "열정적" }
-  ];
 
   return (
     <div className="min-h-screen bg-coffee-dark relative overflow-hidden">
