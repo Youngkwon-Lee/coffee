@@ -59,14 +59,14 @@ function getBrandLogoUrl(cafe: Cafe): string | null {
   const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
   const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
   if (!found) return null;
-  return `https://logo.clearbit.com/${found.domain}`;
+  return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=256`;
 }
 
 function getBrandFaviconUrl(cafe: Cafe): string | null {
   const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
   const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
   if (!found) return null;
-  return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=128`;
+  return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=256`;
 }
 
 // Cafe Card Component
