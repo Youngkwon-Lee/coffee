@@ -208,6 +208,9 @@ export default function HistoryClient() {
   const [updatingRecordId, setUpdatingRecordId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string>("");
   const [selectedRecord, setSelectedRecord] = useState<CoffeeRecord | null>(null);
+  const [detailEditing, setDetailEditing] = useState(false);
+  const [detailCafe, setDetailCafe] = useState("");
+  const [detailBean, setDetailBean] = useState("");
 
   const getRecordDate = (record: CoffeeRecord) =>
     record.createdAt instanceof Timestamp ? record.createdAt.toDate() : new Date(record.createdAt);
@@ -306,6 +309,27 @@ export default function HistoryClient() {
       setUpdatingRecordId(null);
     }
   }
+
+  const openDetail = (record: CoffeeRecord) => {
+    setSelectedRecord(record);
+    setDetailCafe(record.cafe || "");
+    setDetailBean(record.bean || "");
+    setDetailEditing(false);
+  };
+
+  const closeDetail = () => {
+    setSelectedRecord(null);
+    setDetailEditing(false);
+    setDetailCafe("");
+    setDetailBean("");
+  };
+
+  const handleDetailSave = async () => {
+    if (!selectedRecord) return;
+    await handleQuickUpdate(selectedRecord.id, detailCafe.trim(), detailBean.trim());
+    setSelectedRecord((prev) => (prev ? { ...prev, cafe: detailCafe.trim(), bean: detailBean.trim() } : prev));
+    setDetailEditing(false);
+  };
 
   if (isLoading) {
     return (
@@ -410,7 +434,7 @@ export default function HistoryClient() {
               showFlavors
               onQuickUpdate={handleQuickUpdate}
               updating={updatingRecordId === record.id}
-              onOpenDetail={setSelectedRecord}
+              onOpenDetail={openDetail}
             />
           ))
         ) : (
@@ -453,7 +477,7 @@ export default function HistoryClient() {
       {selectedRecord && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm p-4 flex items-end md:items-center justify-center"
-          onClick={() => setSelectedRecord(null)}
+          onClick={closeDetail}
         >
           <div
             className="w-full max-w-lg bg-coffee-medium rounded-2xl p-5 border border-coffee-gold border-opacity-20"
@@ -464,19 +488,77 @@ export default function HistoryClient() {
               <button
                 type="button"
                 className="text-coffee-light opacity-70 hover:opacity-100"
-                onClick={() => setSelectedRecord(null)}
+                onClick={closeDetail}
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-2 text-sm text-coffee-light">
-              <p><span className="opacity-60">카페</span> {selectedRecord.cafe || "-"}</p>
-              <p><span className="opacity-60">원두</span> {selectedRecord.bean || "-"}</p>
+              <p>
+                <span className="opacity-60">카페</span>{" "}
+                {detailEditing ? (
+                  <input
+                    value={detailCafe}
+                    onChange={(e) => setDetailCafe(e.target.value)}
+                    className="ml-2 rounded bg-coffee-dark text-coffee-light px-2 py-1 border border-coffee-gold border-opacity-20"
+                    placeholder="카페명"
+                  />
+                ) : (
+                  selectedRecord.cafe || "-"
+                )}
+              </p>
+              <p>
+                <span className="opacity-60">원두</span>{" "}
+                {detailEditing ? (
+                  <input
+                    value={detailBean}
+                    onChange={(e) => setDetailBean(e.target.value)}
+                    className="ml-2 rounded bg-coffee-dark text-coffee-light px-2 py-1 border border-coffee-gold border-opacity-20"
+                    placeholder="원두명"
+                  />
+                ) : (
+                  selectedRecord.bean || "-"
+                )}
+              </p>
               <p><span className="opacity-60">평점</span> {selectedRecord.rating || 0}.0</p>
               <p><span className="opacity-60">추출/가공</span> {selectedRecord.brewMethod || selectedRecord.processing || "-"}</p>
               <p><span className="opacity-60">향미</span> {Array.isArray(selectedRecord.flavor) ? selectedRecord.flavor.join(", ") : selectedRecord.flavor || "-"}</p>
               <p><span className="opacity-60">메모</span> {selectedRecord.review || "-"}</p>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              {!detailEditing ? (
+                <button
+                  type="button"
+                  className="text-xs px-3 py-1.5 rounded bg-coffee-gold text-coffee-dark font-medium"
+                  onClick={() => setDetailEditing(true)}
+                >
+                  수정하기
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="text-xs px-3 py-1.5 rounded border border-coffee-light border-opacity-20 text-coffee-light"
+                    onClick={() => {
+                      setDetailEditing(false);
+                      setDetailCafe(selectedRecord.cafe || "");
+                      setDetailBean(selectedRecord.bean || "");
+                    }}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs px-3 py-1.5 rounded bg-coffee-gold text-coffee-dark font-medium disabled:opacity-50"
+                    disabled={updatingRecordId === selectedRecord.id || !detailCafe.trim() || !detailBean.trim()}
+                    onClick={handleDetailSave}
+                  >
+                    {updatingRecordId === selectedRecord.id ? "저장 중..." : "저장"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
