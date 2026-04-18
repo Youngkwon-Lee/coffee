@@ -194,6 +194,7 @@ export default function HistoryClient() {
   const [activeSort, setActiveSort] = useState<SortMode>("최신순");
   const [isLoading, setIsLoading] = useState(true);
   const [updatingRecordId, setUpdatingRecordId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string>("");
 
   const getRecordDate = (record: CoffeeRecord) =>
     record.createdAt instanceof Timestamp ? record.createdAt.toDate() : new Date(record.createdAt);
@@ -229,6 +230,12 @@ export default function HistoryClient() {
     loadCoffeeRecords();
   }, [loadCoffeeRecords]);
 
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(""), 2200);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
   const getFilteredRecords = () => {
     switch (activeFilter) {
       case "이번 주":
@@ -262,6 +269,7 @@ export default function HistoryClient() {
   const cycleSortMode = () => {
     const idx = sortModes.indexOf(activeSort);
     setActiveSort(sortModes[(idx + 1) % sortModes.length]);
+    setToastMessage(`정렬: ${sortModes[(idx + 1) % sortModes.length]}`);
   };
 
   async function handleQuickUpdate(recordId: string, cafe: string, bean: string) {
@@ -277,6 +285,7 @@ export default function HistoryClient() {
       setCoffeeRecords((prev) =>
         prev.map((r) => (r.id === recordId ? { ...r, cafe, bean } : r))
       );
+      setToastMessage("기록 수정이 저장되었어요 ✅");
     } catch (error) {
       console.error("빠른 수정 실패:", error);
       alert("수정 저장에 실패했어요. 잠시 후 다시 시도해주세요.");
@@ -327,6 +336,19 @@ export default function HistoryClient() {
 
   return (
     <div className="p-4 pb-24">
+      {toastMessage && (
+        <div className="mb-4 bg-coffee-gold text-coffee-dark px-3 py-2 rounded-lg text-sm font-medium flex items-center justify-between">
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            className="ml-3 text-coffee-dark/70 hover:text-coffee-dark"
+            onClick={() => setToastMessage("")}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-coffee-light">내 커피 기록</h1>
