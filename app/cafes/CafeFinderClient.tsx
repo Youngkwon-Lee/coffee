@@ -59,6 +59,13 @@ function getBrandLogoUrl(cafe: Cafe): string | null {
   const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
   const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
   if (!found) return null;
+  return `https://logo.clearbit.com/${found.domain}`;
+}
+
+function getBrandFaviconUrl(cafe: Cafe): string | null {
+  const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
+  const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
+  if (!found) return null;
   return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=128`;
 }
 
@@ -70,6 +77,7 @@ function CafeCard({ cafe, onToggleWishlist, isWishlisted, onShowMap }: {
   onShowMap: (cafe: Cafe) => void;
 }) {
   const brandLogoUrl = getBrandLogoUrl(cafe);
+  const brandFallbackUrl = getBrandFaviconUrl(cafe);
 
   return (
     <div className="card-coffee p-4 card-hover">
@@ -99,6 +107,11 @@ function CafeCard({ cafe, onToggleWishlist, isWishlisted, onShowMap }: {
                   src={brandLogoUrl}
                   alt={`${cafe.name} 로고`}
                   className="w-5 h-5 rounded-full bg-white p-0.5"
+                  onError={(e) => {
+                    if (!brandFallbackUrl) return;
+                    const target = e.target as HTMLImageElement;
+                    target.src = brandFallbackUrl;
+                  }}
                 />
               )}
             </div>
