@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { addDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { db, auth } from "@/firebase";
 import { motion } from "framer-motion";
@@ -136,9 +137,9 @@ export default function PhotoRecordPageSimple() {
     return () => {
       isMounted = false;
     };
-  }, [user]);
+  }, [loadFrequentCafes]);
 
-  const loadFrequentCafes = async () => {
+  const loadFrequentCafes = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -168,7 +169,7 @@ export default function PhotoRecordPageSimple() {
     } catch (error) {
       console.error('카페 목록 로드 실패:', error);
     }
-  };
+  }, [user]);
 
   // 설문 폼 상태
   const [form, setForm] = useState({
@@ -817,11 +818,15 @@ export default function PhotoRecordPageSimple() {
         >
           {preview ? (
             <div className="relative">
-              <img
-                src={preview}
-                alt="Preview"
-                className="w-full max-h-96 object-contain rounded-xl"
-              />
+              <div className="relative w-full h-96">
+                <Image
+                  src={preview}
+                  alt="Preview"
+                  fill
+                  unoptimized
+                  className="object-contain rounded-xl"
+                />
+              </div>
               <button
                 onClick={() => {
                   setPreview(null);
