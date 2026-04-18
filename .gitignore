@@ -189,3 +189,7 @@ ENV/
 *.bak
 *.tmp
 temp/
+# Local OCR/test artifacts
+.venv/
+tmp_ocr/
+*.traineddata

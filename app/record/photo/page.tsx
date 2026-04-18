@@ -694,25 +694,18 @@ export default function PhotoRecordPageSimple() {
       return;
     }
 
-    if (!form.bean?.trim()) {
-      setShowValidationHints(true);
+    if (!form.rating) {
       showAlert({
         type: 'error',
-        title: '원두명 입력 필요',
-        message: '원두명을 입력해주세요.'
+        title: '평점 입력 필요',
+        message: '별점(1~5)을 선택해주세요.'
       });
       return;
     }
 
-    if (!form.cafe?.trim()) {
-      setShowValidationHints(true);
-      showAlert({
-        type: 'error',
-        title: '카페명 입력 필요',
-        message: '카페명을 입력해주세요.'
-      });
-      return;
-    }
+    // 카페/원두가 비어있으면 최소 기본값으로 저장 (빠른 기록 우선)
+    const safeBean = form.bean?.trim() || '미입력 원두';
+    const safeCafe = form.cafe?.trim() || '미입력 카페';
 
     // 저신뢰도 결과는 저장 전 재확인(검토 모달)
     if (analysisResult?.confidence !== undefined && analysisResult.confidence < 0.6) {
@@ -731,8 +724,8 @@ export default function PhotoRecordPageSimple() {
 
       // undefined 값 제거한 기록 데이터 생성
       const recordData: any = {
-        bean: form.bean,
-        cafe: form.cafe,
+        bean: safeBean,
+        cafe: safeCafe,
         flavor: form.flavor,
         imageUrl: preview,
         analysisData: analysisResult,
@@ -1484,7 +1477,7 @@ export default function PhotoRecordPageSimple() {
               <div className="flex gap-4">
                 <button
                   type="submit"
-                  disabled={!form.bean || !form.cafe || submitting}
+                  disabled={!form.rating || submitting}
                   className="btn-primary flex-1 disabled:opacity-50"
                 >
                   {submitting ? "저장 중..." : "저장하기"}
