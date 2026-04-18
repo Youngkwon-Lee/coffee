@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/firebase";
 import { collection, query, orderBy, getDocs, Timestamp, doc, updateDoc } from "firebase/firestore";
@@ -188,6 +189,7 @@ const sortModes = ["최신순", "오래된순", "평점순"] as const;
 type SortMode = (typeof sortModes)[number];
 
 export default function HistoryClient() {
+  const router = useRouter();
   const [user] = useAuthState(auth);
   const [coffeeRecords, setCoffeeRecords] = useState<CoffeeRecord[]>([]);
   const [activeFilter, setActiveFilter] = useState("전체");
@@ -417,10 +419,18 @@ export default function HistoryClient() {
                "별점 4점 이상의 커피를 마셔보세요!"}
             </p>
             <div className="flex justify-center gap-3">
-              <button className="btn-primary">
+              <button
+                type="button"
+                onClick={() => router.push('/record/photo')}
+                className="btn-primary"
+              >
                 📸 사진으로 기록
               </button>
-              <button className="btn-secondary">
+              <button
+                type="button"
+                onClick={() => router.push('/record/manual')}
+                className="btn-secondary"
+              >
                 ✍️ 직접 입력
               </button>
             </div>
