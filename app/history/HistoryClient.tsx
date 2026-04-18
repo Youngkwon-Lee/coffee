@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/firebase";
-import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, Timestamp, doc, updateDoc } from "firebase/firestore";
 import Link from "next/link";
 
 interface CoffeeRecord {
@@ -19,11 +19,29 @@ interface CoffeeRecord {
 }
 
 // Coffee Card Component for History
-function CoffeeRecordCard({ record, showTime = true, showFlavors = true }: {
+function CoffeeRecordCard({
+  record,
+  showTime = true,
+  showFlavors = true,
+  onQuickUpdate,
+  updating,
+}: {
   record: CoffeeRecord;
   showTime?: boolean;
   showFlavors?: boolean;
+  onQuickUpdate?: (recordId: string, cafe: string, bean: string) => Promise<void>;
+  updating?: boolean;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editCafe, setEditCafe] = useState(record.cafe || "");
+  const [editBean, setEditBean] = useState(record.bean || "");
+
+  const needsQuickFix =
+    !record.cafe?.trim() ||
+    !record.bean?.trim() ||
+    record.cafe?.includes("미입력") ||
+    record.bean?.includes("미입력");
+
   const formatTime = (timestamp: string | Timestamp) => {
     const date = timestamp instanceof Timestamp ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
@@ -102,6 +120,64 @@ function CoffeeRecordCard({ record, showTime = true, showFlavors = true }: {
               {record.review}
             </p>
           )}
+
+          {needsQuickFix && onQuickUpdate && (
+            <div className="mt-3 border border-coffee-gold border-opacity-25 rounded-lg p-3 bg-coffee-dark/30">
+              {!isEditing ? (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-coffee-light opacity-80">
+                    미입력 카페/원두가 있어요. 빠르게 수정할까요?
+                  </p>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded bg-coffee-gold text-coffee-dark font-medium"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    빠른 수정
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    value={editCafe}
+                    onChange={(e) => setEditCafe(e.target.value)}
+                    placeholder="카페명"
+                    className="w-full rounded bg-coffee-dark text-coffee-light px-2 py-1.5 text-xs border border-coffee-gold border-opacity-20"
+                  />
+                  <input
+                    value={editBean}
+                    onChange={(e) => setEditBean(e.target.value)}
+                    placeholder="원두명"
+                    className="w-full rounded bg-coffee-dark text-coffee-light px-2 py-1.5 text-xs border border-coffee-gold border-opacity-20"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      className="text-xs px-2 py-1 rounded border border-coffee-light border-opacity-20 text-coffee-light"
+                      onClick={() => {
+                        setEditCafe(record.cafe || "");
+                        setEditBean(record.bean || "");
+                        setIsEditing(false);
+                      }}
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      disabled={updating || !editCafe.trim() || !editBean.trim()}
+                      className="text-xs px-2 py-1 rounded bg-coffee-gold text-coffee-dark font-medium disabled:opacity-50"
+                      onClick={async () => {
+                        await onQuickUpdate(record.id, editCafe.trim(), editBean.trim());
+                        setIsEditing(false);
+                      }}
+                    >
+                      {updating ? "저장 중..." : "저장"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -115,6 +191,7 @@ export default function HistoryClient() {
   const [coffeeRecords, setCoffeeRecords] = useState<CoffeeRecord[]>([]);
   const [activeFilter, setActiveFilter] = useState("전체");
   const [isLoading, setIsLoading] = useState(true);
+  const [updatingRecordId, setUpdatingRecordId] = useState<string | null>(null);
 
   useEffect(() => {
     loadCoffeeRecords();
@@ -166,6 +243,27 @@ export default function HistoryClient() {
   };
 
   const filteredRecords = getFilteredRecords();
+
+  async function handleQuickUpdate(recordId: string, cafe: string, bean: string) {
+    if (!user) return;
+    try {
+      setUpdatingRecordId(recordId);
+      await updateDoc(doc(db, "users", user.uid, "records", recordId), {
+        cafe,
+        bean,
+        updatedAt: new Date().toISOString(),
+      });
+
+      setCoffeeRecords((prev) =>
+        prev.map((r) => (r.id === recordId ? { ...r, cafe, bean } : r))
+      );
+    } catch (error) {
+      console.error("빠른 수정 실패:", error);
+      alert("수정 저장에 실패했어요. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setUpdatingRecordId(null);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -252,6 +350,8 @@ export default function HistoryClient() {
               record={record}
               showTime
               showFlavors
+              onQuickUpdate={handleQuickUpdate}
+              updating={updatingRecordId === record.id}
             />
           ))
         ) : (
