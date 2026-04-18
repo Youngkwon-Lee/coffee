@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/firebase";
-import { collection, query, orderBy, getDocs, Timestamp, doc, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, Timestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -211,6 +211,7 @@ export default function HistoryClient() {
   const [detailEditing, setDetailEditing] = useState(false);
   const [detailCafe, setDetailCafe] = useState("");
   const [detailBean, setDetailBean] = useState("");
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
 
   const getRecordDate = (record: CoffeeRecord) =>
     record.createdAt instanceof Timestamp ? record.createdAt.toDate() : new Date(record.createdAt);
@@ -329,6 +330,25 @@ export default function HistoryClient() {
     await handleQuickUpdate(selectedRecord.id, detailCafe.trim(), detailBean.trim());
     setSelectedRecord((prev) => (prev ? { ...prev, cafe: detailCafe.trim(), bean: detailBean.trim() } : prev));
     setDetailEditing(false);
+  };
+
+  const handleDeleteRecord = async () => {
+    if (!selectedRecord || !user) return;
+    const ok = window.confirm("이 기록을 삭제할까요? 삭제 후 복구할 수 없어요.");
+    if (!ok) return;
+
+    try {
+      setDeletingRecordId(selectedRecord.id);
+      await deleteDoc(doc(db, "users", user.uid, "records", selectedRecord.id));
+      setCoffeeRecords((prev) => prev.filter((r) => r.id !== selectedRecord.id));
+      setToastMessage("기록이 삭제되었어요 🗑️");
+      closeDetail();
+    } catch (error) {
+      console.error("기록 삭제 실패:", error);
+      alert("삭제에 실패했어요. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setDeletingRecordId(null);
+    }
   };
 
   if (isLoading) {
@@ -528,6 +548,15 @@ export default function HistoryClient() {
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded border border-red-400/40 text-red-300 hover:bg-red-500/10"
+                onClick={handleDeleteRecord}
+                disabled={deletingRecordId === selectedRecord.id || updatingRecordId === selectedRecord.id}
+              >
+                {deletingRecordId === selectedRecord.id ? "삭제 중..." : "삭제"}
+              </button>
+
               {!detailEditing ? (
                 <button
                   type="button"
