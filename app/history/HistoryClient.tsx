@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/firebase";
 import { collection, query, orderBy, getDocs, Timestamp, doc, updateDoc } from "firebase/firestore";
 import Link from "next/link";
+import Image from "next/image";
 
 interface CoffeeRecord {
   id: string;
@@ -62,15 +63,13 @@ function CoffeeRecordCard({
     <div className="bg-coffee-medium rounded-xl p-4 card-hover border border-coffee-gold border-opacity-10">
       <div className="flex items-start space-x-3">
         <div className="w-14 h-14 rounded-xl overflow-hidden bg-coffee-dark flex-shrink-0">
-          <img 
-            src={record.imageUrl || "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=120&h=120&fit=crop&crop=center"} 
+          <Image
+            src={record.imageUrl || "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=120&h=120&fit=crop&crop=center"}
             alt={record.bean}
+            width={56}
+            height={56}
+            unoptimized
             className="w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=120&h=120&fit=crop&crop=center";
-            }}
           />
         </div>
         <div className="flex-1 min-w-0">
@@ -193,11 +192,7 @@ export default function HistoryClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [updatingRecordId, setUpdatingRecordId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadCoffeeRecords();
-  }, [user]);
-
-  async function loadCoffeeRecords() {
+  const loadCoffeeRecords = useCallback(async () => {
     if (!user) {
       setIsLoading(false);
       return;
@@ -222,7 +217,11 @@ export default function HistoryClient() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    loadCoffeeRecords();
+  }, [loadCoffeeRecords]);
 
   const getFilteredRecords = () => {
     switch (activeFilter) {
