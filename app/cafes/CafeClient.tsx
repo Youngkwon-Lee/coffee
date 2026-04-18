@@ -45,6 +45,22 @@ interface Cafe {
   lastUpdated?: string;
 }
 
+const BRAND_DOMAIN_MAP: { keyword: string; domain: string }[] = [
+  { keyword: "블루보틀", domain: "bluebottlecoffee.com" },
+  { keyword: "앤쓰러사이트", domain: "anthracitecoffee.com" },
+  { keyword: "커피리브레", domain: "coffeelibre.kr" },
+  { keyword: "센터커피", domain: "centercoffee.co.kr" },
+  { keyword: "디폴트밸류", domain: "defaultvalue.co.kr" },
+  { keyword: "디폴트벨류", domain: "defaultvalue.co.kr" },
+];
+
+function getBrandLogoUrl(cafe: Cafe): string | null {
+  const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
+  const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
+  if (!found) return null;
+  return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=128`;
+}
+
 const FLAVOR_OPTIONS = ["Floral", "Chocolate", "Nutty", "Fruity", "Earthy", "Sweet"];
 const TAGS_ICON: { [key: string]: string } = { "조용함": "🔇", "채광 좋음": "☀️", "노트북 가능": "💻", "로스터리": "🔥", "테이스팅룸": "🧑‍🔬", "한옥": "🏯", "모던": "🏢", "빈티지": "📻", "공장 리모델링": "🏭", "포토존": "📸", "베이커리": "🥐", "성당 느낌": "⛪" };
 const MENU_ICON: { [key: string]: string } = { "에스프레소": "☕", "드립커피": "🫖", "콜드브루": "🧊", "플로럴 블렌드": "🌸", "프렌치프레스": "🥄", "크루아상": "🥐", "베이커리 플래터": "🍞", "티라미수": "🍰", "라떼": "🥛", "시그니처 음료": "⭐" };
@@ -71,6 +87,8 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
   isWishlisted: boolean;
   onClick: () => void;
 }) {
+  const brandLogoUrl = getBrandLogoUrl(cafe);
+
   return (
     <div 
       className="card-coffee card-hover cursor-pointer overflow-hidden"
@@ -87,6 +105,15 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
           priority={false}
           sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
+        {brandLogoUrl && (
+          <div className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-white/95 p-1 shadow-md border border-black/10">
+            <img
+              src={brandLogoUrl}
+              alt={`${cafe.name} 로고`}
+              className="w-full h-full object-contain rounded-full"
+            />
+          </div>
+        )}
         {/* 이미지 소스 표시 */}
         {!cafe.imageUrl && (
           <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">

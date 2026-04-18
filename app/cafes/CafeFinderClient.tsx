@@ -39,6 +39,22 @@ interface Cafe {
   lastUpdated?: string;
 }
 
+const BRAND_DOMAIN_MAP: { keyword: string; domain: string }[] = [
+  { keyword: "블루보틀", domain: "bluebottlecoffee.com" },
+  { keyword: "앤쓰러사이트", domain: "anthracitecoffee.com" },
+  { keyword: "커피리브레", domain: "coffeelibre.kr" },
+  { keyword: "센터커피", domain: "centercoffee.co.kr" },
+  { keyword: "디폴트밸류", domain: "defaultvalue.co.kr" },
+  { keyword: "디폴트벨류", domain: "defaultvalue.co.kr" },
+];
+
+function getBrandLogoUrl(cafe: Cafe): string | null {
+  const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
+  const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
+  if (!found) return null;
+  return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=128`;
+}
+
 // Cafe Card Component
 function CafeCard({ cafe, onToggleWishlist, isWishlisted, onShowMap }: {
   cafe: Cafe;
@@ -46,6 +62,8 @@ function CafeCard({ cafe, onToggleWishlist, isWishlisted, onShowMap }: {
   isWishlisted: boolean;
   onShowMap: (cafe: Cafe) => void;
 }) {
+  const brandLogoUrl = getBrandLogoUrl(cafe);
+
   return (
     <div className="card-coffee p-4 card-hover">
       <div className="flex items-start space-x-3">
@@ -67,7 +85,16 @@ function CafeCard({ cafe, onToggleWishlist, isWishlisted, onShowMap }: {
         
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <h3 className="font-medium text-coffee-light">{cafe.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium text-coffee-light">{cafe.name}</h3>
+              {brandLogoUrl && (
+                <img
+                  src={brandLogoUrl}
+                  alt={`${cafe.name} 로고`}
+                  className="w-5 h-5 rounded-full bg-white p-0.5"
+                />
+              )}
+            </div>
             {cafe.rating && (
               <div className="flex items-center">
                 <span className="text-coffee-gold text-sm">⭐</span>
