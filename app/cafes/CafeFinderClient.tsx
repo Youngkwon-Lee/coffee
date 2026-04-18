@@ -39,34 +39,24 @@ interface Cafe {
   lastUpdated?: string;
 }
 
-const BRAND_DOMAIN_MAP: { keyword: string; domain: string }[] = [
-  { keyword: "블루보틀", domain: "bluebottlecoffee.com" },
-  { keyword: "blue bottle", domain: "bluebottlecoffee.com" },
-  { keyword: "bluebottle", domain: "bluebottlecoffee.com" },
-  { keyword: "앤쓰러사이트", domain: "anthracitecoffee.com" },
-  { keyword: "anthracite", domain: "anthracitecoffee.com" },
-  { keyword: "커피리브레", domain: "coffeelibre.kr" },
-  { keyword: "coffeelibre", domain: "coffeelibre.kr" },
-  { keyword: "센터커피", domain: "centercoffee.co.kr" },
-  { keyword: "center coffee", domain: "centercoffee.co.kr" },
-  { keyword: "centercoffee", domain: "centercoffee.co.kr" },
-  { keyword: "디폴트밸류", domain: "defaultvalue.co.kr" },
-  { keyword: "디폴트벨류", domain: "defaultvalue.co.kr" },
-  { keyword: "defaultvalue", domain: "defaultvalue.co.kr" },
+const BRAND_PHOTO_MAP: { keyword: string; imageUrl: string }[] = [
+  { keyword: "블루보틀", imageUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "bluebottle", imageUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "앤쓰러사이트", imageUrl: "https://images.unsplash.com/photo-1461988625982-7e46a099bf4f?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "anthracite", imageUrl: "https://images.unsplash.com/photo-1461988625982-7e46a099bf4f?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "커피리브레", imageUrl: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "coffeelibre", imageUrl: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "센터커피", imageUrl: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "centercoffee", imageUrl: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "디폴트밸류", imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "디폴트벨류", imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=900&h=900&fit=crop&auto=format&q=85" },
+  { keyword: "defaultvalue", imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=900&h=900&fit=crop&auto=format&q=85" },
 ];
 
-function getBrandLogoUrl(cafe: Cafe): string | null {
+function getBrandPhotoUrl(cafe: Cafe): string | null {
   const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
-  const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
-  if (!found) return null;
-  return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=256`;
-}
-
-function getBrandFaviconUrl(cafe: Cafe): string | null {
-  const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
-  const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
-  if (!found) return null;
-  return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=256`;
+  const found = BRAND_PHOTO_MAP.find((item) => source.includes(item.keyword));
+  return found?.imageUrl || null;
 }
 
 // Cafe Card Component
@@ -76,10 +66,8 @@ function CafeCard({ cafe, onToggleWishlist, isWishlisted, onShowMap }: {
   isWishlisted: boolean;
   onShowMap: (cafe: Cafe) => void;
 }) {
-  const brandLogoUrl = getBrandLogoUrl(cafe);
-  const brandFallbackUrl = getBrandFaviconUrl(cafe);
-  const imageSrc = cafe.imageUrl || brandLogoUrl || brandFallbackUrl || "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=80&h=80&fit=crop";
-  const isLogoPlaceholder = !cafe.imageUrl && !!(brandLogoUrl || brandFallbackUrl);
+  const brandPhotoUrl = getBrandPhotoUrl(cafe);
+  const imageSrc = cafe.imageUrl || brandPhotoUrl || "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=80&h=80&fit=crop";
 
   return (
     <div className="card-coffee p-4 card-hover">
@@ -88,7 +76,7 @@ function CafeCard({ cafe, onToggleWishlist, isWishlisted, onShowMap }: {
           <img
             src={imageSrc}
             alt={cafe.name}
-            className={`w-16 h-16 rounded-lg ${isLogoPlaceholder ? 'object-contain bg-white p-1' : 'object-cover'}`}
+            className="w-16 h-16 rounded-lg object-cover"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.src = "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=80&h=80&fit=crop";

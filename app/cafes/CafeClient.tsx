@@ -45,34 +45,24 @@ interface Cafe {
   lastUpdated?: string;
 }
 
-const BRAND_DOMAIN_MAP: { keyword: string; domain: string }[] = [
-  { keyword: "블루보틀", domain: "bluebottlecoffee.com" },
-  { keyword: "blue bottle", domain: "bluebottlecoffee.com" },
-  { keyword: "bluebottle", domain: "bluebottlecoffee.com" },
-  { keyword: "앤쓰러사이트", domain: "anthracitecoffee.com" },
-  { keyword: "anthracite", domain: "anthracitecoffee.com" },
-  { keyword: "커피리브레", domain: "coffeelibre.kr" },
-  { keyword: "coffeelibre", domain: "coffeelibre.kr" },
-  { keyword: "센터커피", domain: "centercoffee.co.kr" },
-  { keyword: "center coffee", domain: "centercoffee.co.kr" },
-  { keyword: "centercoffee", domain: "centercoffee.co.kr" },
-  { keyword: "디폴트밸류", domain: "defaultvalue.co.kr" },
-  { keyword: "디폴트벨류", domain: "defaultvalue.co.kr" },
-  { keyword: "defaultvalue", domain: "defaultvalue.co.kr" },
+const BRAND_PHOTO_MAP: { keyword: string; imageUrl: string }[] = [
+  { keyword: "블루보틀", imageUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "bluebottle", imageUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "앤쓰러사이트", imageUrl: "https://images.unsplash.com/photo-1461988625982-7e46a099bf4f?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "anthracite", imageUrl: "https://images.unsplash.com/photo-1461988625982-7e46a099bf4f?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "커피리브레", imageUrl: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "coffeelibre", imageUrl: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "센터커피", imageUrl: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "centercoffee", imageUrl: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "디폴트밸류", imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "디폴트벨류", imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1600&h=1100&fit=crop&auto=format&q=85" },
+  { keyword: "defaultvalue", imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1600&h=1100&fit=crop&auto=format&q=85" },
 ];
 
-function getBrandLogoUrl(cafe: Cafe): string | null {
+function getBrandPhotoUrl(cafe: Cafe): string | null {
   const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
-  const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
-  if (!found) return null;
-  return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=256`;
-}
-
-function getBrandFaviconUrl(cafe: Cafe): string | null {
-  const source = `${cafe.name} ${cafe.website || ""}`.toLowerCase();
-  const found = BRAND_DOMAIN_MAP.find((item) => source.includes(item.keyword));
-  if (!found) return null;
-  return `https://www.google.com/s2/favicons?domain=${found.domain}&sz=256`;
+  const found = BRAND_PHOTO_MAP.find((item) => source.includes(item.keyword));
+  return found?.imageUrl || null;
 }
 
 const FLAVOR_OPTIONS = ["Floral", "Chocolate", "Nutty", "Fruity", "Earthy", "Sweet"];
@@ -101,10 +91,8 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
   isWishlisted: boolean;
   onClick: () => void;
 }) {
-  const brandLogoUrl = getBrandLogoUrl(cafe);
-  const brandFallbackUrl = getBrandFaviconUrl(cafe);
-  const isLogoPlaceholder = !cafe.imageUrl && !!brandLogoUrl;
-  const imageSrc = cafe.imageUrl || brandLogoUrl || brandFallbackUrl || getCafeImageByLocation(cafe.name, cafe.address);
+  const brandPhotoUrl = getBrandPhotoUrl(cafe);
+  const imageSrc = cafe.imageUrl || brandPhotoUrl || getCafeImageByLocation(cafe.name, cafe.address);
 
   return (
     <div 
@@ -118,14 +106,14 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
           alt={cafe.name}
           width={400}
           height={300}
-          className={`w-full h-56 ${isLogoPlaceholder ? 'bg-white p-6 object-contain' : 'object-cover'}`}
+          className="w-full h-56 object-cover"
           priority={false}
           sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
         {/* 이미지 소스 표시 */}
         {!cafe.imageUrl && (
           <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-            {isLogoPlaceholder ? '브랜드 로고' : 'AI 생성'}
+            {brandPhotoUrl ? '브랜드 추천 이미지' : 'AI 생성'}
           </div>
         )}
         {/* 위시리스트 버튼 */}
