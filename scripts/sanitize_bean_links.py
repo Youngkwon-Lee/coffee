@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+import os
 import re
+from collections import Counter
 import requests
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -27,11 +29,14 @@ def check_url(url: str):
 
 
 def main():
-    cred = credentials.Certificate('firebase_credentials.json')
     try:
         firebase_admin.get_app()
     except Exception:
-        firebase_admin.initialize_app(cred)
+        cred_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', 'firebase_credentials.json')
+        if os.path.exists(cred_path):
+            firebase_admin.initialize_app(credentials.Certificate(cred_path))
+        else:
+            firebase_admin.initialize_app()
 
     db = firestore.client()
     docs = list(db.collection('beans').stream())
@@ -39,30 +44,55 @@ def main():
     fixed = 0
     dead = 0
     unchanged = 0
+    dead_by_brand = Counter()
+    dead_examples = []
 
     for d in docs:
         data = d.to_dict() or {}
         raw = str(data.get('link') or data.get('url') or data.get('product_url') or '')
         norm = normalize(raw)
+        brand = str(data.get('brand') or 'unknown').strip() or 'unknown'
+        name = str(data.get('name') or '').strip()
 
         status, code = check_url(norm) if norm else ('dead', None)
 
         updates = {
-            'link': norm if status == 'ok' else '',
             'linkStatus': status,
         }
+        if norm:
+            updates['link'] = norm
+        if raw and raw != norm:
+            updates['rawLink'] = raw
 
-        if raw == updates['link'] and data.get('linkStatus') == status:
+        next_link = updates.get('link', raw)
+        if raw == next_link and data.get('linkStatus') == status and (not raw or data.get('rawLink') == updates.get('rawLink')):
             unchanged += 1
             continue
 
         db.collection('beans').document(d.id).set(updates, merge=True)
         if status == 'dead':
             dead += 1
+            dead_by_brand[brand] += 1
+            if len(dead_examples) < 20:
+                dead_examples.append({
+                    'id': d.id,
+                    'brand': brand,
+                    'name': name,
+                    'raw': raw,
+                    'normalized': norm,
+                    'code': code,
+                })
         else:
             fixed += 1
 
-    print({'total': len(docs), 'fixed': fixed, 'dead': dead, 'unchanged': unchanged})
+    print({
+        'total': len(docs),
+        'fixed': fixed,
+        'dead': dead,
+        'unchanged': unchanged,
+        'dead_by_brand_top10': dead_by_brand.most_common(10),
+        'dead_examples': dead_examples,
+    })
 
 
 if __name__ == '__main__':

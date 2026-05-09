@@ -20,8 +20,10 @@ on:
         type: string
 
 jobs:
-  crawl-and-update:
+  crawl-validate-and-apply:
     runs-on: ubuntu-latest
+    env:
+      ALLOW_ZERO_BRANDS: "벙커컴퍼니"
     
     steps:
     - name: Checkout repository
@@ -62,29 +64,59 @@ jobs:
       run: |
         mkdir -p data reports logs
     
-    - name: Run coffee crawler (all cafes)
+    - name: Run coffee crawler (all cafes, dry-run artifact only)
       if: ${{ github.event.inputs.specific_cafe == '' }}
       env:
         GOOGLE_APPLICATION_CREDENTIALS: "firebase_credentials.json"
         GITHUB_ACTIONS: "true"
       run: |
         if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
-          python scripts/run_crawler.py --all --test --notify --output data/beans_test.json
+          python scripts/run_crawler.py --all --test --notify --dry-run --output data/beans_test.json
         else
-          python scripts/run_crawler.py --all --notify --output data/beans_production.json
+          python scripts/run_crawler.py --all --notify --dry-run --output data/beans_production.json
         fi
     
-    - name: Run coffee crawler (specific cafe)
+    - name: Run coffee crawler (specific cafe, dry-run artifact only)
       if: ${{ github.event.inputs.specific_cafe != '' }}
       env:
         GOOGLE_APPLICATION_CREDENTIALS: "firebase_credentials.json"
         GITHUB_ACTIONS: "true"
       run: |
         if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
-          python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --test --notify --output data/beans_${{ github.event.inputs.specific_cafe }}.json
+          python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --test --notify --dry-run --output data/beans_${{ github.event.inputs.specific_cafe }}.json
         else
-          python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --notify --output data/beans_${{ github.event.inputs.specific_cafe }}.json
+          python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --notify --dry-run --output data/beans_${{ github.event.inputs.specific_cafe }}.json
         fi
+
+    - name: Validate crawl output
+      run: |
+        if [ "${{ github.event.inputs.specific_cafe }}" = "" ]; then
+          TARGET="data/beans_production.json"
+          if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
+            TARGET="data/beans_test.json"
+          fi
+          python scripts/validate_crawl_output.py "$TARGET" --allow-zero "$ALLOW_ZERO_BRANDS"
+        else
+          TARGET="data/beans_${{ github.event.inputs.specific_cafe }}.json"
+          python scripts/validate_crawl_output.py "$TARGET"
+        fi
+
+    - name: Apply validated crawl to Firestore (all cafes)
+      if: ${{ github.event.inputs.test_mode != 'true' && github.event.inputs.specific_cafe == '' }}
+      run: |
+        node scripts/reset_all_active_cafes_from_crawl.mjs data/beans_production.json
+
+    - name: Apply validated crawl to Firestore (specific cafe)
+      if: ${{ github.event.inputs.test_mode != 'true' && github.event.inputs.specific_cafe != '' }}
+      run: |
+        BRAND=$(python - <<'PY'
+        import yaml
+        cfg = yaml.safe_load(open('config/crawler_config.yaml', encoding='utf-8'))
+        cafe = "${{ github.event.inputs.specific_cafe }}"
+        print(cfg['cafes'][cafe]['label'])
+        PY
+        )
+        node scripts/reset_single_brand_from_crawl.mjs data/beans_${{ github.event.inputs.specific_cafe }}.json "$BRAND"
     
     - name: Generate summary report
       run: |
