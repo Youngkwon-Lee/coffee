@@ -188,6 +188,11 @@ class HtmlCrawler(BaseCrawler):
         Returns:
             원두 정보 딕셔너리
         """
+        classes = item_soup.get('class', []) if hasattr(item_soup, 'get') else []
+        if any(str(c).lower() == 'skeleton' for c in classes):
+            self.logger.debug("스켈레톤 상품 항목 스킵")
+            return None
+
         # 링크 추출
         link_elem = item_soup.select_one(self.selectors['product_link'])
         if not link_elem:
@@ -204,6 +209,8 @@ class HtmlCrawler(BaseCrawler):
         if not title_elem:
             title_elem = link_elem  # 링크 텍스트를 제목으로 사용
         title = title_elem.get_text().strip()
+        title = re.sub(r'^\s*[:\-\|]+\s*', '', title)
+        title = re.sub(r'^\s*상품명\s*[:：]\s*', '', title)
         
         # 가격 추출
         price = 0
@@ -211,6 +218,9 @@ class HtmlCrawler(BaseCrawler):
         if price_elem:
             price_text = price_elem.get_text().strip()
             price = self._extract_price(price_text)
+        else:
+            # 가격 선택자가 실패한 경우, 상품 카드 전체 텍스트에서 fallback 추출
+            price = self._extract_price(item_soup.get_text(" ", strip=True))
         
         # 이미지 추출
         image_urls = []
@@ -221,6 +231,12 @@ class HtmlCrawler(BaseCrawler):
                     img_url = img_elem.get('src', '')
                     if not img_url:
                         img_url = img_elem.get('data-src', '')
+                    if not img_url:
+                        img_url = img_elem.get('data-original', '')
+                    if not img_url:
+                        srcset = img_elem.get('srcset', '')
+                        if srcset:
+                            img_url = srcset.split(',')[0].strip().split(' ')[0]
                 else:
                     # background-image 스타일에서 URL 추출
                     style = img_elem.get('style', '')
@@ -236,6 +252,14 @@ class HtmlCrawler(BaseCrawler):
         # 제목에서 정보 추출
         bean_info = self._extract_bean_info(title)
         
+        # 스켈레톤/플레이스홀더 카드 제외
+        if title in {'제목', '상품명', 'Product Title'}:
+            self.logger.debug("플레이스홀더 상품 항목 스킵")
+            return None
+        if (not product_url or product_url in {'#', '/'}) and price == 0 and not image_urls:
+            self.logger.debug("유효 정보 없는 상품 항목 스킵")
+            return None
+
         # Bean 객체 생성을 위한 데이터
         bean_data = {
             'name': title,
@@ -560,6 +584,18 @@ class HtmlCrawler(BaseCrawler):
         """
         if not self.ocr_reader or not image_url:
             return ""
+
+        # OCR 대상 제한: 상품 대표 이미지 위주로만 수행 (아이콘/GIF/트래킹 픽셀 제외)
+        lower_url = image_url.lower()
+        if any(x in lower_url for x in [
+            'btn_', 'icon_', 'facebook.com/tr', 'google-analytics', 'echosting',
+            'img.cafe24.com/images/ec_admin/icon', '/layout/', '/common/'
+        ]):
+            return ""
+        if lower_url.endswith('.gif'):
+            return ""
+        if not any(ext in lower_url for ext in ['.jpg', '.jpeg', '.png', '.webp']):
+            return ""
         
         try:
             # 브라우저 헤더로 접근 시도
@@ -587,7 +623,7 @@ class HtmlCrawler(BaseCrawler):
             return extracted_text
             
         except Exception as e:
-            self.logger.warning(f"이미지 텍스트 추출 실패 ({image_url}): {e}")
+            self.logger.debug(f"이미지 텍스트 추출 실패 ({image_url}): {e}")
             return ""
     
     def _extract_origin_and_process_from_text(self, text: str) -> Tuple[Optional[str], Optional[str]]:
