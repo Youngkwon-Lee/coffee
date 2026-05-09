@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import re
+from collections import Counter
 import requests
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -39,11 +40,15 @@ def main():
     fixed = 0
     dead = 0
     unchanged = 0
+    dead_by_brand = Counter()
+    dead_examples = []
 
     for d in docs:
         data = d.to_dict() or {}
         raw = str(data.get('link') or data.get('url') or data.get('product_url') or '')
         norm = normalize(raw)
+        brand = str(data.get('brand') or 'unknown').strip() or 'unknown'
+        name = str(data.get('name') or '').strip()
 
         status, code = check_url(norm) if norm else ('dead', None)
 
@@ -59,10 +64,26 @@ def main():
         db.collection('beans').document(d.id).set(updates, merge=True)
         if status == 'dead':
             dead += 1
+            dead_by_brand[brand] += 1
+            if len(dead_examples) < 20:
+                dead_examples.append({
+                    'id': d.id,
+                    'brand': brand,
+                    'name': name,
+                    'raw': raw,
+                    'code': code,
+                })
         else:
             fixed += 1
 
-    print({'total': len(docs), 'fixed': fixed, 'dead': dead, 'unchanged': unchanged})
+    print({
+        'total': len(docs),
+        'fixed': fixed,
+        'dead': dead,
+        'unchanged': unchanged,
+        'dead_by_brand_top10': dead_by_brand.most_common(10),
+        'dead_examples': dead_examples,
+    })
 
 
 if __name__ == '__main__':
