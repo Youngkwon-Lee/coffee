@@ -35,10 +35,11 @@ def parse_dt(value: Any):
     if not value:
         return None
     if isinstance(value, datetime):
-        return value
+        return value if value.tzinfo else value.replace(tzinfo=SEOUL_TZ)
     if isinstance(value, str):
         try:
-            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+            parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=SEOUL_TZ)
         except ValueError:
             return None
     return None
@@ -52,7 +53,7 @@ def compute_freshness_status(last_success_at: str, freshness_days: int) -> str:
     dt = parse_dt(last_success_at)
     if not dt:
         return 'unknown'
-    now = datetime.now(dt.tzinfo or SEOUL_TZ)
+    now = datetime.now(dt.tzinfo)
     return 'stale' if now - dt > timedelta(days=freshness_days) else 'fresh'
 
 
