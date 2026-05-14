@@ -53,6 +53,49 @@ type WorkflowRun = {
   head_branch?: string;
 };
 
+type MonitorCafe = {
+  cafe_id: string;
+  label: string;
+  priority: string;
+  status: "healthy" | "warning" | "failing" | "stale" | string;
+  status_reason?: string;
+  freshness_status?: string;
+  last_success_at?: string | null;
+  last_failure_at?: string | null;
+  consecutive_failures?: number;
+  last_error_type?: string | null;
+  latest_bean_count?: number;
+  previous_bean_count?: number;
+  recent_change_detected?: boolean;
+  run_url?: string | null;
+};
+
+type MonitorState = {
+  generated_at?: string;
+  run_url?: string;
+  totals?: {
+    cafes?: number;
+    healthy?: number;
+    warning?: number;
+    stale?: number;
+    failing?: number;
+    top_priority_failing?: number;
+    top_priority_stale?: number;
+    alert_candidates?: number;
+  };
+  alerts?: Array<{
+    cafe_id: string;
+    label: string;
+    priority: string;
+    consecutive_failures?: number;
+    last_error_type?: string | null;
+    last_failure_at?: string | null;
+    last_success_at?: string | null;
+    run_url?: string | null;
+  }>;
+  cafes?: MonitorCafe[];
+};
+
 const fallbackImg =
   "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=300&fit=crop&crop=center";
 
@@ -98,6 +141,21 @@ const fmtRunStatus = (status: string, conclusion: string | null) => {
   return { text: s, tone: "text-white/70" };
 };
 
+const fmtMonitorStatus = (status?: string) => {
+  switch (status) {
+    case "healthy":
+      return { text: "정상", tone: "text-green-300", chip: "border-green-400/30 bg-green-900/20" };
+    case "warning":
+      return { text: "주의", tone: "text-yellow-300", chip: "border-yellow-400/30 bg-yellow-900/20" };
+    case "failing":
+      return { text: "실패", tone: "text-red-300", chip: "border-red-400/30 bg-red-900/20" };
+    case "stale":
+      return { text: "stale", tone: "text-orange-300", chip: "border-orange-400/30 bg-orange-900/20" };
+    default:
+      return { text: status || "-", tone: "text-white/70", chip: "border-white/10 bg-white/5" };
+  }
+};
+
 export default function CrawlMonitorClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +167,8 @@ export default function CrawlMonitorClient() {
 
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [workflowLoadError, setWorkflowLoadError] = useState<string | null>(null);
+  const [monitorState, setMonitorState] = useState<MonitorState | null>(null);
+  const [monitorLoadError, setMonitorLoadError] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -187,8 +247,24 @@ export default function CrawlMonitorClient() {
       }
     };
 
+    const loadMonitorState = async () => {
+      try {
+        const res = await fetch("/api/admin/crawl-monitor-state", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || !data?.ok) {
+          setMonitorLoadError(data?.error || "monitor state를 불러오지 못했습니다.");
+          return;
+        }
+        setMonitorState(data.state as MonitorState);
+      } catch (e) {
+        console.error(e);
+        setMonitorLoadError("monitor state 네트워크 오류");
+      }
+    };
+
     load();
     loadWorkflowRuns();
+    loadMonitorState();
   }, []);
 
   const stats = useMemo(() => {
@@ -238,6 +314,14 @@ export default function CrawlMonitorClient() {
   }, [beans, search, selectedBrand, hideSamples]);
 
   const hasRuns = workflowRuns.length > 0;
+  const monitorTotals = monitorState?.totals;
+  const monitorCafes = monitorState?.cafes || [];
+  const topPriorityCafes = monitorCafes.filter((row) => row.priority === "top_priority");
+  const staleCafes = monitorCafes.filter((row) => row.status === "stale" || row.freshness_status === "stale");
+  const failingCafes = [...monitorCafes]
+    .filter((row) => row.status === "failing" || (row.consecutive_failures || 0) > 0)
+    .sort((a, b) => (b.consecutive_failures || 0) - (a.consecutive_failures || 0));
+  const changedCafes = monitorCafes.filter((row) => row.recent_change_detected);
 
   const compareBeans = useMemo(() => {
     const idSet = new Set(compareIds);
@@ -273,6 +357,105 @@ export default function CrawlMonitorClient() {
           <div className="text-sm font-medium mt-1">{formatDateTime(latestUpdate)}</div>
         </div>
       </div>
+
+      {monitorLoadError && <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4 text-yellow-100 text-sm mb-4">{monitorLoadError}</div>}
+
+      {monitorState && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 mb-4">
+            <div className="bg-coffee-medium rounded-xl p-4 border border-coffee-gold/10"><div className="text-xs opacity-70">모니터 카페</div><div className="text-2xl font-semibold mt-1">{monitorTotals?.cafes ?? "-"}</div></div>
+            <div className="bg-coffee-medium rounded-xl p-4 border border-green-400/20"><div className="text-xs opacity-70">정상</div><div className="text-2xl font-semibold mt-1 text-green-300">{monitorTotals?.healthy ?? 0}</div></div>
+            <div className="bg-coffee-medium rounded-xl p-4 border border-yellow-400/20"><div className="text-xs opacity-70">주의</div><div className="text-2xl font-semibold mt-1 text-yellow-300">{monitorTotals?.warning ?? 0}</div></div>
+            <div className="bg-coffee-medium rounded-xl p-4 border border-red-400/20"><div className="text-xs opacity-70">실패</div><div className="text-2xl font-semibold mt-1 text-red-300">{monitorTotals?.failing ?? 0}</div></div>
+            <div className="bg-coffee-medium rounded-xl p-4 border border-orange-400/20"><div className="text-xs opacity-70">stale</div><div className="text-2xl font-semibold mt-1 text-orange-300">{monitorTotals?.stale ?? 0}</div></div>
+            <div className="bg-coffee-medium rounded-xl p-4 border border-red-400/20"><div className="text-xs opacity-70">top 실패</div><div className="text-2xl font-semibold mt-1 text-red-300">{monitorTotals?.top_priority_failing ?? 0}</div></div>
+            <div className="bg-coffee-medium rounded-xl p-4 border border-orange-400/20"><div className="text-xs opacity-70">top stale</div><div className="text-2xl font-semibold mt-1 text-orange-300">{monitorTotals?.top_priority_stale ?? 0}</div></div>
+            <div className="bg-coffee-medium rounded-xl p-4 border border-coffee-gold/10"><div className="text-xs opacity-70">alert 후보</div><div className="text-2xl font-semibold mt-1">{monitorTotals?.alert_candidates ?? 0}</div></div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+            <div className="bg-coffee-medium rounded-xl border border-coffee-gold/10 overflow-hidden">
+              <div className="px-4 py-3 border-b border-coffee-gold/10 text-sm opacity-80">Top priority health</div>
+              <div className="divide-y divide-coffee-gold/10">
+                {topPriorityCafes.map((row) => {
+                  const badge = fmtMonitorStatus(row.status);
+                  return (
+                    <div key={row.cafe_id} className="px-4 py-3 text-sm flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium">{row.label}</div>
+                        <div className="text-xs opacity-70">최근 성공: {formatApiDateTime(row.last_success_at || "-")}</div>
+                        <div className="text-xs opacity-70">최근 실패: {formatApiDateTime(row.last_failure_at || "-")}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`inline-flex px-2 py-1 rounded-md border text-xs ${badge.chip} ${badge.tone}`}>{badge.text}</div>
+                        <div className="text-xs opacity-70 mt-1">연속 실패 {row.consecutive_failures ?? 0}</div>
+                        <div className="text-xs opacity-70">원두 {row.latest_bean_count ?? 0}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="bg-coffee-medium rounded-xl border border-coffee-gold/10 overflow-hidden">
+              <div className="px-4 py-3 border-b border-coffee-gold/10 text-sm opacity-80">Failure / stale watch</div>
+              <div className="divide-y divide-coffee-gold/10">
+                {[...failingCafes.slice(0, 6), ...staleCafes.filter((row) => !failingCafes.find((f) => f.cafe_id === row.cafe_id)).slice(0, 6)].slice(0, 6).map((row) => {
+                  const badge = fmtMonitorStatus(row.status);
+                  return (
+                    <div key={row.cafe_id} className="px-4 py-3 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium">{row.label}</div>
+                          <div className="text-xs opacity-70">오류: {row.last_error_type || "-"}</div>
+                          <div className="text-xs opacity-70">freshness: {row.freshness_status || "-"}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`inline-flex px-2 py-1 rounded-md border text-xs ${badge.chip} ${badge.tone}`}>{badge.text}</div>
+                          <div className="text-xs opacity-70 mt-1">연속 실패 {row.consecutive_failures ?? 0}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {failingCafes.length === 0 && staleCafes.length === 0 && <div className="px-4 py-6 text-sm opacity-70">현재 감시 대상 이상 징후가 없습니다.</div>}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+            <div className="bg-coffee-medium rounded-xl border border-coffee-gold/10 overflow-hidden">
+              <div className="px-4 py-3 border-b border-coffee-gold/10 text-sm opacity-80">Recent detected changes</div>
+              <div className="divide-y divide-coffee-gold/10">
+                {changedCafes.slice(0, 8).map((row) => (
+                  <div key={row.cafe_id} className="px-4 py-3 text-sm flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-medium">{row.label}</div>
+                      <div className="text-xs opacity-70">이전 {row.previous_bean_count ?? 0} → 현재 {row.latest_bean_count ?? 0}</div>
+                    </div>
+                    <div className="text-xs opacity-70">{row.priority}</div>
+                  </div>
+                ))}
+                {changedCafes.length === 0 && <div className="px-4 py-6 text-sm opacity-70">이번 기준 감지된 수량 변화가 없습니다.</div>}
+              </div>
+            </div>
+
+            <div className="bg-coffee-medium rounded-xl border border-coffee-gold/10 overflow-hidden">
+              <div className="px-4 py-3 border-b border-coffee-gold/10 text-sm opacity-80">Alert candidates</div>
+              <div className="divide-y divide-coffee-gold/10">
+                {(monitorState.alerts || []).slice(0, 8).map((row) => (
+                  <div key={row.cafe_id} className="px-4 py-3 text-sm">
+                    <div className="font-medium">{row.label}</div>
+                    <div className="text-xs opacity-70">{row.priority} / {row.consecutive_failures ?? 0}회 연속 실패 / 오류: {row.last_error_type || "-"}</div>
+                    <div className="text-xs opacity-70">최근 성공: {formatApiDateTime(row.last_success_at || "-")}</div>
+                  </div>
+                ))}
+                {(monitorState.alerts || []).length === 0 && <div className="px-4 py-6 text-sm opacity-70">현재 alert 후보가 없습니다.</div>}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="bg-coffee-medium rounded-xl border border-coffee-gold border-opacity-10 overflow-hidden mb-4">
         <div className="px-4 py-3 border-b border-coffee-gold border-opacity-10 text-sm opacity-80">최근 GitHub Actions 실행 로그</div>

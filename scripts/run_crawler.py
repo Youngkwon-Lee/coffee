@@ -20,7 +20,7 @@ import logging
 import argparse
 import importlib
 import traceback
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 
 # 프로젝트 루트 경로 추가
@@ -32,6 +32,49 @@ from coffee_crawler.utils.notification import get_notification_system
 
 # 로거 설정
 logger = setup_logger(name="coffee_crawler.script")
+
+
+def ensure_parent_dir(path: str):
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+
+def classify_exception(exc: Exception) -> str:
+    text = f"{type(exc).__name__}: {exc}".lower()
+    if any(token in text for token in ['import', 'module', 'firebase', 'credential', 'permission']):
+        return 'environment_error'
+    if any(token in text for token in ['timeout', 'connection', 'http', 'request', '403', '404', 'dns']):
+        return 'fetch_error'
+    if any(token in text for token in ['selector', 'parse', 'soup', 'jsondecode', 'attributeerror', 'indexerror']):
+        return 'parsing_error'
+    return 'unknown_error'
+
+
+def build_cafe_run_meta(
+    cafe_id: str,
+    cafe_config: Dict[str, Any],
+    started_at: datetime,
+    finished_at: datetime,
+    success: bool,
+    bean_count: int = 0,
+    error_type: Optional[str] = None,
+    error_message: Optional[str] = None,
+    output_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    return {
+        'cafe_id': cafe_id,
+        'cafe_label': cafe_config.get('label', cafe_id),
+        'priority': cafe_config.get('priority', 'normal'),
+        'success': success,
+        'bean_count': bean_count,
+        'started_at': started_at.isoformat(),
+        'finished_at': finished_at.isoformat(),
+        'elapsed_seconds': round((finished_at - started_at).total_seconds(), 3),
+        'error_type': error_type,
+        'error_message': error_message,
+        'output_path': output_path,
+    }
 
 class DateTimeEncoder(json.JSONEncoder):
     """날짜/시간 JSON 인코더"""
@@ -109,7 +152,7 @@ def get_active_cafes() -> List[str]:
     logger.info(f"DEBUG: 활성화된 카페 목록: {active_cafes}")
     return active_cafes
 
-def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, output_path: Optional[str] = None, notify: bool = False):
+def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, output_path: Optional[str] = None, notify: bool = False, firebase_client=None):
     """
     지정된 카페의 크롤러 실행
     
@@ -141,6 +184,7 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
     
     logger.info(f"카페 '{cafe_id}' ({cafe_name}) 크롤링 시작...")
     start_time = time.time()
+    started_at = datetime.now()
     
     try:
         # 크롤러 모듈 동적 임포트
@@ -169,14 +213,22 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
         results = crawler.crawl(test_mode=test_mode)
         
         # 테스트 모드에서 결과가 없을 경우 샘플 데이터 생성
-        if test_mode and not results:
+        # 단, 동적 렌더링/차단 등으로 정적 수집이 어려운 카페는 품질 지표 왜곡 방지를 위해 제외
+        sample_excluded_cafes = {"bunkercompany", "birosocoffee"}
+        generated_sample_data = False
+        if test_mode and not results and cafe_id not in sample_excluded_cafes:
             from coffee_crawler.utils.sample_data import generate_sample_beans
-            logger.info(f"테스트 모드: 결과가 없어 샘플 데이터 생성")
+            logger.info("테스트 모드: 결과가 없어 샘플 데이터 생성 (Firebase 저장 제외)")
             results = generate_sample_beans(5, cafe_id)
+            generated_sample_data = True
             for item in results:
                 item['isSample'] = True
+                item['isActive'] = False
+        elif test_mode and not results and cafe_id in sample_excluded_cafes:
+            logger.info(f"테스트 모드: '{cafe_id}'는 샘플 데이터 생성을 건너뜁니다")
             
         elapsed_time = time.time() - start_time
+        finished_at = datetime.now()
         logger.info(f"'{cafe_id}' 크롤링 완료: {len(results)} 개의 원두 정보 수집, 소요시간: {elapsed_time:.2f}초")
         
         # 알림 전송
@@ -203,11 +255,11 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
             # Firebase 비활성화 설정이면 Firebase 저장 건너뛰기
             is_firebase_disabled = os.environ.get('DISABLE_FIREBASE') == 'true'
             
-            if not is_firebase_disabled:
-                # Firebase 저장
-                from coffee_crawler.storage.firebase_client import FirebaseClient
-                firebase_client = FirebaseClient()
-                
+            should_skip_firebase_save = test_mode and generated_sample_data
+
+            if should_skip_firebase_save:
+                logger.info(f"'{cafe_id}' 샘플 데이터는 Firebase에 저장하지 않습니다")
+            elif not is_firebase_disabled and firebase_client is not None:
                 if firebase_client.is_available():
                     saved_count = 0
                     for bean in unique_beans:
@@ -222,12 +274,36 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
                 else:
                     logger.warning("Firebase를 사용할 수 없어 로컬 저장만 수행됩니다")
         
-        return results
+        return {
+            'results': results,
+            'meta': build_cafe_run_meta(
+                cafe_id=cafe_id,
+                cafe_config=cafe_config,
+                started_at=started_at,
+                finished_at=finished_at,
+                success=True,
+                bean_count=len(results),
+                output_path=output_path,
+            )
+        }
         
     except Exception as e:
         logger.error(f"크롤링 중 오류 발생: {e}")
         logger.debug(traceback.format_exc())
-        return None
+        return {
+            'results': None,
+            'meta': build_cafe_run_meta(
+                cafe_id=cafe_id,
+                cafe_config=cafe_config,
+                started_at=started_at,
+                finished_at=datetime.now(),
+                success=False,
+                bean_count=0,
+                error_type=classify_exception(e),
+                error_message=str(e),
+                output_path=output_path,
+            )
+        }
 
 def main():
     """
@@ -242,6 +318,7 @@ def main():
     # 결과 저장용 변수
     total_beans = 0
     all_results = []
+    run_meta = []
     
     try:
         # 크롤링할 카페 목록 결정
@@ -250,17 +327,27 @@ def main():
         else:
             cafe_ids = [args.cafe]
         
+        firebase_client = None
+        if not args.dry_run and os.environ.get('DISABLE_FIREBASE') != 'true':
+            from coffee_crawler.storage.firebase_client import FirebaseClient
+            firebase_client = FirebaseClient()
+
         # 각 카페 크롤링 실행
         for cafe_id in cafe_ids:
             try:
-                results = run_crawler(
+                result = run_crawler(
                     cafe_id=cafe_id,
                     dry_run=args.dry_run,
                     test_mode=args.test,
                     output_path=args.output,
-                    notify=args.notify
+                    notify=args.notify,
+                    firebase_client=firebase_client,
                 )
-                
+
+                if result and result.get('meta'):
+                    run_meta.append(result['meta'])
+
+                results = result.get('results') if result else None
                 if results:
                     all_results.extend(results)
                     total_beans += len(results)
@@ -276,9 +363,22 @@ def main():
         # 결과 출력
         if args.output:
             # JSON 파일로 저장
+            ensure_parent_dir(args.output)
             with open(args.output, 'w', encoding='utf-8') as f:
                 json.dump(all_results, f, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
             logger.info(f"크롤링 결과를 '{args.output}'에 저장했습니다.")
+
+        run_meta_path = os.environ.get('CRAWL_RUN_META_PATH', 'reports/current_run_meta.json')
+        ensure_parent_dir(run_meta_path)
+        with open(run_meta_path, 'w', encoding='utf-8') as f:
+            json.dump({
+                'generated_at': datetime.now().isoformat(),
+                'cafes': run_meta,
+                'total_cafes': len(cafe_ids),
+                'successful_cafes': sum(1 for row in run_meta if row.get('success')),
+                'failed_cafes': sum(1 for row in run_meta if not row.get('success')),
+            }, f, ensure_ascii=False, indent=2)
+        logger.info(f"카페별 실행 메타를 '{run_meta_path}'에 저장했습니다.")
         
         # 최종 결과 출력
         logger.info(f"총 {len(cafe_ids)}개 카페 크롤링 완료")

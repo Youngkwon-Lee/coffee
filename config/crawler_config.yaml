@@ -5,10 +5,16 @@ crawler:
   retry_count: 3
   retry_delay: 5
 
+monitoring:
+  consecutive_failure_alert_threshold: 3
+  default_priority: "normal"
+  default_freshness_days: 8
+
 # 카페별 크롤러 설정
 cafes:
   centercoffee:
     label: "센터커피"
+    priority: "top_priority"
     type: "html"
     url: "https://centercoffee.co.kr/67"
     schedule: "0 0 * * 1"
@@ -27,6 +33,7 @@ cafes:
 
   fritz:
     label: "프릳츠커피"
+    priority: "top_priority"
     type: "html"
     url: "https://m.fritz.co.kr/product/list.html?cate_no=48"
     schedule: "0 0 * * 1"
@@ -42,7 +49,7 @@ cafes:
       product_image: "img.thumb"
       pagination_container: "ul.pagination"
       next_page: "ul.pagination li:not(.active) a"
-      fetch_product_detail: true
+      fetch_product_detail: false
       product_description: ".description2"
       product_origin: "div[data-empty='true']"
       product_processing: "div[data-empty='true']"
@@ -50,6 +57,7 @@ cafes:
 
   namusairo:
     label: "나무사이로"
+    priority: "top_priority"
     type: "html"
     url: "https://m.namusairo.com/category/원두/25/"
     schedule: "0 0 * * 1"
@@ -66,6 +74,7 @@ cafes:
 
   terarosa:
     label: "테라로사"
+    priority: "top_priority"
     type: "terarosa"
     # 기존 /market 경로는 robots.txt 에서 차단(Disallow) + 404 반환됨
     url: "https://terarosa.com/product/list/?category=12"
@@ -77,22 +86,25 @@ cafes:
 
   momoscoffee:
     label: "모모스커피"
+    priority: "top_priority"
     type: "html"
-    url: "https://m.momos.co.kr/custom/sub/product_category/sd_shop_roasted_bean.html"
+    url: "https://momos.co.kr/category/원두/42/"
     schedule: "0 0 * * 1"
     active: true
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     selectors:
       product_list_container: ".prdList"
       product_item: ".prdList > li"
       product_link: ".thumbnail a"
       product_title: ".name"
-      product_price: "span:contains('원')"
+      product_price: ".description"
       product_image: ".thumbnail img"
       pagination_container: ".paging"
       next_page: ".next"
 
   tailorcoffee:
     label: "테일러커피"
+    priority: "normal"
     type: "html"
     url: "https://tailorcoffee.com/product/list.html?cate_no=4"
     schedule: "0 0 * * 1"
@@ -104,11 +116,29 @@ cafes:
       product_item: ".prdList > li.xans-record-"
       product_link: "a"
       product_title: ".prd_name span"
-      product_price: "span:contains('원')"
+      product_price: "span:-soup-contains('원')"
       product_image: "img"
+
+  anthracite:
+    label: "앤트러사이트"
+    priority: "normal"
+    type: "html"
+    url: "https://anthracitecoffee.com/shop"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 3
+    selectors:
+      product_list_container: ".thumb-row"
+      product_item: ".shop-item"
+      product_link: ".item-wrap a.shop-item-thumb"
+      product_title: ".item-detail .shop-title"
+      product_price: ".item-pay-detail .pay"
+      product_image: ".shop-item-thumb img"
 
   elcafe:
     label: "엘카페커피로스터스"
+    priority: "normal"
     type: "html"
     url: "https://elcafe.co.kr/category/원두/49/"
     schedule: "0 0 * * 1"
@@ -122,11 +152,12 @@ cafes:
       product_title: ".sp-product-name"
       product_price: ".sp-product-spec"
       product_image: "img"
-      fetch_product_detail: true
+      fetch_product_detail: false
       product_description: ".sp-product-spec"
 
   defaultvalue:
     label: "디폴트벨류"
+    priority: "normal"
     type: "html"
     url: "https://defaultvalue.kr/product/list.html?cate_no=23"
     schedule: "0 0 * * 1"
@@ -135,8 +166,8 @@ cafes:
     page_delay: 3
     selectors:
       product_list_container: ".prdList"
-      product_item: "li.xans-record-"
-      product_link: ".prdImg a"
+      product_item: ".prdList > li.xans-record-"
+      product_link: ".thumbnail .prdImg a"
       product_title: ".name"
       product_price: ".prdPrice"
       product_image: ".prdImg img"
@@ -145,6 +176,7 @@ cafes:
 
   deepbluelake:
     label: "딥블루레이크"
+    priority: "normal"
     type: "html"
     url: "https://dblcoffee.com/product/list.html?cate_no=24"
     schedule: "0 0 * * 1"
@@ -163,6 +195,7 @@ cafes:
 
   bunkercompany:
     label: "벙커컴퍼니"
+    priority: "normal"
     type: "html"
     url: "https://bunkercompany.co.kr/shop"
     schedule: "0 0 * * 1"
@@ -181,6 +214,7 @@ cafes:
 
   lowkey:
     label: "로우키"
+    priority: "normal"
     type: "html"
     url: "https://lowkeycoffee.com/shop/list-cf"
     schedule: "0 0 * * 1"
@@ -197,8 +231,78 @@ cafes:
       pagination_container: ".pagination"
       next_page: ".pagination .page-link"
 
+  beanbrothers:
+    label: "빈브라더스"
+    priority: "normal"
+    type: "html"
+    url: "https://beanbrothers.co.kr/goods/goods_list.php?cateCd=007001"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 2
+    selectors:
+      product_list_container: "body"
+      product_item: "li.goods_list_item"
+      product_link: ".item_photo_box a"
+      product_title: ".item_info_cont .item_name"
+      product_price: ".item_money_box .item_price"
+      product_image: ".item_photo_box img"
+
+  pontcoffee:
+    label: "폰트커피"
+    priority: "normal"
+    type: "html"
+    url: "https://pontcoffee.com/product/list.html?cate_no=24"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 2
+    selectors:
+      product_list_container: ".prdList"
+      product_item: ".prdList > li.xans-record-"
+      product_link: ".thumbnail a"
+      product_title: ".name"
+      product_price: ".prdPrice"
+      product_image: ".prdImg img"
+
+  oatscoffee:
+    label: "오츠커피"
+    priority: "normal"
+    type: "html"
+    url: "https://oatscoffee.kr/product/list.html?cate_no=24"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    page_delay: 2
+    selectors:
+      product_list_container: ".prdList"
+      product_item: ".prdList > li.xans-record-"
+      product_link: ".thumbnail a"
+      product_title: ".name"
+      product_price: ".prdPrice"
+      product_image: ".prdImg img"
+
+  birosocoffee:
+    label: "비로소커피"
+    priority: "low"
+    type: "html"
+    url: "https://birosocoffee.com/category/원두/42/"
+    schedule: "0 0 * * 1"
+    active: true
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    encoding: "utf-8"
+    page_delay: 2
+    selectors:
+      product_list_container: ".prdList"
+      product_item: ".prdList > li.xans-record-"
+      product_link: ".thumbnail a"
+      product_title: ".name"
+      product_price: ".prdPrice"
+      product_image: ".prdImg img"
+
   bonanza:
     label: "보난자"
+    priority: "normal"
     type: "html"
     url: "https://bonanzacoffee.kr/53"
     schedule: "0 0 * * 1"
@@ -245,6 +349,8 @@ filters:
     - "텀블러"
     - "머그"
     - "mug"
+    - "수첩"
+    - "노트"
     # - "디카페인"
     # - "decaf"
     # - "디카페인"

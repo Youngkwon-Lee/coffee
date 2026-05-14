@@ -79,6 +79,8 @@ jobs:
       env:
         GOOGLE_APPLICATION_CREDENTIALS: "firebase_credentials.json"
         GITHUB_ACTIONS: "true"
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        CRAWL_RUN_META_PATH: reports/current_run_meta.json
       run: |
         if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
           python scripts/run_crawler.py --all --test --notify --dry-run --output data/beans_test.json
@@ -91,6 +93,8 @@ jobs:
       env:
         GOOGLE_APPLICATION_CREDENTIALS: "firebase_credentials.json"
         GITHUB_ACTIONS: "true"
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        CRAWL_RUN_META_PATH: reports/current_run_meta.json
       run: |
         if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
           python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --test --notify --dry-run --output data/beans_${{ github.event.inputs.specific_cafe }}.json
@@ -105,10 +109,10 @@ jobs:
           if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
             TARGET="data/beans_test.json"
           fi
-          python scripts/validate_crawl_output.py "$TARGET" --allow-zero "$ALLOW_ZERO_BRANDS"
+          python scripts/validate_crawl_output.py "$TARGET" --allow-zero "$ALLOW_ZERO_BRANDS" --report reports/validation_report.json
         else
           TARGET="data/beans_${{ github.event.inputs.specific_cafe }}.json"
-          python scripts/validate_crawl_output.py "$TARGET"
+          python scripts/validate_crawl_output.py "$TARGET" --report reports/validation_report.json
         fi
 
     - name: Apply validated crawl to Firestore (all cafes)
@@ -170,6 +174,17 @@ jobs:
         
         print('📄 리포트 생성 완료: reports/crawl_summary.json')
         "
+
+    - name: Build monitoring state
+      if: always()
+      env:
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        CRAWL_RUN_META_PATH: reports/current_run_meta.json
+        CRAWL_VALIDATION_REPORT_PATH: reports/validation_report.json
+        CRAWL_SUMMARY_PATH: reports/crawl_summary.json
+        CRAWL_MONITOR_STATE_PATH: reports/crawl_monitor_state.json
+      run: |
+        python scripts/build_crawl_monitor_state.py
     
     - name: Send Notion summary
       id: notion_sync
@@ -200,6 +215,8 @@ jobs:
         DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID }}
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         NOTION_RESULT: ${{ steps.notion_sync.outcome }}
+        NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        NOTION_DB_ID: ${{ secrets.NOTION_DB_ID }}
       run: |
         if [ -n "$DISCORD_WEBHOOK" ] && [ -f "reports/crawl_summary.json" ]; then
           python -c "
@@ -212,47 +229,130 @@ jobs:
           thread_id = os.getenv('DISCORD_THREAD_ID', '').strip()
           run_url = os.getenv('RUN_URL', '').strip()
           notion_result = os.getenv('NOTION_RESULT', 'unknown').strip()
+          notion_token = os.getenv('NOTION_TOKEN', '').strip()
+          notion_db_id = os.getenv('NOTION_DB_ID', '').strip()
+          monitor_state_path = 'reports/crawl_monitor_state.json'
+          today = datetime.now().strftime('%Y-%m-%d')
           target_url = webhook_url
           if thread_id:
               sep = '&' if '?' in webhook_url else '?'
               target_url = f"{webhook_url}{sep}thread_id={thread_id}"
-          
+
+          def fetch_previous_summary_total():
+              if not notion_token or not notion_db_id:
+                  return None
+              headers = {
+                  'Authorization': f'Bearer {notion_token}',
+                  'Notion-Version': '2022-06-28',
+                  'Content-Type': 'application/json',
+              }
+              payload = {
+                  'page_size': 10,
+                  'filter': {
+                      'property': 'Type',
+                      'select': {'equals': 'summary'}
+                  },
+                  'sorts': [
+                      {'property': 'Date', 'direction': 'descending'}
+                  ]
+              }
+              try:
+                  res = requests.post(
+                      f'https://api.notion.com/v1/databases/{notion_db_id}/query',
+                      headers=headers,
+                      json=payload,
+                      timeout=20,
+                  )
+                  res.raise_for_status()
+                  data = res.json()
+                  for row in data.get('results', []):
+                      props = row.get('properties', {})
+                      date_prop = props.get('Date', {}).get('date') or {}
+                      row_date = date_prop.get('start') or ''
+                      if row_date == today:
+                          continue
+                      total_prop = props.get('Total', {}).get('number')
+                      if total_prop is not None:
+                          return int(total_prop)
+                  return None
+              except Exception as notion_err:
+                  print(f'⚠️ 이전 summary 조회 실패: {notion_err}')
+                  return None
+
           try:
               with open('reports/crawl_summary.json', 'r', encoding='utf-8') as f:
                   report = json.load(f)
+              monitor_state = {}
+              if os.path.exists(monitor_state_path):
+                  with open(monitor_state_path, 'r', encoding='utf-8') as f:
+                      monitor_state = json.load(f)
               
               total = report.get('total_beans', 0)
               cafes = report.get('cafe_breakdown', {})
+              cafe_items = sorted(cafes.items(), key=lambda x: x[1], reverse=True)
+              cafe_count = len(cafe_items)
+              expected_cafes = 17
+              missing_count = max(expected_cafes - cafe_count, 0)
+              min_count = min((count for _, count in cafe_items), default=0)
+              prev_total = fetch_previous_summary_total()
+              delta_text = '전주 비교 없음'
+              if prev_total is not None:
+                  delta = total - prev_total
+                  sign = '+' if delta > 0 else ''
+                  delta_text = f'전주 대비 {sign}{delta}개 (이전 {prev_total}개)'
               
-              # 상태에 따른 색상
-              color = 0x00ff00 if total > 50 else (0xffff00 if total > 20 else 0xff0000)
-              top_lines = [f'{cafe}: {count}개' for cafe, count in list(cafes.items())[:10]]
+              if total >= 180 and cafe_count >= 12:
+                  status_emoji = '✅'
+                  status_text = '정상'
+                  color = 0x2ecc71
+              elif total >= 80:
+                  status_emoji = '⚠️'
+                  status_text = '주의'
+                  color = 0xf1c40f
+              else:
+                  status_emoji = '❌'
+                  status_text = '점검 필요'
+                  color = 0xe74c3c
+              
+              top_lines = [f'• {cafe}: {count}개' for cafe, count in cafe_items[:8]]
               cafe_text = '\n'.join(top_lines) if top_lines else '수집 데이터 없음'
+              health_bits = [
+                  f'처리 카페 {cafe_count}개',
+                  f'총 원두 {total}개',
+              ]
+              if missing_count:
+                  health_bits.append(f'미포함 추정 {missing_count}개')
+              if min_count == 0 and cafe_count:
+                  health_bits.append('0건 카페 존재 가능')
+              monitor_totals = monitor_state.get('totals', {}) if isinstance(monitor_state, dict) else {}
+              if monitor_totals:
+                  health_bits.append(f"실패 {monitor_totals.get('failing', 0)}개")
+                  health_bits.append(f"stale {monitor_totals.get('stale', 0)}개")
+                  top_priority_failing = monitor_totals.get('top_priority_failing', 0)
+                  if top_priority_failing:
+                      health_bits.append(f"top priority 실패 {top_priority_failing}개")
+              summary_text = ' / '.join(health_bits)
+              summary_text = f"{summary_text} / {delta_text}"
               
               embed = {
-                  'title': '☕️ 커피 크롤러 주간 실행 완료',
-                  'description': '주간 크롤링이 완료되었습니다.',
+                  'title': f'{status_emoji} 커피 크롤러 주간 실행 리포트',
+                  'description': f'상태: **{status_text}**\n{summary_text}',
                   'color': color,
                   'timestamp': datetime.now().isoformat(),
                   'fields': [
                       {
-                          'name': '📊 수집 결과',
-                          'value': f'총 {total}개 원두 정보 수집',
-                          'inline': True
+                          'name': '📌 운영 체크',
+                          'value': f'Notion: `{notion_result}`\nRun: {run_url if run_url else "없음"}',
+                          'inline': False
                       },
                       {
-                          'name': '🧾 Notion 적재',
-                          'value': f'{notion_result}',
-                          'inline': True
-                      },
-                      {
-                          'name': '🏪 처리된 카페(최대 10개)',
+                          'name': '🏪 상위 수집 카페',
                           'value': cafe_text,
                           'inline': False
                       },
                       {
-                          'name': '🔗 실행 링크',
-                          'value': run_url if run_url else '없음',
+                          'name': '🧭 해석 가이드',
+                          'value': '총 원두 수 급감, 처리 카페 수 감소, 특정 카페 0건이면 validation/artifact 확인 권장',
                           'inline': False
                       }
                   ],
@@ -262,6 +362,49 @@ jobs:
               }
               
               payload = {'embeds': [embed]}
+              alerts = monitor_state.get('alerts', []) if isinstance(monitor_state, dict) else []
+              if alerts:
+                  alert_lines = []
+                  for row in alerts[:8]:
+                      line = f"• {row.get('label', row.get('cafe_id', 'unknown'))}"
+                      parts = []
+                      if row.get('priority'):
+                          parts.append(str(row.get('priority')))
+                      if row.get('consecutive_failures') is not None:
+                          parts.append(f"{row.get('consecutive_failures')}회 연속 실패")
+                      if row.get('last_error_type'):
+                          parts.append(f"오류: {row.get('last_error_type')}")
+                      if row.get('last_success_at'):
+                          parts.append(f"최근 성공: {row.get('last_success_at')}")
+                      if row.get('last_failure_at'):
+                          parts.append(f"최근 실패: {row.get('last_failure_at')}")
+                      if parts:
+                          line += ' — ' + ' / '.join(parts)
+                      alert_lines.append(line)
+
+                  alert_embed = {
+                      'title': '🚨 커피 크롤러 지속 실패 알림',
+                      'description': '3회 연속 실패 기준을 넘긴 카페가 있습니다.',
+                      'color': 0xe74c3c,
+                      'timestamp': datetime.now().isoformat(),
+                      'fields': [
+                          {
+                              'name': '대상 카페',
+                              'value': '\n'.join(alert_lines) if alert_lines else '없음',
+                              'inline': False
+                          },
+                          {
+                              'name': '바로가기',
+                              'value': f"Run: {run_url if run_url else '없음'}\nDashboard: /admin/crawl-monitor",
+                              'inline': False
+                          }
+                      ],
+                      'footer': {
+                          'text': 'Persistent failure threshold reached'
+                      }
+                  }
+                  payload = {'embeds': [embed, alert_embed]}
+
               response = requests.post(target_url, json=payload, timeout=20)
               
               if response.status_code == 204:
