@@ -96,14 +96,16 @@ export default function LoginPage() {
       if (error.code === 'auth/popup-closed-by-user') {
         errorMessage = "로그인이 취소되었습니다.";
       } else if (error.code === 'auth/popup-blocked') {
-        errorMessage = "팝업이 차단되었습니다. 팝업을 허용해주세요.";
+        errorMessage = "팝업이 차단되었습니다. 브라우저 설정에서 팝업 차단을 해제하고 다시 시도해주세요.";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        errorMessage = "승인되지 않은 도메인입니다.\n\nFirebase 콘솔 > Authentication > Settings > Authorized domains에 현재 도메인(coffee-omega-lovat.vercel.app)을 등록해주시기 바랍니다.";
       }
       
       showAlert({
         type: 'error',
         title: '로그인 실패',
         message: errorMessage,
-        confirmText: '다시 시도'
+        confirmText: '확인'
       });
     } finally {
       setIsSigningIn(false);

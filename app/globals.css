@@ -679,4 +679,15 @@ h1, h2, h3, .section-heading {
 
 .modal-enter {
   animation: modal-in 0.2s ease-out;
-} 
+}
+
+/* 브라우저 자동완성(Autofill) 시 입력 필드 색상 유지 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f8f6f3 !important;
+  -webkit-box-shadow: 0 0 0px 1000px #120f0d inset !important;
+  box-shadow: 0 0 0px 1000px #120f0d inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}

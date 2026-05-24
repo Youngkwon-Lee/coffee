@@ -19,6 +19,11 @@ module.exports = {
           700: '#b8841f',
           800: '#9a6f19',
           900: '#7f5d16',
+          dark: '#120f0d',
+          medium: '#1c1816',
+          light: '#f8f6f3',
+          gold: '#c5a880',
+          latte: '#a6907c',
         },
         cream: {
           50: '#fefefe',
