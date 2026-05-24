@@ -1,11 +1,13 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "@/firebase";
 import { collection, query, orderBy, getDocs, Timestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
 import Image from "next/image";
+import ShareComposer from "../components/ShareComposer";
+import type { CoffeeShareSourceRecord } from "../utils/share";
 
 interface CoffeeRecord {
   id: string;
@@ -18,6 +20,9 @@ interface CoffeeRecord {
   cafe?: string;
   review?: string;       // notes → review로 변경
   processing?: string;
+  locationLabel?: string;
+  origin?: string;
+  roastLevel?: string;
 }
 
 // Coffee Card Component for History
@@ -200,6 +205,7 @@ type SortMode = (typeof sortModes)[number];
 
 export default function HistoryClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user] = useAuthState(auth);
   const [coffeeRecords, setCoffeeRecords] = useState<CoffeeRecord[]>([]);
   const [activeFilter, setActiveFilter] = useState("전체");
@@ -213,6 +219,7 @@ export default function HistoryClient() {
   const [detailBean, setDetailBean] = useState("");
   const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [shareRecord, setShareRecord] = useState<CoffeeShareSourceRecord | null>(null);
 
   const getRecordDate = (record: CoffeeRecord) =>
     record.createdAt instanceof Timestamp ? record.createdAt.toDate() : new Date(record.createdAt);
@@ -253,6 +260,12 @@ export default function HistoryClient() {
     const timer = setTimeout(() => setToastMessage(""), 2200);
     return () => clearTimeout(timer);
   }, [toastMessage]);
+
+  useEffect(() => {
+    if (searchParams.get("intent") !== "share") return;
+    setToastMessage("공유할 기록을 고르면 SNS용 카드 만들기로 이어져요 ✨");
+    router.replace("/history", { scroll: false });
+  }, [router, searchParams]);
 
   const getFilteredRecords = () => {
     switch (activeFilter) {
@@ -325,6 +338,19 @@ export default function HistoryClient() {
     setDetailCafe("");
     setDetailBean("");
     setShowDeleteConfirm(false);
+  };
+
+  const openShareComposer = () => {
+    if (!selectedRecord) return;
+    setShareRecord({
+      ...selectedRecord,
+      cafe: detailEditing ? detailCafe.trim() || selectedRecord.cafe : selectedRecord.cafe,
+      bean: detailEditing ? detailBean.trim() || selectedRecord.bean : selectedRecord.bean,
+    });
+  };
+
+  const closeShareComposer = () => {
+    setShareRecord(null);
   };
 
   const handleDetailSave = async () => {
@@ -544,75 +570,94 @@ export default function HistoryClient() {
               <p><span className="opacity-60">추출/가공</span> {selectedRecord.brewMethod || selectedRecord.processing || "-"}</p>
               <p><span className="opacity-60">향미</span> {Array.isArray(selectedRecord.flavor) ? selectedRecord.flavor.join(", ") : selectedRecord.flavor || "-"}</p>
               <p><span className="opacity-60">메모</span> {selectedRecord.review || "-"}</p>
+              <p><span className="opacity-60">위치</span> {selectedRecord.locationLabel || "-"}</p>
             </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              {!showDeleteConfirm ? (
-                <button
-                  type="button"
-                  className="text-xs px-3 py-1.5 rounded border border-red-400/40 text-red-300 hover:bg-red-500/10"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={deletingRecordId === selectedRecord.id || updatingRecordId === selectedRecord.id}
-                >
-                  삭제
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 text-xs mr-auto">
-                  <span className="text-red-300">정말 삭제할까요?</span>
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded border border-coffee-light border-opacity-20 text-coffee-light"
-                    onClick={() => setShowDeleteConfirm(false)}
-                    disabled={deletingRecordId === selectedRecord.id}
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded bg-red-500 text-white disabled:opacity-60"
-                    onClick={handleDeleteRecord}
-                    disabled={deletingRecordId === selectedRecord.id}
-                  >
-                    {deletingRecordId === selectedRecord.id ? "삭제 중..." : "확인 삭제"}
-                  </button>
-                </div>
-              )}
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                className="text-xs px-3 py-1.5 rounded border border-coffee-gold/35 text-coffee-gold hover:bg-coffee-gold/10"
+                onClick={openShareComposer}
+                disabled={deletingRecordId === selectedRecord.id || updatingRecordId === selectedRecord.id}
+              >
+                공유하기
+              </button>
 
-              {!detailEditing ? (
-                <button
-                  type="button"
-                  className="text-xs px-3 py-1.5 rounded bg-coffee-gold text-coffee-dark font-medium"
-                  onClick={() => setDetailEditing(true)}
-                >
-                  수정하기
-                </button>
-              ) : (
-                <>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {!showDeleteConfirm ? (
                   <button
                     type="button"
-                    className="text-xs px-3 py-1.5 rounded border border-coffee-light border-opacity-20 text-coffee-light"
-                    onClick={() => {
-                      setDetailEditing(false);
-                      setDetailCafe(selectedRecord.cafe || "");
-                      setDetailBean(selectedRecord.bean || "");
-                    }}
+                    className="text-xs px-3 py-1.5 rounded border border-red-400/40 text-red-300 hover:bg-red-500/10"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={deletingRecordId === selectedRecord.id || updatingRecordId === selectedRecord.id}
                   >
-                    취소
+                    삭제
                   </button>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs mr-auto">
+                    <span className="text-red-300">정말 삭제할까요?</span>
+                    <button
+                      type="button"
+                      className="px-2 py-1 rounded border border-coffee-light border-opacity-20 text-coffee-light"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={deletingRecordId === selectedRecord.id}
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      className="px-2 py-1 rounded bg-red-500 text-white disabled:opacity-60"
+                      onClick={handleDeleteRecord}
+                      disabled={deletingRecordId === selectedRecord.id}
+                    >
+                      {deletingRecordId === selectedRecord.id ? "삭제 중..." : "확인 삭제"}
+                    </button>
+                  </div>
+                )}
+
+                {!detailEditing ? (
                   <button
                     type="button"
-                    className="text-xs px-3 py-1.5 rounded bg-coffee-gold text-coffee-dark font-medium disabled:opacity-50"
-                    disabled={updatingRecordId === selectedRecord.id || !detailCafe.trim() || !detailBean.trim()}
-                    onClick={handleDetailSave}
+                    className="text-xs px-3 py-1.5 rounded bg-coffee-gold text-coffee-dark font-medium"
+                    onClick={() => setDetailEditing(true)}
                   >
-                    {updatingRecordId === selectedRecord.id ? "저장 중..." : "저장"}
+                    수정하기
                   </button>
-                </>
-              )}
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="text-xs px-3 py-1.5 rounded border border-coffee-light border-opacity-20 text-coffee-light"
+                      onClick={() => {
+                        setDetailEditing(false);
+                        setDetailCafe(selectedRecord.cafe || "");
+                        setDetailBean(selectedRecord.bean || "");
+                      }}
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs px-3 py-1.5 rounded bg-coffee-gold text-coffee-dark font-medium disabled:opacity-50"
+                      disabled={updatingRecordId === selectedRecord.id || !detailCafe.trim() || !detailBean.trim()}
+                      onClick={handleDetailSave}
+                    >
+                      {updatingRecordId === selectedRecord.id ? "저장 중..." : "저장"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      <ShareComposer
+        record={shareRecord}
+        open={Boolean(shareRecord)}
+        onClose={closeShareComposer}
+        onToast={setToastMessage}
+      />
     </div>
   );
 }

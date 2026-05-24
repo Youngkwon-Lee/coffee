@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Coffee, Home, MapPin, Bean, User, Camera, PenLine, Plus, X } from "lucide-react";
+import { Home, MapPin, Bean, User, PenLine, Share2, Plus, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navItems = [
@@ -27,20 +27,20 @@ export default function BottomNavigation() {
 
   const actionItems = [
     {
-      icon: <Camera className="w-6 h-6" />,
-      title: "사진으로 기록",
-      subtitle: "사진과 함께 상태 기록",
+      icon: <PenLine className="w-6 h-6" />,
+      title: "기록하기",
+      subtitle: "새 커피 기록 남기기",
       action: () => {
         router.push("/record/photo");
         setIsExpanded(false);
       }
     },
     {
-      icon: <PenLine className="w-6 h-6" />,
-      title: "직접 입력",
-      subtitle: "수동으로 입력",
+      icon: <Share2 className="w-6 h-6" />,
+      title: "공유하기",
+      subtitle: "카드 만든 뒤 SNS로 보내기",
       action: () => {
-        router.push("/record/manual");
+        router.push("/history?intent=share");
         setIsExpanded(false);
       }
     }
@@ -48,6 +48,20 @@ export default function BottomNavigation() {
 
   return (
     <>
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]"
+            onClick={() => setIsExpanded(false)}
+            aria-label="액션 메뉴 닫기"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Expanded Action Items */}
       <AnimatePresence>
         {isExpanded && (
