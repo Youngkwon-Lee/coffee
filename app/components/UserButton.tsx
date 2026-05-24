@@ -6,6 +6,7 @@ import { auth } from "@/firebase";
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useCustomAlert } from "./CustomAlert";
+import { BarChart3, LogOut, KeyRound, Sparkles } from "lucide-react";
 
 function useFirebaseAuth() {
   // auth가 null이면(환경변수 미설정) 빈 상태 반환
@@ -116,15 +117,15 @@ export default function UserButton() {
 
         {/* 드롭다운 메뉴 */}
         {showDropdown && (
-          <div className="absolute right-0 top-full mt-2 w-48 bg-coffee-medium rounded-xl shadow-2xl border border-coffee-gold/20 py-2 z-50">
+          <div className="absolute right-0 top-full mt-2 w-48 bg-[#1c1816]/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/5 py-2 z-50 overflow-hidden">
             {user ? (
               <>
                 {/* 사용자 정보 */}
-                <div className="px-4 py-3 border-b border-coffee-gold/20">
+                <div className="px-4 py-3 border-b border-white/5">
                   <p className="text-coffee-light font-medium truncate">
                     {user.displayName || '사용자'}
                   </p>
-                  <p className="text-coffee-light/70 text-sm truncate">
+                  <p className="text-coffee-light/60 text-xs truncate mt-0.5">
                     {user.email}
                   </p>
                 </div>
@@ -135,17 +136,17 @@ export default function UserButton() {
                     router.push('/history');
                     setShowDropdown(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-coffee-light hover:bg-coffee-gold/20 transition-colors flex items-center space-x-2"
+                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light/80 hover:bg-white/5 hover:text-[#c5a880] transition-colors flex items-center space-x-2.5"
                 >
-                  <span>📊</span>
+                  <BarChart3 className="w-4 h-4 text-[#c5a880]/80" strokeWidth={1.8} />
                   <span>내 기록</span>
                 </button>
 
                 <button
                   onClick={handleLogout}
-                  className="w-full px-4 py-2 text-left text-coffee-light hover:bg-red-500/20 transition-colors flex items-center space-x-2"
+                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light/80 hover:bg-red-500/10 hover:text-red-400 transition-colors flex items-center space-x-2.5"
                 >
-                  <span>🚪</span>
+                  <LogOut className="w-4 h-4 text-red-400/80" strokeWidth={1.8} />
                   <span>로그아웃</span>
                 </button>
               </>
@@ -153,9 +154,9 @@ export default function UserButton() {
               <>
                 <button
                   onClick={handleLogin}
-                  className="w-full px-4 py-2 text-left text-coffee-light hover:bg-coffee-gold/20 transition-colors flex items-center space-x-2"
+                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light/80 hover:bg-white/5 hover:text-[#c5a880] transition-colors flex items-center space-x-2.5"
                 >
-                  <span>🔑</span>
+                  <KeyRound className="w-4 h-4 text-[#c5a880]/80" strokeWidth={1.8} />
                   <span>로그인</span>
                 </button>
 
@@ -164,9 +165,9 @@ export default function UserButton() {
                     router.push('/record/photo');
                     setShowDropdown(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-coffee-light hover:bg-coffee-gold/20 transition-colors flex items-center space-x-2"
+                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light/80 hover:bg-white/5 hover:text-[#c5a880] transition-colors flex items-center space-x-2.5"
                 >
-                  <span>🎁</span>
+                  <Sparkles className="w-4 h-4 text-[#c5a880]/80" strokeWidth={1.8} />
                   <span>무료 체험</span>
                 </button>
               </>

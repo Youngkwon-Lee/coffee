@@ -8,6 +8,7 @@ import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore"
 import { onAuthStateChanged, User } from "firebase/auth";
 import GoogleMapView from './GoogleMapView';
 import Link from "next/link";
+import { Heart, Star, Search, SlidersHorizontal, MapPin, Sparkles, Compass, Store, ChevronRight, ChevronDown } from "lucide-react";
 
 // Cafe 인터페이스
 interface Cafe {
@@ -96,82 +97,88 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
 
   return (
     <div 
-      className="card-coffee card-hover cursor-pointer overflow-hidden"
+      className="card-coffee card-hover cursor-pointer overflow-hidden flex flex-col justify-between"
       onClick={onClick}
     >
-      {/* 이미지 섹션 */}
-      <div className="relative">
-        <LazyImage
-          src={imageSrc}
-          alt={cafe.name}
-          width={400}
-          height={300}
-          className="w-full h-56 object-cover"
-          priority={false}
-          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-        />
-        {/* 이미지 소스 표시 */}
-        {!cafe.imageUrl && (
-          <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-            {brandPhotoUrl ? '브랜드 추천 이미지' : 'AI 생성'}
-          </div>
-        )}
-        {/* 위시리스트 버튼 */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleWishlist(cafe.id);
-          }}
-          className="absolute top-2 right-2 w-8 h-8 bg-black bg-opacity-50 rounded-full flex items-center justify-center backdrop-blur-sm"
-        >
-          <span className="text-sm">
-            {isWishlisted ? "❤️" : "🤍"}
-          </span>
-        </button>
-        {/* 평점 배지 */}
-        {cafe.rating && (
-          <div className="absolute top-2 left-2 bg-coffee-gold bg-opacity-90 px-2 py-1 rounded-full flex items-center">
-            <span className="text-coffee-dark text-xs">⭐ {cafe.rating}</span>
-          </div>
-        )}
-      </div>
-      
-      {/* 콘텐츠 섹션 */}
-      <div className="p-5">
-        <div className="mb-3">
-          <h3 className="font-semibold text-coffee-light text-xl mb-2">{cafe.name}</h3>
-          <p className="text-coffee-medium mb-3 line-clamp-1">
-            {cafe.address}
-          </p>
+      <div>
+        {/* 이미지 섹션 */}
+        <div className="relative">
+          <LazyImage
+            src={imageSrc}
+            alt={cafe.name}
+            width={400}
+            height={300}
+            className="w-full h-56 object-cover"
+            priority={false}
+            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+          {/* 이미지 소스 표시 */}
+          {!cafe.imageUrl && (
+            <div className="absolute bottom-2 left-2 bg-[#120f0d]/80 backdrop-blur-sm text-coffee-light/80 text-[10px] px-2 py-0.5 rounded border border-white/5 font-semibold">
+              {brandPhotoUrl ? '브랜드 추천' : 'AI 생성'}
+            </div>
+          )}
+          {/* 위시리스트 버튼 */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleWishlist(cafe.id);
+            }}
+            className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm border transition-all duration-300 ${
+              isWishlisted
+                ? "bg-red-500/20 border-red-500/30 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                : "bg-[#1c1816]/80 border-white/5 text-coffee-light/60 hover:text-red-400 hover:border-red-400/30"
+            }`}
+          >
+            <Heart className="w-3.5 h-3.5" fill={isWishlisted ? "currentColor" : "none"} strokeWidth={1.8} />
+          </button>
+          {/* 평점 배지 */}
+          {cafe.rating && (
+            <div className="absolute top-2 left-2 bg-[#120f0d]/85 border border-[#c5a880]/20 px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-sm">
+              <Star className="w-3 h-3 text-[#c5a880] fill-current" strokeWidth={1.5} />
+              <span className="text-[#c5a880] text-xs font-semibold">{cafe.rating}</span>
+            </div>
+          )}
         </div>
         
-        {/* 설명 (있을 경우) */}
-        {cafe.description && (
-          <p className="text-sm text-coffee-light opacity-80 mb-3 line-clamp-2">
-            {cafe.description}
-          </p>
-        )}
-        
-        {/* 특징 태그 */}
-        <div className="flex flex-wrap gap-1 mb-3">
-          {cafe.tags?.slice(0, 4).map((tag) => (
-            <span key={tag} className="flavor-tag text-xs">
-              {tag}
-            </span>
-          ))}
-        </div>
-        
-        {/* 시그니처 메뉴 */}
-        {cafe.signature_menu && cafe.signature_menu.length > 0 && (
-          <div className="border-t border-coffee-medium pt-3">
-            <p className="text-xs text-coffee-medium mb-1">시그니처 메뉴</p>
-            <p className="text-sm text-coffee-light">
-              {cafe.signature_menu.slice(0, 2).join(", ")}
-              {cafe.signature_menu.length > 2 && ` 외 ${cafe.signature_menu.length - 2}개`}
+        {/* 콘텐츠 섹션 */}
+        <div className="p-5">
+          <div className="mb-3">
+            <h3 className="font-bold text-[#f8f6f3] text-xl mb-1 truncate">{cafe.name}</h3>
+            <p className="text-coffee-light/50 text-xs mt-1 flex items-center gap-1 truncate">
+              <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-[#c5a880]/70" strokeWidth={1.5} />
+              <span>{cafe.address}</span>
             </p>
           </div>
-        )}
+          
+          {/* 설명 (있을 경우) */}
+          {cafe.description && (
+            <p className="text-xs text-coffee-light/60 mb-3.5 line-clamp-2 leading-relaxed">
+              {cafe.description}
+            </p>
+          )}
+          
+          {/* 특징 태그 */}
+          <div className="flex flex-wrap gap-1 mb-3">
+            {cafe.tags?.slice(0, 4).map((tag) => (
+              <span key={tag} className="flavor-tag text-[10px] font-semibold">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
+      
+      {/* 시그니처 메뉴 */}
+      {cafe.signature_menu && cafe.signature_menu.length > 0 && (
+        <div className="px-5 pb-5 pt-3 border-t border-white/5">
+          <p className="text-[10px] text-coffee-light/40 font-semibold mb-1 uppercase tracking-wider">시그니처 메뉴</p>
+          <p className="text-sm text-coffee-light/85 font-medium truncate">
+            {cafe.signature_menu.slice(0, 2).join(", ")}
+            {cafe.signature_menu.length > 2 && ` 외 ${cafe.signature_menu.length - 2}개`}
+          </p>
+        </div>
+      )}
     </div>
   );
 });
@@ -283,24 +290,22 @@ export default function CafeClient({
   }, [searchTerm, selectedFilter]);
 
   return (
-    <section className="p-4">
+    <section className="p-4 pb-24">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="section-heading">내 주변 카페</h2>
-        <button className="bg-coffee-gold text-coffee-dark px-3 py-1 rounded-lg text-sm font-medium hover:bg-opacity-90 transition-colors">
-          <svg className="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
-          </svg>
-          필터
+        <h2 className="section-heading text-[#f8f6f3] text-xl tracking-tight">내 주변 카페</h2>
+        <button className="bg-white/5 border border-white/10 hover:bg-white/10 hover:border-[#c5a880]/30 transition-all text-[#c5a880] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+          <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.5} />
+          <span>상세 필터</span>
         </button>
       </div>
 
       {!user && (
-        <div className="mb-5 bg-coffee-medium/70 border border-coffee-gold/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="mb-5 bg-white/[0.02] border border-white/5 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-coffee-light">비회원 모드로 탐색 중</div>
-            <div className="text-xs text-coffee-light/70">찜 저장/개인화 추천은 로그인 후 사용할 수 있어요.</div>
+            <div className="text-sm font-semibold text-coffee-light/95">비회원 모드로 탐색 중</div>
+            <div className="text-xs text-coffee-light/60 mt-0.5">찜 저장/개인화 추천은 로그인 후 사용할 수 있어요.</div>
           </div>
-          <Link href="/login" className="inline-flex items-center px-3 py-2 rounded-lg text-sm bg-coffee-gold/20 border border-coffee-gold/40 text-coffee-gold">
+          <Link href="/login" className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#c5a880]/10 border border-[#c5a880]/20 text-[#c5a880] hover:bg-[#c5a880]/20 transition-colors whitespace-nowrap">
             로그인하고 이어서 사용
           </Link>
         </div>
@@ -310,18 +315,16 @@ export default function CafeClient({
       <div className="search-bar">
         <input
           type="text"
-          placeholder="카페명 또는 지역 검색"
+          placeholder="카페명 또는 지역 검색..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="search-input"
         />
-        <svg className="search-icon" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-        </svg>
+        <Search className="search-icon w-5 h-5" strokeWidth={1.5} />
       </div>
 
       {/* Filter Chips */}
-      <div className="flex space-x-2 mb-6 overflow-x-auto">
+      <div className="flex space-x-2 mb-6 overflow-x-auto pb-1">
         {filters.map((filter) => (
           <button
             key={filter}
@@ -335,15 +338,18 @@ export default function CafeClient({
 
       {/* Today's Recommendation */}
       {ssrTodayCafe && (
-        <div className="mb-6">
-          <h3 className="section-heading text-lg">오늘의 추천 카페</h3>
-            <div className="card-coffee p-4 border-l-4 border-coffee-gold">
-              <div className="flex items-center mb-2">
-                <span className="text-2xl mr-2">{recommendationEmoji}</span>
-                <span className="text-coffee-light font-medium">
-                  {recommendationLabel}
-                </span>
-              </div>
+        <div className="mb-8">
+          <h3 className="section-heading text-lg flex items-center gap-2 mt-2">
+            <Sparkles className="w-4.5 h-4.5 text-[#c5a880]" strokeWidth={1.5} />
+            <span>오늘의 추천 카페</span>
+          </h3>
+          <div className="card-coffee p-4 border-l-2 border-[#c5a880] mt-2">
+            <div className="flex items-center gap-2 mb-3 text-[#f8f6f3]/90 text-sm font-semibold">
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-[#c5a880]/15 text-[#c5a880]">
+                <Compass className="w-3.5 h-3.5" strokeWidth={1.8} />
+              </span>
+              <span>{recommendationLabel}</span>
+            </div>
             <CafeCard
               cafe={ssrTodayCafe}
               onToggleWishlist={toggleWishlist}
@@ -356,7 +362,7 @@ export default function CafeClient({
 
       {/* Results Info */}
       {filteredCafes.length > 0 && (
-        <div className="flex justify-between items-center mb-4 text-sm text-coffee-medium">
+        <div className="flex justify-between items-center mb-4 text-xs font-semibold text-coffee-light/40">
           <span>
             총 {filteredCafes.length}개 카페 중 {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredCafes.length)}개 표시
           </span>
@@ -379,27 +385,25 @@ export default function CafeClient({
             />
           ))
         ) : (
-          <div className="empty-state">
-            <svg fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-            </svg>
-            <p className="empty-state-title">검색 결과가 없습니다</p>
-            <p className="empty-state-subtitle">다른 검색어나 필터를 시도해보세요</p>
+          <div className="empty-state card-coffee py-12">
+            <Store className="w-12 h-12 text-coffee-light/20 mx-auto mb-4" strokeWidth={1.2} />
+            <p className="empty-state-title text-[#f8f6f3] font-semibold text-lg">검색 결과가 없습니다</p>
+            <p className="empty-state-subtitle text-xs text-coffee-light/50 font-medium">다른 검색어나 필터를 시도해보세요</p>
           </div>
         )}
       </div>
 
       {/* Pagination - Mobile Responsive */}
       {totalPages > 1 && (
-        <div className="flex justify-center items-center space-x-1 sm:space-x-2 mt-8 px-4">
+        <div className="flex justify-center items-center space-x-1.5 sm:space-x-2 mt-8 px-4">
           {/* Previous Button */}
           <button
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
-            className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-300 ${
               currentPage === 1
-                ? 'bg-coffee-medium text-coffee-light opacity-50 cursor-not-allowed'
-                : 'bg-coffee-medium text-coffee-light hover:bg-coffee-light hover:text-coffee-dark'
+                ? 'bg-white/[0.01] text-coffee-light/30 border border-white/5 opacity-50 cursor-not-allowed'
+                : 'bg-white/5 border border-white/10 text-coffee-light hover:bg-[#c5a880]/15 hover:border-[#c5a880]/30 hover:text-[#c5a880]'
             }`}
           >
             이전
@@ -421,10 +425,10 @@ export default function CafeClient({
                 <button
                   key={i}
                   onClick={() => setCurrentPage(i)}
-                  className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-all duration-300 ${
                     currentPage === i
-                      ? 'bg-coffee-gold text-coffee-dark'
-                      : 'bg-coffee-medium text-coffee-light hover:bg-coffee-light hover:text-coffee-dark'
+                      ? 'bg-[#c5a880] text-[#120f0d] border border-[#c5a880]/30'
+                      : 'bg-white/5 border border-white/10 text-coffee-light hover:bg-[#c5a880]/15 hover:border-[#c5a880]/30 hover:text-[#c5a880]'
                   }`}
                 >
                   {i}
@@ -438,10 +442,10 @@ export default function CafeClient({
           <button
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
-            className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+            className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-300 ${
               currentPage === totalPages
-                ? 'bg-coffee-medium text-coffee-light opacity-50 cursor-not-allowed'
-                : 'bg-coffee-medium text-coffee-light hover:bg-coffee-light hover:text-coffee-dark'
+                ? 'bg-white/[0.01] text-coffee-light/30 border border-white/5 opacity-50 cursor-not-allowed'
+                : 'bg-white/5 border border-white/10 text-coffee-light hover:bg-[#c5a880]/15 hover:border-[#c5a880]/30 hover:text-[#c5a880]'
             }`}
           >
             다음

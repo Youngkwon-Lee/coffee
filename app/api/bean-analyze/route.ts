@@ -1,33 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
-import vision from '@google-cloud/vision';
 import beans from '@/data/beansList_sample.json';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-// 표준 Google Cloud 인증 방식
-let client: any;
+// 표준 Google Cloud 인증 방식 - 레이지 로딩
+let client: any = null;
+let vision: any = null;
+let initialized = false;
 
-try {
-  // 1. 표준 환경변수 방식 (GOOGLE_APPLICATION_CREDENTIALS)
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    client = new vision.ImageAnnotatorClient();
+async function getVisionClient() {
+  if (initialized) return client;
+  
+  try {
+    if (!vision) {
+      const visionModule = await import('@google-cloud/vision');
+      // ES module compatibility
+      vision = visionModule.default || visionModule;
+    }
+
+    // 1. 표준 환경변수 방식 (GOOGLE_APPLICATION_CREDENTIALS)
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      client = new vision.ImageAnnotatorClient();
+    }
+    // 2. JSON 문자열 방식 (Vercel 등 서버리스 환경)
+    else if (process.env.GOOGLE_CLOUD_CREDENTIALS_JSON) {
+      client = new vision.ImageAnnotatorClient({
+        credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS_JSON),
+      });
+    }
+    // 3. 로컬 환경에서는 파일 기반 인증
+    else {
+      client = new vision.ImageAnnotatorClient({
+        keyFilename: './firebase_credentials.json',
+      });
+    }
+  } catch (error) {
+    console.log('Vision API 초기화 실패:', error);
+    // API 키가 없으면 null로 설정
+    client = null;
   }
-  // 2. JSON 문자열 방식 (Vercel 등 서버리스 환경)
-  else if (process.env.GOOGLE_CLOUD_CREDENTIALS_JSON) {
-    client = new vision.ImageAnnotatorClient({
-      credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS_JSON),
-    });
-  }
-  // 3. 로컬 환경에서는 파일 기반 인증
-  else {
-    client = new vision.ImageAnnotatorClient({
-      keyFilename: './firebase_credentials.json',
-    });
-  }
-} catch (error) {
-  console.log('Vision API 초기화 실패:', error);
-  // API 키가 없으면 null로 설정
-  client = null;
+  initialized = true;
+  return client;
 }
 
 // Bean 타입 정의
@@ -444,13 +458,14 @@ export async function POST(req: NextRequest) {
   const buffer = Buffer.from(arrayBuffer);
 
   try {
+    const visionClient = await getVisionClient();
     // API 클라이언트가 초기화되지 않은 경우
-    if (!client) {
+    if (!visionClient) {
       throw new Error('Google Cloud Vision API 초기화 실패 - 환경변수를 확인하세요');
     }
     
     // Vision API로 이미지 분석
-    const [result] = await client.textDetection({ image: { content: buffer } });
+    const [result] = await visionClient.textDetection({ image: { content: buffer } });
     const text = result.fullTextAnnotation?.text || "";
 
     // beans DB에서 가장 유사한 원두 찾기

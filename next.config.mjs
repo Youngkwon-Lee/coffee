@@ -5,6 +5,9 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   
+  // 외부 서버 패키지 번들링 제외
+  serverExternalPackages: ['@google-cloud/vision'],
+  
   // 이미지 설정
   images: {
     remotePatterns: [

@@ -33,9 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <head>
-        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
-      </head>
+      <head />
       <body className={`${notoSansKr.variable} ${playfair.variable} antialiased bg-coffee-dark text-coffee-light min-h-screen`} suppressHydrationWarning>
         {/* Mobile Container */}
         <div className="mobile-container">
@@ -43,7 +41,7 @@ export default function RootLayout({
           <header className="header-coffee">
             <div className="flex items-center space-x-3" suppressHydrationWarning>
               <div className="header-logo">
-                <Coffee className="w-5 h-5 text-coffee-dark" strokeWidth={2.5} />
+                <Coffee className="w-5 h-5 text-[#120f0d]" strokeWidth={1.8} />
               </div>
               <h1 className="text-lg font-semibold text-coffee-light font-cafe-heading">Coffee Tracker</h1>
             </div>

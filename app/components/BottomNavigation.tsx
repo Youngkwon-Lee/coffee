@@ -76,15 +76,15 @@ export default function BottomNavigation() {
                 onClick={item.action}
                 className="fab-action-item"
               >
-                <div className="fab-action-icon text-coffee-100">
+                <div className="fab-action-icon text-coffee-gold">
                   {item.icon}
                 </div>
                 <div className="fab-action-content">
                   <div className="fab-action-title">{item.title}</div>
                   <div className="fab-action-subtitle">{item.subtitle}</div>
                 </div>
-                <div className="fab-action-plus">
-                  <span>+</span>
+                <div className="fab-action-plus flex items-center justify-center w-6 h-6 rounded-full bg-white/5 border border-white/10">
+                  <Plus className="w-3.5 h-3.5 text-[#c5a880]/80" strokeWidth={2} />
                 </div>
               </motion.button>
             ))}
@@ -103,7 +103,7 @@ export default function BottomNavigation() {
                 href={item.path}
                 className={`nav-item ${pathname === item.path ? "active" : ""}`}
               >
-                <span className="nav-icon"><item.icon className="w-5 h-5" /></span>
+                <span className="nav-icon"><item.icon className="w-5 h-5" strokeWidth={1.8} /></span>
                 <span>{item.label}</span>
               </Link>
             ))}
@@ -127,7 +127,7 @@ export default function BottomNavigation() {
                     exit={{ scale: 0, rotate: 90 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <X className="w-6 h-6" />
+                    <X className="w-6 h-6" strokeWidth={1.8} />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -137,7 +137,7 @@ export default function BottomNavigation() {
                     exit={{ scale: 0, rotate: -90 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Plus className="w-7 h-7" />
+                    <Plus className="w-6 h-6" strokeWidth={1.8} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -152,7 +152,7 @@ export default function BottomNavigation() {
                 href={item.path}
                 className={`nav-item ${pathname === item.path ? "active" : ""}`}
               >
-                <span className="nav-icon"><item.icon className="w-5 h-5" /></span>
+                <span className="nav-icon"><item.icon className="w-5 h-5" strokeWidth={1.8} /></span>
                 <span>{item.label}</span>
               </Link>
             ))}
