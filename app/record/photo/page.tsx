@@ -122,23 +122,6 @@ export default function PhotoRecordPageSimple() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  // 자주 방문하는 카페 목록 로드
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadData = async () => {
-      if (isMounted) {
-        await loadFrequentCafes();
-      }
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [loadFrequentCafes]);
-
   const loadFrequentCafes = useCallback(async () => {
     if (!user) return;
 
@@ -170,6 +153,23 @@ export default function PhotoRecordPageSimple() {
       console.error('카페 목록 로드 실패:', error);
     }
   }, [user]);
+
+  // 자주 방문하는 카페 목록 로드
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      if (isMounted) {
+        await loadFrequentCafes();
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loadFrequentCafes]);
 
   // 설문 폼 상태
   const [form, setForm] = useState({
