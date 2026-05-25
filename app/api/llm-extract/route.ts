@@ -1,11 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+const ORIGIN_WORDS = [
+  'ETHIOPIA',
+  'KENYA',
+  'COLOMBIA',
+  'GUATEMALA',
+  'BRAZIL',
+  'PANAMA',
+  'COSTA',
+  'RWANDA',
+  'BURUNDI',
+  'HONDURAS',
+  'ELSALVADOR',
+  'EL',
+  'SALVADOR',
+  'AA',
+  'TOP',
+  'G1',
+  'G2',
+];
+
+function correctFlavorToken(token: string) {
+  return token
+    .replace(/RASP(?:T|TH)H?ERRY/gi, 'Raspberry')
+    .replace(/CRAN(?:T|TE)E?I?R?Y/gi, 'Cranberry')
+    .replace(/BIACK\s*TEA/gi, 'Black Tea')
+    .replace(/SLKY/gi, 'Silky')
+    .replace(/SILKY\s*FINISH/gi, 'Silky')
+    .replace(/BLACKTEA/gi, 'Black Tea')
+    .trim();
+}
+
+function parseFlavorNotes(lines: string[]) {
+  const flavorIndex = lines.findIndex((line) => /flavor\s*note/i.test(line));
+  if (flavorIndex < 0) return [];
+
+  const candidate = lines[flavorIndex + 1] || lines[flavorIndex] || '';
+  const corrected = correctFlavorToken(candidate);
+
+  return corrected
+    .split(/[,\u00b7]+|\.\s+/)
+    .map((item) => item.replace(/[.]/g, '').trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
 function heuristicExtract(text: string, confidence = 0.4) {
   const t = text || '';
 
   // OCR 오탈자/축약 보정
   const normalized = t
+    .replace(/AATOP/gi, 'AA TOP')
+    .replace(/KIYARA517/gi, 'KIYARA 517')
+    .replace(/워사드/gi, 'Washed')
     .replace(/CHOCOLAT\b/gi, 'CHOCOLATE')
     .replace(/MACATAMA\b/gi, 'MACADAMIA')
     .replace(/BLENDlNG/gi, 'BLENDING')
@@ -20,7 +68,7 @@ function heuristicExtract(text: string, confidence = 0.4) {
   const upperTokenCafeCandidates = lines
     .flatMap((l) => l.split(/\s+/))
     .filter((w) => /^[A-Z]{3,8}$/.test(w))
-    .filter((w) => !['TYPE','ROAST','REGION','NET','WT','WASHED','NATURAL','HONEY','BLENDING','BLEND','FARM','GATE','PRICE'].includes(w));
+    .filter((w) => !['TYPE','ROAST','REGION','NET','WT','WASHED','NATURAL','HONEY','BLENDING','BLEND','FARM','GATE','PRICE', ...ORIGIN_WORDS].includes(w));
 
   let cafe = '';
   for (const c of cafeHints) {
@@ -40,10 +88,15 @@ function heuristicExtract(text: string, confidence = 0.4) {
   }
 
   let processing = '';
-  for (const p of processingHints) {
-    if (new RegExp(p, 'i').test(normalized)) {
-      processing = /blend/i.test(p) ? 'Blend' : p;
-      break;
+  if (/washed|워사드/i.test(normalized)) processing = 'Washed';
+  else if (/natural|내추럴/i.test(normalized)) processing = 'Natural';
+  else if (/honey|허니/i.test(normalized)) processing = 'Honey';
+  else {
+    for (const p of processingHints) {
+      if (new RegExp(p, 'i').test(normalized)) {
+        processing = /blend/i.test(p) ? 'Blend' : p;
+        break;
+      }
     }
   }
 
@@ -57,15 +110,28 @@ function heuristicExtract(text: string, confidence = 0.4) {
     ['과일', /(과일|fruit|fruity|plum|peach|apple|grape)/i],
     ['꿀', /(꿀|honey)/i],
   ];
-  const flavor = flavorHints.filter(([, re]) => re.test(normalized)).map(([name]) => name).slice(0, 6);
+  const parsedFlavorNotes = parseFlavorNotes(lines);
+  const flavor = parsedFlavorNotes.length > 0
+    ? parsedFlavorNotes
+    : flavorHints.filter(([, re]) => re.test(normalized)).map(([name]) => name).slice(0, 6);
 
   let bean = '';
 
+  const originLine = lines.find((line) => /\b(ETHIOPIA|KENYA|COLOMBIA|GUATEMALA|BRAZIL|PANAMA)\b/i.test(line));
+  if (originLine) {
+    bean = originLine
+      .replace(/\s+/g, ' ')
+      .replace(/\bAATOP\b/gi, 'AA TOP')
+      .trim();
+  }
+
   // 1) 일반적인 원두 라인 탐색
-  for (const ln of lines) {
-    if (/원두|bean|blend|blending|에티오피아|콜롬비아|케냐|과테말라|브라질/i.test(ln) && ln.length <= 80) {
-      bean = ln;
-      break;
+  if (!bean) {
+    for (const ln of lines) {
+      if (/원두|bean|blend|blending|에티오피아|콜롬비아|케냐|과테말라|브라질/i.test(ln) && ln.length <= 80) {
+        bean = ln;
+        break;
+      }
     }
   }
 
@@ -132,10 +198,15 @@ function heuristicExtract(text: string, confidence = 0.4) {
   if (bean) {
     bean = bean
       .replace(/[\[\]{}()*_`~^]+/g, ' ')
+      .replace(/\bAATOP\b/gi, 'AA TOP')
       .replace(/\b(PRICE|DETAILS|TYPE|ROAST|REGION|NET|WT|FOR|FOB|FARM\s*GATE)\b/gi, ' ')
       .replace(/\b(P|Wal\.?|rer|ETRE|ERIE)\b/gi, ' ')
       .replace(/\s{2,}/g, ' ')
       .trim();
+  }
+
+  if (cafe && bean && bean.toUpperCase().includes(cafe.toUpperCase()) && !cafeHints.includes(cafe)) {
+    cafe = '';
   }
 
   return {

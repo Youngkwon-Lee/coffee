@@ -118,12 +118,46 @@ async function extractViaLlm(rawText: string) {
   } satisfies WorkflowExtraction;
 }
 
-async function extractFromLabelImage(image: File) {
+async function extractViaPaddle(image: File) {
   const formData = new FormData();
   formData.append("image", image);
-  formData.append("mode", "coffee");
+  formData.append("lang", "korean");
+
+  const response = await fetch("/api/paddle-ocr", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("PaddleOCR failed");
+  }
+
+  const result = await response.json();
+  const rawText = typeof result.text === "string" ? result.text.trim() : "";
+  if (!rawText) {
+    throw new Error("PaddleOCR returned empty text");
+  }
+
+  const extracted = await extractViaLlm(rawText);
+  return {
+    ...extracted,
+    source: result.source || extracted.source || "paddle-ocr",
+    confidence: result.confidence || extracted.confidence || 0.6,
+  } satisfies WorkflowExtraction;
+}
+
+async function extractFromLabelImage(image: File) {
+  try {
+    return await extractViaPaddle(image);
+  } catch {
+    // GLM and Tesseract fallbacks handled below.
+  }
 
   try {
+    const formData = new FormData();
+    formData.append("image", image);
+    formData.append("mode", "coffee");
+
     const response = await fetch("/api/glm-ocr", {
       method: "POST",
       body: formData,

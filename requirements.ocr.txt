@@ -1,0 +1,4 @@
+# Install a platform-compatible PaddlePaddle runtime before or alongside this file.
+# Example: pip install paddlepaddle
+
+paddleocr>=3.0.0
