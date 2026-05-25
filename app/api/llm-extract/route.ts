@@ -151,10 +151,6 @@ function heuristicExtract(text: string, confidence = 0.4) {
 }
 
 export async function POST(request: NextRequest) {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-
   let inputText = '';
   let inputConfidence: number | undefined = undefined;
 
@@ -169,6 +165,18 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    if (!process.env.OPENAI_API_KEY) {
+      const fallback = heuristicExtract(text, confidence || 0.4);
+      return NextResponse.json({
+        ...fallback,
+        error: 'OPENAI_API_KEY missing; heuristic fallback used',
+      });
+    }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
 
     // LLM 프롬프트 구성
     const prompt = `
