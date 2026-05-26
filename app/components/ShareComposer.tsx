@@ -341,6 +341,10 @@ export default function ShareComposer({
   }, [initialLayoutMode, record?.id]);
 
   useEffect(() => {
+    setVisibility(DEFAULT_SHARE_VISIBILITY);
+  }, [record?.id]);
+
+  useEffect(() => {
     setStoryScenePreset("auto");
   }, [record?.id]);
 

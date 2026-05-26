@@ -94,7 +94,7 @@ export const DEFAULT_SHARE_VISIBILITY: ShareVisibility = {
   showFlavors: true,
   showRating: true,
   showDate: true,
-  showLocation: false,
+  showLocation: true,
 };
 
 const STORY_RATIO_DIMENSIONS: Record<StoryRatio, { width: number; height: number }> = {
