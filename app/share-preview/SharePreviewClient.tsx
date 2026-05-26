@@ -35,18 +35,18 @@ type TesseractModule = {
 
 const sampleRecord: CoffeeShareSourceRecord = {
   id: "preview-record",
-  cafe: "센터커피 홍대점",
-  bean: "KENYA AA TOP KIYARA 517",
-  flavor: ["Raspberry", "Cranberry", "Black Tea", "Silky"],
-  rating: 4.5,
-  brewMethod: "Drip",
-  processing: "Washed",
+  cafe: "",
+  bean: "Coffee Moment",
+  flavor: ["Aroma", "Light", "Texture", "Aftertaste"],
+  rating: 0,
+  brewMethod: "Photo Mood",
+  processing: "",
   createdAt: "2026-05-24T09:30:00.000Z",
   imageUrl: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80",
-  review: "라즈베리와 크랜베리의 산뜻함 뒤로 홍차 같은 여운이 길게 남아요.",
-  origin: "Kenya",
-  roastLevel: "Medium-Light",
-  locationLabel: "홍대입구",
+  review: "사진이나 라벨을 넣으면 장소와 커피 정보를 이 카드에 바로 반영합니다.",
+  origin: "",
+  roastLevel: "",
+  locationLabel: "",
 };
 
 let tesseractModule: TesseractModule | null = null;
