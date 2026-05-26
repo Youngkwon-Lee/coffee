@@ -199,6 +199,21 @@ async function extractFromLabelImage(image: File) {
   return extractViaLlm(rawText);
 }
 
+function createPhotoOnlyRecord(current: CoffeeShareSourceRecord, imageUrl: string): CoffeeShareSourceRecord {
+  return {
+    ...current,
+    imageUrl,
+    cafe: "",
+    bean: "Coffee Moment",
+    brewMethod: "Photo Mood",
+    processing: "",
+    flavor: ["Aroma", "Light", "Texture", "Aftertaste"],
+    origin: "",
+    roastLevel: "",
+    review: "오늘 마신 커피의 공기와 빛을 기록한 사진 기반 카드입니다.",
+  };
+}
+
 export default function SharePreviewClient() {
   const searchParams = useSearchParams();
   const [toast, setToast] = useState("");
@@ -223,7 +238,7 @@ export default function SharePreviewClient() {
     const labelPath = searchParams.get("labelPath");
     const autorun = searchParams.get("autorun") === "1";
 
-    if (!backgroundPath || !labelPath || sampleHydrated) return;
+    if (!backgroundPath || sampleHydrated) return;
 
     let cancelled = false;
 
@@ -233,14 +248,14 @@ export default function SharePreviewClient() {
           `/api/local-image?path=${encodeURIComponent(backgroundPath)}`,
           backgroundPath.split("/").pop() || "background.jpg",
         );
-        const labelFileFromQuery = await createFileFromRoute(
-          `/api/local-image?path=${encodeURIComponent(labelPath)}`,
-          labelPath.split("/").pop() || "label.jpg",
-        );
-        const [backgroundDataUrl, labelDataUrl] = await Promise.all([
-          readFileAsDataUrl(backgroundFileFromQuery),
-          readFileAsDataUrl(labelFileFromQuery),
-        ]);
+        const labelFileFromQuery = labelPath
+          ? await createFileFromRoute(
+              `/api/local-image?path=${encodeURIComponent(labelPath)}`,
+              labelPath.split("/").pop() || "label.jpg",
+            )
+          : null;
+        const backgroundDataUrl = await readFileAsDataUrl(backgroundFileFromQuery);
+        const labelDataUrl = labelFileFromQuery ? await readFileAsDataUrl(labelFileFromQuery) : "";
 
         if (cancelled) return;
 
@@ -251,8 +266,25 @@ export default function SharePreviewClient() {
         setRecord((current) => ({ ...current, imageUrl: backgroundDataUrl }));
 
         if (autorun) {
-          setToast("샘플 이미지를 불러왔습니다. 라벨 분석을 시작합니다.");
+          setToast(labelFileFromQuery ? "샘플 이미지를 불러왔습니다. 라벨 분석을 시작합니다." : "샘플 이미지를 불러왔습니다. 사진 무드 카드를 준비합니다.");
           setWorkflowState("analyzing");
+          if (!labelFileFromQuery) {
+            setExtraction({
+              bean: "Coffee Moment",
+              processing: "Photo Mood",
+              flavor: ["Aroma", "Light", "Texture", "Aftertaste"],
+              raw_text: "No label image provided. Photo-only mood workflow used.",
+              source: "photo-only",
+              confidence: 0,
+            });
+            setRawText("라벨 없이 사진 기반 무드 카드로 생성했습니다.");
+            setRecord((current) => createPhotoOnlyRecord(current, backgroundDataUrl));
+            setWorkflowState("ready");
+            setToast("사진만으로 카드 준비 완료");
+            setSampleHydrated(true);
+            return;
+          }
+
           const result = await extractFromLabelImage(labelFileFromQuery);
           if (cancelled) return;
 
@@ -301,6 +333,7 @@ export default function SharePreviewClient() {
     setBackgroundFile(file);
     setBackgroundPreview(dataUrl);
     setRecord((current) => ({ ...current, imageUrl: dataUrl }));
+    setWorkflowError("");
   };
 
   const handleLabelChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -309,11 +342,12 @@ export default function SharePreviewClient() {
     const dataUrl = await readFileAsDataUrl(file);
     setLabelFile(file);
     setLabelPreview(dataUrl);
+    setWorkflowError("");
   };
 
   const handleRunWorkflow = async () => {
-    if (!backgroundFile || !labelFile) {
-      setWorkflowError("배경 사진과 라벨 사진을 모두 선택해주세요.");
+    if (!backgroundFile) {
+      setWorkflowError("배경 커피 사진을 선택해주세요.");
       return;
     }
 
@@ -321,6 +355,24 @@ export default function SharePreviewClient() {
       setWorkflowState("analyzing");
       setWorkflowError("");
       setToast("");
+
+      if (!labelFile) {
+        const nextRecord = createPhotoOnlyRecord(record, backgroundPreview);
+        setRecord(nextRecord);
+        setExtraction({
+          bean: nextRecord.bean,
+          processing: nextRecord.brewMethod,
+          flavor: Array.isArray(nextRecord.flavor) ? nextRecord.flavor : [],
+          raw_text: "No label image provided. Photo-only mood workflow used.",
+          source: "photo-only",
+          confidence: 0,
+        });
+        setRawText("라벨 없이 사진 기반 무드 카드로 생성했습니다.");
+        setWorkflowState("ready");
+        setToast("사진만으로 카드 준비 완료");
+        return;
+      }
+
       const result = await extractFromLabelImage(labelFile);
       setExtraction(result);
       setRawText(result.raw_text || "");
@@ -363,7 +415,7 @@ export default function SharePreviewClient() {
               히스토리로 돌아가기
             </Link>
             <span className="rounded-full border border-coffee-gold/20 bg-coffee-gold/10 px-3 py-1 text-xs text-coffee-light/80">
-              라벨 OCR → 인물 사진 오버레이 → 공유 카드
+              사진 무드 카드 · 라벨이 있으면 OCR 보강
             </span>
           </div>
           {toast && (
@@ -384,7 +436,7 @@ export default function SharePreviewClient() {
               <div>
                 <h2 className="text-lg font-semibold">Workflow Lab</h2>
                 <p className="mt-1 text-sm text-coffee-light/65">
-                  라벨 사진에서 추출한 원두명과 향미를 다른 커피 사진 위의 스토리/AI 카드로 바로 넘깁니다.
+                  커피 사진만으로 먼저 카드를 만들고, 라벨이 있으면 원두명과 향미를 보강합니다.
                 </p>
               </div>
               <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs uppercase tracking-[0.2em] text-coffee-gold/80">
@@ -408,8 +460,8 @@ export default function SharePreviewClient() {
               </label>
 
               <label className="rounded-3xl border border-white/10 bg-black/15 p-4">
-                <div className="text-sm font-medium text-coffee-light">2. 커피 라벨 사진</div>
-                <div className="mt-1 text-xs text-coffee-light/60">원두명, 프로세싱, 향미가 적힌 라벨/커피백을 넣어주세요.</div>
+                <div className="text-sm font-medium text-coffee-light">2. 커피 라벨 사진 선택</div>
+                <div className="mt-1 text-xs text-coffee-light/60">원두명, 프로세싱, 향미가 보이는 사진이 있으면 더 정확해집니다.</div>
                 <input
                   type="file"
                   accept="image/*"
@@ -420,7 +472,7 @@ export default function SharePreviewClient() {
                   {labelPreview ? (
                     <img src={labelPreview} alt="label preview" className="h-56 w-full object-cover" />
                   ) : (
-                    <div className="flex h-56 items-center justify-center text-sm text-coffee-light/45">라벨 사진을 선택해주세요.</div>
+                    <div className="flex h-56 items-center justify-center text-sm text-coffee-light/45">라벨 없이도 진행할 수 있습니다.</div>
                   )}
                 </div>
               </label>
@@ -433,7 +485,7 @@ export default function SharePreviewClient() {
                 disabled={workflowState === "analyzing"}
                 className="rounded-full bg-coffee-gold px-5 py-3 text-sm font-semibold text-[#261912] transition hover:bg-[#d6a668] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {workflowState === "analyzing" ? "라벨 분석 중..." : "라벨 분석 후 공유 카드 만들기"}
+                {workflowState === "analyzing" ? "카드 준비 중..." : labelFile ? "라벨 분석 후 공유 카드 만들기" : "사진만으로 공유 카드 만들기"}
               </button>
               <button
                 type="button"

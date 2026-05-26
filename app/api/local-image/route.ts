@@ -1,5 +1,5 @@
 import { promises as fs } from "node:fs";
-import { basename, extname, normalize, resolve } from "node:path";
+import { basename, dirname, extname, join, normalize, resolve } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 
 const ALLOWED_PREFIXES = [
@@ -37,12 +37,28 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const file = await fs.readFile(normalizedPath);
+    let filePath = normalizedPath;
+    const file = await fs.readFile(filePath).catch(async () => {
+      const dir = dirname(normalizedPath);
+      const targetName = basename(normalizedPath);
+      const entries = await fs.readdir(dir);
+      const match = entries.find((entry) => (
+        entry.normalize("NFC") === targetName.normalize("NFC") ||
+        entry.normalize("NFD") === targetName.normalize("NFD")
+      ));
+      if (!match) throw new Error("Image not found");
+      filePath = join(dir, match);
+      return fs.readFile(filePath);
+    });
+
+    const resolvedExtension = extname(filePath).toLowerCase();
+    const resolvedMimeType = MIME_BY_EXT[resolvedExtension] || mimeType;
+
     return new NextResponse(file, {
       headers: {
-        "Content-Type": mimeType,
+        "Content-Type": resolvedMimeType,
         "Cache-Control": "no-store",
-        "Content-Disposition": `inline; filename="${basename(normalizedPath)}"`,
+        "Content-Disposition": `inline; filename="local-image${resolvedExtension}"`,
       },
     });
   } catch {
