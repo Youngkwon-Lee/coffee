@@ -46,7 +46,7 @@ function parseFlavorNotes(lines: string[]) {
     .slice(0, 5);
 }
 
-function heuristicExtract(text: string, confidence = 0.4) {
+function heuristicExtract(text: string, confidence = 0.4, mode: 'label' | 'scene' = 'label') {
   const t = text || '';
 
   // OCR 오탈자/축약 보정
@@ -61,7 +61,7 @@ function heuristicExtract(text: string, confidence = 0.4) {
 
   const lower = normalized.toLowerCase();
 
-  const cafeHints = ['센터커피','테라로사','프릳츠','프리츠','모모스','로우키','엘카페','보난자','나무사이로','딥블루레이크','브라더스','BROTHERS'];
+  const cafeHints = ['센터커피','CENTER COFFEE','CENTER SEOUL','SUMOKUMTO','SUMOKUMTO COFFEE','테라로사','프릳츠','프리츠','모모스','로우키','엘카페','보난자','나무사이로','딥블루레이크','브라더스','BROTHERS'];
   const processingHints = ['Natural','Washed','Honey','Semi-Washed','Anaerobic','Carbonic','Blend','Blending'];
 
   const lines = normalized.split(/\n+/).map((x) => x.trim()).filter(Boolean);
@@ -82,9 +82,26 @@ function heuristicExtract(text: string, confidence = 0.4) {
   if (!cafe) {
     if (/roasted\s+by\s+brothers/i.test(normalized)) cafe = 'Brothers Coffee Roasters';
     else if (/terarosa/i.test(normalized)) cafe = '테라로사';
-    else if (/center\s*coffee|centre\s*coffee/i.test(normalized)) cafe = '센터커피';
+    else if (/center\s*coffee|centre\s*coffee|center\s*seoul/i.test(normalized)) cafe = '센터커피';
+    else if (/sumokumto/i.test(normalized)) cafe = 'Sumokumto Coffee';
     else if (/\bSEY\b|SEY\s+ERIE/i.test(normalized)) cafe = 'SEY';
     else if (upperTokenCafeCandidates.length > 0) cafe = upperTokenCafeCandidates[0];
+  }
+
+  if (cafe === 'CENTER COFFEE' || cafe === 'CENTER SEOUL') cafe = '센터커피';
+  if (cafe === 'SUMOKUMTO' || cafe === 'SUMOKUMTO COFFEE') cafe = 'Sumokumto Coffee';
+
+  if (mode === 'scene') {
+    return {
+      cafe,
+      bean: '',
+      processing: '',
+      flavor: [],
+      confidence,
+      raw_text: text,
+      llm_response: '',
+      source: 'heuristic-scene-fallback',
+    };
   }
 
   let processing = '';
@@ -224,11 +241,13 @@ function heuristicExtract(text: string, confidence = 0.4) {
 export async function POST(request: NextRequest) {
   let inputText = '';
   let inputConfidence: number | undefined = undefined;
+  let inputMode: 'label' | 'scene' = 'label';
 
   try {
-    const { text, confidence } = await request.json();
+    const { text, confidence, mode } = await request.json();
     inputText = text || '';
     inputConfidence = confidence;
+    inputMode = mode === 'scene' ? 'scene' : 'label';
 
     if (!text) {
       return NextResponse.json(
@@ -238,7 +257,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!process.env.OPENAI_API_KEY) {
-      const fallback = heuristicExtract(text, confidence || 0.4);
+      const fallback = heuristicExtract(text, confidence || 0.4, inputMode);
       return NextResponse.json({
         ...fallback,
         error: 'OPENAI_API_KEY missing; heuristic fallback used',
@@ -250,7 +269,38 @@ export async function POST(request: NextRequest) {
     });
 
     // LLM 프롬프트 구성
-    const prompt = `
+    const prompt = inputMode === 'scene' ? `
+다음은 커피 장면 사진에서 OCR로 읽은 텍스트입니다. 컵 로고, 매장 이름, 메뉴 일부가 섞여 있을 수 있습니다.
+
+추출된 텍스트:
+${text}
+
+다음 형태의 JSON으로 응답해주세요:
+{
+  "cafe": "카페명 또는 로스터리명",
+  "bean": "원두명",
+  "processing": "가공방식",
+  "flavor": ["향미1", "향미2"],
+  "origin": "원산지",
+  "roast_level": "로스팅 레벨"
+}
+
+추출 규칙:
+1. 이 모드는 장면 사진용입니다. 실제로 텍스트가 명시된 값만 넣고, 추측하지 마세요.
+2. cafe:
+   - 컵, 병, 메뉴, 영수증, 간판 등에 적힌 실제 브랜드/카페명만 허용
+   - 예: "센터커피", "Sumokumto Coffee"
+   - 확실하지 않으면 빈 문자열 ""
+3. bean:
+   - 원두/블렌드명이 장면 사진에서 명시적으로 읽힐 때만
+   - 일반 컵 사진, 분위기 사진이면 빈 문자열 ""
+4. processing, flavor, origin, roast_level:
+   - 라벨이나 메뉴판에 실제로 적혀 있을 때만
+   - 텍스트가 없거나 불분명하면 빈 문자열 또는 빈 배열
+5. 카드, 책자, 노트, 주변 장식 텍스트는 커피 정보가 아닐 수 있으니 매우 보수적으로 판단하세요.
+
+반드시 유효한 JSON만 반환하세요. 설명이나 추가 텍스트는 포함하지 마세요.
+` : `
 다음은 커피백이나 메뉴판에서 추출된 텍스트입니다. 한국의 커피 문화에 맞춰 정확한 정보를 추출해주세요.
 
 추출된 텍스트:
@@ -316,9 +366,12 @@ ${text}
         bean: extractedData.bean || '',
         processing: extractedData.processing || '',
         flavor: Array.isArray(extractedData.flavor) ? extractedData.flavor : [],
+        origin: extractedData.origin || '',
+        roast_level: extractedData.roast_level || '',
         confidence: confidence || 0.8,
         raw_text: text,
-        llm_response: responseText
+        llm_response: responseText,
+        source: inputMode === 'scene' ? 'llm-scene-extract' : 'llm-extract',
       };
 
       return NextResponse.json(result);
@@ -332,10 +385,13 @@ ${text}
         bean: '',
         processing: '',
         flavor: [],
+        origin: '',
+        roast_level: '',
         confidence: 0.5,
         raw_text: text,
         llm_response: responseText,
-        error: 'Failed to parse LLM response as JSON'
+        error: 'Failed to parse LLM response as JSON',
+        source: inputMode === 'scene' ? 'llm-scene-extract' : 'llm-extract',
       };
 
       return NextResponse.json(fallbackResult);
@@ -345,7 +401,7 @@ ${text}
     console.error('LLM extraction error:', error);
 
     // OpenAI 실패 시 휴리스틱 폴백 (서비스 중단 방지)
-    const fallback = heuristicExtract(inputText, inputConfidence || 0.4);
+    const fallback = heuristicExtract(inputText, inputConfidence || 0.4, inputMode);
     return NextResponse.json({
       ...fallback,
       error: 'LLM extraction failed; fallback used',

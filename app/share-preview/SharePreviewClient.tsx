@@ -18,6 +18,8 @@ type WorkflowExtraction = {
   confidence?: number;
 };
 
+type WorkflowMode = "label" | "scene";
+
 type TesseractModule = {
   recognize: (
     image: File,
@@ -48,6 +50,7 @@ const sampleRecord: CoffeeShareSourceRecord = {
 };
 
 let tesseractModule: TesseractModule | null = null;
+const SCENE_HINT_TIMEOUT_MS = 4000;
 
 async function ensureTesseract() {
   if (tesseractModule) return tesseractModule;
@@ -90,13 +93,14 @@ async function runTesseractFallback(image: File) {
   return (data?.text || "").trim();
 }
 
-async function extractViaLlm(rawText: string) {
+async function extractViaLlm(rawText: string, mode: WorkflowMode = "label") {
   const response = await fetch("/api/llm-extract", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       text: rawText,
       confidence: 0.82,
+      mode,
     }),
   });
 
@@ -113,12 +117,12 @@ async function extractViaLlm(rawText: string) {
     origin: result.origin || "",
     roast_level: result.roast_level || "",
     raw_text: rawText,
-    source: result.source || "llm-extract",
+    source: result.source || (mode === "scene" ? "llm-scene-extract" : "llm-extract"),
     confidence: result.confidence || 0.6,
   } satisfies WorkflowExtraction;
 }
 
-async function extractViaPaddle(image: File) {
+async function readRawTextViaPaddle(image: File) {
   const formData = new FormData();
   formData.append("image", image);
   formData.append("lang", "korean");
@@ -138,11 +142,21 @@ async function extractViaPaddle(image: File) {
     throw new Error("PaddleOCR returned empty text");
   }
 
-  const extracted = await extractViaLlm(rawText);
+  return {
+    rawText,
+    source: result.source || "paddle-ocr",
+    confidence: result.confidence || 0.6,
+  };
+}
+
+async function extractViaPaddle(image: File) {
+  const { rawText, source, confidence } = await readRawTextViaPaddle(image);
+
+  const extracted = await extractViaLlm(rawText, "label");
   return {
     ...extracted,
-    source: result.source || extracted.source || "paddle-ocr",
-    confidence: result.confidence || extracted.confidence || 0.6,
+    source: source || extracted.source || "paddle-ocr",
+    confidence: confidence || extracted.confidence || 0.6,
   } satisfies WorkflowExtraction;
 }
 
@@ -185,7 +199,7 @@ async function extractFromLabelImage(image: File) {
     }
 
     if (extraction.raw_text) {
-      return extractViaLlm(extraction.raw_text);
+      return extractViaLlm(extraction.raw_text, "label");
     }
   } catch {
     // Tesseract fallback handled below.
@@ -196,21 +210,87 @@ async function extractFromLabelImage(image: File) {
     throw new Error("라벨 이미지에서 텍스트를 읽지 못했습니다.");
   }
 
-  return extractViaLlm(rawText);
+  return extractViaLlm(rawText, "label");
 }
 
-function createPhotoOnlyRecord(current: CoffeeShareSourceRecord, imageUrl: string): CoffeeShareSourceRecord {
+async function extractSceneContext(image: File) {
+  try {
+    const paddle = await readRawTextViaPaddle(image);
+    if (!paddle.rawText) return null;
+
+    const extracted = await extractViaLlm(paddle.rawText, "scene");
+    return {
+      ...extracted,
+      processing: "",
+      flavor: [],
+      roast_level: "",
+      raw_text: paddle.rawText,
+      source: `scene-${paddle.source || "paddle-ocr"}`,
+      confidence: extracted.confidence || paddle.confidence || 0.45,
+    } satisfies WorkflowExtraction;
+  } catch {
+    return null;
+  }
+}
+
+function createPhotoOnlyRecord(
+  current: CoffeeShareSourceRecord,
+  imageUrl: string,
+  sceneExtraction?: WorkflowExtraction | null,
+): CoffeeShareSourceRecord {
+  const detectedCafe = sceneExtraction?.cafe?.trim() || "";
+  const detectedBean = sceneExtraction?.bean?.trim() || "";
+  const detectedOrigin = sceneExtraction?.origin?.trim() || "";
+
   return {
     ...current,
     imageUrl,
-    cafe: "",
-    bean: "Coffee Moment",
+    cafe: detectedCafe,
+    bean: detectedBean || "Coffee Moment",
     brewMethod: "Photo Mood",
     processing: "",
     flavor: ["Aroma", "Light", "Texture", "Aftertaste"],
-    origin: "",
+    origin: detectedOrigin,
     roastLevel: "",
-    review: "오늘 마신 커피의 공기와 빛을 기록한 사진 기반 카드입니다.",
+    locationLabel: detectedCafe || current.locationLabel || current.cafe || "",
+    review: detectedCafe
+      ? `${detectedCafe}에서 마신 커피의 공기와 빛을 기록한 사진 기반 카드입니다.`
+      : "오늘 마신 커피의 공기와 빛을 기록한 사진 기반 카드입니다.",
+  };
+}
+
+async function preparePhotoOnlyWorkflow(
+  current: CoffeeShareSourceRecord,
+  image: File,
+  imageUrl: string,
+) {
+  const sceneExtraction = await Promise.race<WorkflowExtraction | null>([
+    extractSceneContext(image).catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), SCENE_HINT_TIMEOUT_MS)),
+  ]);
+  const nextRecord = createPhotoOnlyRecord(current, imageUrl, sceneExtraction);
+  const rawText = sceneExtraction?.raw_text || "";
+  const source = sceneExtraction?.source || "photo-only";
+  const toastTarget = sceneExtraction?.cafe || sceneExtraction?.bean || "사진만으로 카드 준비 완료";
+
+  return {
+    nextRecord,
+    nextExtraction: {
+      cafe: nextRecord.cafe || "",
+      bean: nextRecord.bean || "",
+      processing: nextRecord.brewMethod || "",
+      flavor: Array.isArray(nextRecord.flavor) ? nextRecord.flavor : [],
+      origin: nextRecord.origin || "",
+      roast_level: "",
+      raw_text: rawText || "No label image provided. Photo-only mood workflow used.",
+      source,
+      confidence: sceneExtraction?.confidence || 0,
+    } satisfies WorkflowExtraction,
+    nextRawText: rawText || "라벨 없이 사진 기반 무드 카드로 생성했습니다.",
+    nextToast:
+      toastTarget === "사진만으로 카드 준비 완료"
+        ? toastTarget
+        : `사진만으로 카드 준비 완료: ${toastTarget}`,
   };
 }
 
@@ -269,18 +349,13 @@ export default function SharePreviewClient() {
           setToast(labelFileFromQuery ? "샘플 이미지를 불러왔습니다. 라벨 분석을 시작합니다." : "샘플 이미지를 불러왔습니다. 사진 무드 카드를 준비합니다.");
           setWorkflowState("analyzing");
           if (!labelFileFromQuery) {
-            setExtraction({
-              bean: "Coffee Moment",
-              processing: "Photo Mood",
-              flavor: ["Aroma", "Light", "Texture", "Aftertaste"],
-              raw_text: "No label image provided. Photo-only mood workflow used.",
-              source: "photo-only",
-              confidence: 0,
-            });
-            setRawText("라벨 없이 사진 기반 무드 카드로 생성했습니다.");
-            setRecord((current) => createPhotoOnlyRecord(current, backgroundDataUrl));
+            const prepared = await preparePhotoOnlyWorkflow(sampleRecord, backgroundFileFromQuery, backgroundDataUrl);
+            if (cancelled) return;
+            setExtraction(prepared.nextExtraction);
+            setRawText(prepared.nextRawText);
+            setRecord(prepared.nextRecord);
             setWorkflowState("ready");
-            setToast("사진만으로 카드 준비 완료");
+            setToast(prepared.nextToast);
             setSampleHydrated(true);
             return;
           }
@@ -357,19 +432,12 @@ export default function SharePreviewClient() {
       setToast("");
 
       if (!labelFile) {
-        const nextRecord = createPhotoOnlyRecord(record, backgroundPreview);
-        setRecord(nextRecord);
-        setExtraction({
-          bean: nextRecord.bean,
-          processing: nextRecord.brewMethod,
-          flavor: Array.isArray(nextRecord.flavor) ? nextRecord.flavor : [],
-          raw_text: "No label image provided. Photo-only mood workflow used.",
-          source: "photo-only",
-          confidence: 0,
-        });
-        setRawText("라벨 없이 사진 기반 무드 카드로 생성했습니다.");
+        const prepared = await preparePhotoOnlyWorkflow(record, backgroundFile, backgroundPreview);
+        setRecord(prepared.nextRecord);
+        setExtraction(prepared.nextExtraction);
+        setRawText(prepared.nextRawText);
         setWorkflowState("ready");
-        setToast("사진만으로 카드 준비 완료");
+        setToast(prepared.nextToast);
         return;
       }
 
@@ -436,7 +504,7 @@ export default function SharePreviewClient() {
               <div>
                 <h2 className="text-lg font-semibold">Workflow Lab</h2>
                 <p className="mt-1 text-sm text-coffee-light/65">
-                  커피 사진만으로 먼저 카드를 만들고, 라벨이 있으면 원두명과 향미를 보강합니다.
+                  커피 사진만으로 먼저 카드를 만들고, 텍스트가 선명한 컷이면 카페 힌트를 보강합니다. 라벨이 있으면 원두명과 향미까지 더 정확해집니다.
                 </p>
               </div>
               <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs uppercase tracking-[0.2em] text-coffee-gold/80">
