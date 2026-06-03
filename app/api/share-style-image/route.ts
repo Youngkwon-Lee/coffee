@@ -3,13 +3,21 @@ import OpenAI from "openai";
 import type { SensoryScenePreset, SharePayload, ShareVisibility } from "../../utils/share";
 
 type StylePreset = "editorial" | "sticker" | "cinematic";
+type ImageProvider = "openai" | "gemini";
+type GeminiImageModel = "gemini-3-pro-image" | "gemini-3.1-flash-image" | "gemini-2.5-flash-image";
+type OpenAiImageModel = "gpt-image-1.5" | "gpt-image-1";
 
 type ShareStyleImageRequestBody = {
   payload?: SharePayload;
   visibility?: ShareVisibility;
   stylePreset?: StylePreset;
   scenePreset?: SensoryScenePreset;
+  provider?: ImageProvider;
+  model?: GeminiImageModel | OpenAiImageModel;
 };
+
+const OPENAI_DEFAULT_MODEL: OpenAiImageModel = "gpt-image-1.5";
+const GEMINI_DEFAULT_MODEL: GeminiImageModel = "gemini-3-pro-image";
 
 const presetGuides: Record<StylePreset, string> = {
   editorial:
@@ -81,6 +89,134 @@ ${scenePresetGuides[scenePreset]}
   `.trim();
 }
 
+function resolveProvider(requested?: ImageProvider) {
+  if (requested === "gemini") {
+    return process.env.GEMINI_API_KEY ? "gemini" : null;
+  }
+
+  if (requested === "openai") {
+    return process.env.OPENAI_API_KEY ? "openai" : null;
+  }
+
+  if (process.env.GEMINI_API_KEY) return "gemini";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  return null;
+}
+
+async function loadSourceImage(payload: SharePayload) {
+  const sourceResponse = await fetch(payload.imageUrl);
+  if (!sourceResponse.ok) {
+    throw new Error(`원본 이미지를 불러오지 못했습니다. (${sourceResponse.status} ${sourceResponse.statusText})`);
+  }
+
+  const sourceType = sourceResponse.headers.get("content-type") || "image/jpeg";
+  const sourceBytes = await sourceResponse.arrayBuffer();
+  return {
+    sourceType,
+    sourceBytes,
+  };
+}
+
+async function generateWithOpenAI(args: {
+  model: OpenAiImageModel;
+  prompt: string;
+  payload: SharePayload;
+  sourceType: string;
+  sourceBytes: ArrayBuffer;
+}) {
+  const sourceFile = new File([args.sourceBytes], "coffee-source.jpg", { type: args.sourceType });
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const imageResponse = await openai.images.edit({
+    model: args.model,
+    image: sourceFile,
+    prompt: args.prompt,
+    quality: "low",
+    size: "1024x1536",
+    background: "opaque",
+    n: 1,
+    user: args.payload.title.slice(0, 64),
+  });
+
+  const imageBase64 = imageResponse.data?.[0]?.b64_json;
+  if (!imageBase64) {
+    throw new Error("OpenAI가 이미지를 반환하지 않았습니다.");
+  }
+
+  return {
+    imageDataUrl: `data:image/png;base64,${imageBase64}`,
+    usage: imageResponse.usage || null,
+  };
+}
+
+async function generateWithGemini(args: {
+  model: GeminiImageModel;
+  prompt: string;
+  sourceType: string;
+  sourceBytes: ArrayBuffer;
+}) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1/models/${args.model}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": process.env.GEMINI_API_KEY || "",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: args.prompt },
+              {
+                inlineData: {
+                  mimeType: args.sourceType,
+                  data: Buffer.from(args.sourceBytes).toString("base64"),
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["IMAGE"],
+          responseFormat: {
+            image: {
+              aspectRatio: "9:16",
+              imageSize: "2K",
+            },
+          },
+        },
+      }),
+    },
+  );
+
+  const result = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const details =
+      result?.error?.message ||
+      result?.error?.status ||
+      result?.error ||
+      `${response.status} ${response.statusText}`;
+    throw new Error(`Gemini 이미지 생성 실패: ${details}`);
+  }
+
+  const parts = result?.candidates?.[0]?.content?.parts;
+  const imagePart = Array.isArray(parts)
+    ? parts.find((part: { inlineData?: { data?: string; mimeType?: string } }) => typeof part?.inlineData?.data === "string")
+    : null;
+  const imageBase64 = imagePart?.inlineData?.data;
+  const mimeType = imagePart?.inlineData?.mimeType || "image/png";
+
+  if (!imageBase64) {
+    throw new Error("Gemini가 이미지를 반환하지 않았습니다.");
+  }
+
+  return {
+    imageDataUrl: `data:${mimeType};base64,${imageBase64}`,
+    usage: result?.usageMetadata || null,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as ShareStyleImageRequestBody;
@@ -93,51 +229,57 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "payload와 visibility가 필요합니다." }, { status: 400 });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    const provider = resolveProvider(body.provider);
+    if (!provider) {
       return NextResponse.json(
-        { error: "OPENAI_API_KEY가 설정되지 않아 AI 스타일 카드를 생성할 수 없습니다." },
+        {
+          error:
+            body.provider === "gemini"
+              ? "GEMINI_API_KEY가 설정되지 않았습니다."
+              : body.provider === "openai"
+                ? "OPENAI_API_KEY가 설정되지 않았습니다."
+                : "이미지 생성용 API 키가 없습니다. GEMINI_API_KEY 또는 OPENAI_API_KEY가 필요합니다.",
+        },
         { status: 503 },
       );
     }
 
-    const sourceResponse = await fetch(payload.imageUrl);
-    if (!sourceResponse.ok) {
-      return NextResponse.json(
-        { error: "원본 이미지를 불러오지 못했습니다.", details: `${sourceResponse.status} ${sourceResponse.statusText}` },
-        { status: 400 },
-      );
+    const prompt = buildStylePrompt(payload, visibility, stylePreset, scenePreset);
+    const { sourceType, sourceBytes } = await loadSourceImage(payload);
+
+    if (provider === "gemini") {
+      const model = (body.model as GeminiImageModel | undefined) || GEMINI_DEFAULT_MODEL;
+      const result = await generateWithGemini({
+        model,
+        prompt,
+        sourceType,
+        sourceBytes,
+      });
+
+      return NextResponse.json({
+        ...result,
+        provider,
+        model,
+        stylePreset,
+        scenePreset,
+      });
     }
 
-    const sourceType = sourceResponse.headers.get("content-type") || "image/jpeg";
-    const sourceBytes = await sourceResponse.arrayBuffer();
-    const sourceFile = new File([sourceBytes], "coffee-source.jpg", { type: sourceType });
-
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const imageResponse = await openai.images.edit({
-      model: "gpt-image-1",
-      image: sourceFile,
-      prompt: buildStylePrompt(payload, visibility, stylePreset, scenePreset),
-      quality: "low",
-      size: "1024x1536",
-      background: "opaque",
-      n: 1,
-      user: payload.title.slice(0, 64),
+    const model = (body.model as OpenAiImageModel | undefined) || OPENAI_DEFAULT_MODEL;
+    const result = await generateWithOpenAI({
+      model,
+      prompt,
+      payload,
+      sourceType,
+      sourceBytes,
     });
 
-    const imageBase64 = imageResponse.data?.[0]?.b64_json;
-
-    if (!imageBase64) {
-      return NextResponse.json(
-        { error: "AI 스타일 카드 이미지를 생성하지 못했습니다." },
-        { status: 502 },
-      );
-    }
-
     return NextResponse.json({
-      imageDataUrl: `data:image/png;base64,${imageBase64}`,
+      ...result,
+      provider,
+      model,
       stylePreset,
       scenePreset,
-      usage: imageResponse.usage || null,
     });
   } catch (error) {
     console.error("Share style image generation failed:", error);
@@ -152,5 +294,13 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ error: "POST 메서드만 지원됩니다." }, { status: 405 });
+  return NextResponse.json({
+    error: "POST 메서드만 지원됩니다.",
+    supportedProviders: ["gemini", "openai"],
+    defaultProvider: process.env.GEMINI_API_KEY ? "gemini" : process.env.OPENAI_API_KEY ? "openai" : null,
+    defaultModels: {
+      gemini: GEMINI_DEFAULT_MODEL,
+      openai: OPENAI_DEFAULT_MODEL,
+    },
+  }, { status: 405 });
 }
