@@ -869,27 +869,6 @@ function drawSteamField(
     ctx.fill();
   });
 
-  ctx.strokeStyle = profile.steamTint;
-  ctx.lineWidth = Math.max(3, width * 0.004);
-  ctx.lineCap = "round";
-  ctx.shadowColor = profile.steamTint;
-  ctx.shadowBlur = width * 0.05;
-  for (let i = 0; i < 3; i += 1) {
-    const startX = width * (0.48 + i * 0.035);
-    const startY = height * 0.82;
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.bezierCurveTo(
-      startX - width * 0.07,
-      height * (0.72 - i * 0.03),
-      startX + width * 0.04,
-      height * (0.54 - i * 0.05),
-      startX - width * 0.02,
-      height * (0.32 - i * 0.03),
-    );
-    ctx.stroke();
-  }
-
   getSensoryTrailPoints(profile, 5).forEach((point, index) => {
     const px = point.x * width;
     const py = point.y * height;

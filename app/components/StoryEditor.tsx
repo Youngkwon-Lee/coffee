@@ -132,18 +132,6 @@ function AtmosphereLayer({ profile }: { profile: SensorySceneProfile }) {
         className="absolute bottom-[12%] left-[18%] h-[26%] w-[54%] rounded-full blur-3xl"
         style={{ background: `radial-gradient(circle, ${tertiary?.color ?? "#f6dcc4"}38 0%, transparent 72%)` }}
       />
-      {[0, 1, 2].map((index) => (
-        <div
-          key={index}
-          className="absolute bottom-[14%] left-1/2 w-[38%] -translate-x-1/2 rounded-full border border-white/10 blur-[1px]"
-          style={{
-            height: `${30 + index * 12}%`,
-            transform: `translateX(-50%) translateY(${index * -10}px) rotate(${index === 1 ? "-8deg" : index === 2 ? "8deg" : "0deg"})`,
-            background: `linear-gradient(180deg, ${profile.steamTint}, transparent 78%)`,
-            opacity: 0.26 - index * 0.05,
-          }}
-        />
-      ))}
       {particles.map((point, index) => (
         <div
           key={`${point.x}-${point.y}`}
