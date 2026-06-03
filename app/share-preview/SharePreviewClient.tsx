@@ -238,9 +238,10 @@ function createPhotoOnlyRecord(
   imageUrl: string,
   sceneExtraction?: WorkflowExtraction | null,
 ): CoffeeShareSourceRecord {
-  const detectedCafe = sceneExtraction?.cafe?.trim() || "";
-  const detectedBean = sceneExtraction?.bean?.trim() || "";
-  const detectedOrigin = sceneExtraction?.origin?.trim() || "";
+  const detectedCafe = current.cafe?.trim() || sceneExtraction?.cafe?.trim() || "";
+  const detectedBean = current.bean?.trim() || sceneExtraction?.bean?.trim() || "";
+  const detectedOrigin = current.origin?.trim() || sceneExtraction?.origin?.trim() || "";
+  const detectedLocation = current.locationLabel?.trim() || detectedCafe || "";
 
   return {
     ...current,
@@ -252,10 +253,10 @@ function createPhotoOnlyRecord(
     flavor: ["Aroma", "Light", "Texture", "Aftertaste"],
     origin: detectedOrigin,
     roastLevel: "",
-    locationLabel: detectedCafe || current.locationLabel || current.cafe || "",
-    review: detectedCafe
+    locationLabel: detectedLocation,
+    review: current.review?.trim() || (detectedCafe
       ? `${detectedCafe}에서 마신 커피의 공기와 빛을 기록한 사진 기반 카드입니다.`
-      : "오늘 마신 커피의 공기와 빛을 기록한 사진 기반 카드입니다.",
+      : "오늘 마신 커피의 공기와 빛을 기록한 사진 기반 카드입니다."),
   };
 }
 
@@ -317,6 +318,9 @@ export default function SharePreviewClient() {
     const backgroundPath = searchParams.get("backgroundPath");
     const labelPath = searchParams.get("labelPath");
     const autorun = searchParams.get("autorun") === "1";
+    const cafeOverride = searchParams.get("cafe") || "";
+    const locationOverride = searchParams.get("location") || "";
+    const beanOverride = searchParams.get("bean") || "";
 
     if (!backgroundPath || sampleHydrated) return;
 
@@ -343,13 +347,20 @@ export default function SharePreviewClient() {
         setLabelFile(labelFileFromQuery);
         setBackgroundPreview(backgroundDataUrl);
         setLabelPreview(labelDataUrl);
-        setRecord((current) => ({ ...current, imageUrl: backgroundDataUrl }));
+        const hydratedBaseRecord = {
+          ...sampleRecord,
+          imageUrl: backgroundDataUrl,
+          cafe: cafeOverride || sampleRecord.cafe || "",
+          locationLabel: locationOverride || sampleRecord.locationLabel || "",
+          bean: beanOverride || sampleRecord.bean || "",
+        };
+        setRecord(hydratedBaseRecord);
 
         if (autorun) {
           setToast(labelFileFromQuery ? "샘플 이미지를 불러왔습니다. 라벨 분석을 시작합니다." : "샘플 이미지를 불러왔습니다. 사진 무드 카드를 준비합니다.");
           setWorkflowState("analyzing");
           if (!labelFileFromQuery) {
-            const prepared = await preparePhotoOnlyWorkflow(sampleRecord, backgroundFileFromQuery, backgroundDataUrl);
+            const prepared = await preparePhotoOnlyWorkflow(hydratedBaseRecord, backgroundFileFromQuery, backgroundDataUrl);
             if (cancelled) return;
             setExtraction(prepared.nextExtraction);
             setRawText(prepared.nextRawText);
@@ -418,6 +429,11 @@ export default function SharePreviewClient() {
     setLabelFile(file);
     setLabelPreview(dataUrl);
     setWorkflowError("");
+  };
+
+  const handleRecordTextChange = (field: keyof CoffeeShareSourceRecord) => (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setRecord((current) => ({ ...current, [field]: value }));
   };
 
   const handleRunWorkflow = async () => {
@@ -575,6 +591,39 @@ export default function SharePreviewClient() {
               </button>
             </div>
 
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <label className="rounded-2xl border border-white/10 bg-black/15 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-coffee-gold/70">Manual Cafe</div>
+                <input
+                  type="text"
+                  value={record.cafe || ""}
+                  onChange={handleRecordTextChange("cafe")}
+                  placeholder="카페명 입력"
+                  className="mt-3 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-coffee-light outline-none placeholder:text-coffee-light/35"
+                />
+              </label>
+              <label className="rounded-2xl border border-white/10 bg-black/15 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-coffee-gold/70">Manual Place</div>
+                <input
+                  type="text"
+                  value={record.locationLabel || ""}
+                  onChange={handleRecordTextChange("locationLabel")}
+                  placeholder="장소명 입력"
+                  className="mt-3 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-coffee-light outline-none placeholder:text-coffee-light/35"
+                />
+              </label>
+              <label className="rounded-2xl border border-white/10 bg-black/15 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-coffee-gold/70">Manual Bean</div>
+                <input
+                  type="text"
+                  value={record.bean || ""}
+                  onChange={handleRecordTextChange("bean")}
+                  placeholder="원두명 입력"
+                  className="mt-3 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-coffee-light outline-none placeholder:text-coffee-light/35"
+                />
+              </label>
+            </div>
+
             <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr,1.1fr]">
               <div className="rounded-3xl border border-white/10 bg-black/15 p-4">
                 <div className="text-xs uppercase tracking-[0.22em] text-coffee-gold/70">Extracted</div>
@@ -586,6 +635,10 @@ export default function SharePreviewClient() {
                   <div>
                     <div className="text-coffee-light/45">카페명</div>
                     <div className="mt-1 font-medium text-coffee-light">{record.cafe || "없음"}</div>
+                  </div>
+                  <div>
+                    <div className="text-coffee-light/45">장소</div>
+                    <div className="mt-1 font-medium text-coffee-light">{record.locationLabel || "없음"}</div>
                   </div>
                   <div>
                     <div className="text-coffee-light/45">프로세싱</div>
