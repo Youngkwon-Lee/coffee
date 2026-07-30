@@ -9,6 +9,8 @@ import re
 import logging
 from typing import Dict, Any, List, Optional, Union
 
+from coffee_crawler.models.bean import parse_price_krw
+
 # 로거 설정
 logger = logging.getLogger(__name__)
 
@@ -229,16 +231,46 @@ class BeanNormalizer:
     
     def _normalize_price(self, bean_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        가격 정규화
-        
+        가격 정규화 (+ 숫자 가격 필드 price_krw 생성)
+
         Args:
             bean_data: 원두 데이터
-            
+
         Returns:
             가격이 정규화된 원두 데이터
         """
+        # 원본 가격 문자열 보존 ("12,000원")
+        original_price = bean_data.get('price')
+
+        result = self._extract_price(bean_data)
+
+        # 숫자 가격(price_krw) 동기화 - 정규화된 값 우선, 실패 시 원본 문자열에서 재시도
+        price_krw = parse_price_krw(result.get('price_krw'))
+        if price_krw is None:
+            price_krw = parse_price_krw(result.get('price'))
+        if price_krw is None:
+            price_krw = parse_price_krw(original_price)
+
+        if price_krw is not None:
+            result['price_krw'] = price_krw
+        elif 'price_krw' in result:
+            # 파싱 불가한 값은 남기지 않음
+            del result['price_krw']
+
+        return result
+
+    def _extract_price(self, bean_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        가격 값 추출 (price 필드 정규화)
+
+        Args:
+            bean_data: 원두 데이터
+
+        Returns:
+            가격이 추출된 원두 데이터
+        """
         result = bean_data.copy()
-        
+
         # 이미 정수형 가격이 있으면 그대로 사용
         if 'price' in result and isinstance(result['price'], (int, float)):
             # 정수로 변환

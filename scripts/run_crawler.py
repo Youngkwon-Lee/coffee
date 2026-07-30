@@ -10,6 +10,7 @@
     python run_crawler.py --all                # 모든 활성화된 카페 크롤링
     python run_crawler.py --test --cafe fritz  # 테스트 모드로 특정 카페 크롤링
     python run_crawler.py --dry-run --output beans.json  # 크롤링만 수행하고 파일로 저장
+    python run_crawler.py --all --dry-run --record-events --events-output data/bean_events.json
 """
 
 import os
@@ -66,7 +67,14 @@ def parse_args():
     # 기타 옵션
     parser.add_argument('--test', '-t', action='store_true', help='테스트 모드 (샘플 데이터만 처리)')
     parser.add_argument('--notify', '-n', action='store_true', help='알림 활성화')
-    
+
+    # 변경 이벤트 옵션 (수익화: 재입고/가격 알림용)
+    parser.add_argument('--record-events', action='store_true',
+                        help='변경 이벤트(신상/재입고/판매중단/가격변동)를 Firestore bean_events에 기록')
+    parser.add_argument('--events-output', help='생성된 변경 이벤트를 저장할 JSON 파일 경로')
+    parser.add_argument('--telegram-digest', action='store_true',
+                        help='크롤 후 텔레그램 채널에 다이제스트 발행 (환경 변수 미설정 시 자동 건너뜀)')
+
     return parser.parse_args()
 
 def setup_logging(args):
@@ -109,17 +117,20 @@ def get_active_cafes() -> List[str]:
     logger.info(f"DEBUG: 활성화된 카페 목록: {active_cafes}")
     return active_cafes
 
-def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, output_path: Optional[str] = None, notify: bool = False):
+def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, output_path: Optional[str] = None,
+                notify: bool = False, event_recorder=None, events_sink: Optional[List] = None):
     """
     지정된 카페의 크롤러 실행
-    
+
     Args:
         cafe_id: 크롤링할 카페 ID
         dry_run: 실제 데이터 저장 없이 크롤링만 수행할지 여부
         test_mode: 테스트 모드 여부 (일부 데이터만 처리)
         output_path: 결과를 저장할 파일 경로
         notify: 알림 활성화 여부
-        
+        event_recorder: BeanEventRecorder 인스턴스 (None이면 이벤트 기록 안 함)
+        events_sink: 생성된 이벤트를 누적할 리스트
+
     Returns:
         크롤링된 원두 정보 목록
     """
@@ -184,6 +195,25 @@ def run_crawler(cafe_id: str, dry_run: bool = False, test_mode: bool = False, ou
             notification_system = get_notification_system()
             notification_system.notify_success(cafe_id, cafe_name, len(results), elapsed_time)
         
+        # 변경 이벤트 기록 (재입고/가격 알림용) - dry-run에서도 기록 가능
+        # 실제 beans 반영은 GitHub Actions의 apply 스텝에서 수행되므로,
+        # 이벤트는 "현재 Firestore 상태 대비 이번 크롤 결과의 차이"를 의미한다.
+        if event_recorder is not None and results and not test_mode:
+            try:
+                from coffee_crawler.processors.duplicate_checker import deduplicate
+
+                # 가격 문자열 원본을 유지한 채 중복만 제거 (Firestore 반영 데이터와 동일 기준)
+                event_beans = deduplicate(results)
+                events = event_recorder.record_changes(event_beans)
+
+                if events_sink is not None:
+                    events_sink.extend(events)
+
+                logger.info(f"'{cafe_id}' 변경 이벤트 {len(events)}건 기록")
+            except Exception as e:
+                logger.error(f"'{cafe_id}' 변경 이벤트 기록 실패: {e}")
+                logger.debug(traceback.format_exc())
+
         # dry_run이 아닌 경우 데이터 저장
         if not dry_run:
             # 프로세서 모듈 동적 임포트
@@ -242,7 +272,26 @@ def main():
     # 결과 저장용 변수
     total_beans = 0
     all_results = []
-    
+    all_events = []
+
+    # 변경 이벤트 기록기 준비 (Firebase 비활성화 시 건너뜀)
+    event_recorder = None
+    if args.record_events:
+        if os.environ.get('DISABLE_FIREBASE') == 'true':
+            logger.warning("DISABLE_FIREBASE=true - 변경 이벤트 기록을 건너뜁니다")
+        elif args.test:
+            logger.warning("테스트 모드에서는 변경 이벤트를 기록하지 않습니다")
+        else:
+            try:
+                from coffee_crawler.processors.event_recorder import BeanEventRecorder
+                recorder = BeanEventRecorder()
+                if recorder.is_available():
+                    event_recorder = recorder
+                else:
+                    logger.warning("Firebase를 사용할 수 없어 변경 이벤트를 기록하지 않습니다")
+            except Exception as e:
+                logger.error(f"변경 이벤트 기록기 초기화 실패: {e}")
+
     try:
         # 크롤링할 카페 목록 결정
         if args.all:
@@ -258,7 +307,9 @@ def main():
                     dry_run=args.dry_run,
                     test_mode=args.test,
                     output_path=args.output,
-                    notify=args.notify
+                    notify=args.notify,
+                    event_recorder=event_recorder,
+                    events_sink=all_events
                 )
                 
                 if results:
@@ -279,12 +330,33 @@ def main():
             with open(args.output, 'w', encoding='utf-8') as f:
                 json.dump(all_results, f, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
             logger.info(f"크롤링 결과를 '{args.output}'에 저장했습니다.")
-        
+
+        # 변경 이벤트 저장 (다이제스트 발행 스텝에서 사용)
+        if args.events_output:
+            try:
+                events_dir = os.path.dirname(os.path.abspath(args.events_output))
+                if events_dir:
+                    os.makedirs(events_dir, exist_ok=True)
+                with open(args.events_output, 'w', encoding='utf-8') as f:
+                    json.dump(all_events, f, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
+                logger.info(f"변경 이벤트 {len(all_events)}건을 '{args.events_output}'에 저장했습니다.")
+            except Exception as e:
+                logger.error(f"변경 이벤트 저장 실패: {e}")
+
+        # 텔레그램 채널 다이제스트 발행 (선택)
+        if args.telegram_digest:
+            try:
+                from coffee_crawler.utils.telegram_notifier import send_crawl_digest
+                send_crawl_digest(all_events)
+            except Exception as e:
+                logger.error(f"텔레그램 다이제스트 발행 실패: {e}")
+
         # 최종 결과 출력
         logger.info(f"총 {len(cafe_ids)}개 카페 크롤링 완료")
         logger.info(f"총 수집된 원두 수: {total_beans}")
+        logger.info(f"총 변경 이벤트 수: {len(all_events)}")
         logger.info(f"전체 소요 시간: {elapsed_time:.2f}초")
-        
+
         return True
         
     except Exception as e:

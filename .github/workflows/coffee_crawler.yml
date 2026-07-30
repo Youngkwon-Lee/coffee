@@ -1,10 +1,11 @@
 name: Coffee Crawler Auto Update
 
 on:
-  # 매주 실행 (월요일 오전 9시 KST)
+  # 매일 실행 (오전 6시 KST = 21:00 UTC)
+  # 재입고/가격 알림 상품을 위해 주 1회 -> 매일로 상향 (docs/MONETIZATION.md)
   schedule:
-    - cron: '0 0 * * 1'
-  
+    - cron: '0 21 * * *'
+
   # 수동 실행 가능
   workflow_dispatch:
     inputs:
@@ -24,7 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ALLOW_ZERO_BRANDS: "벙커컴퍼니"
-    
+      # 텔레그램 발행/알림 (미설정 시 관련 스텝 자동 스킵)
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -83,7 +87,8 @@ jobs:
         if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
           python scripts/run_crawler.py --all --test --notify --dry-run --output data/beans_test.json
         else
-          python scripts/run_crawler.py --all --notify --dry-run --output data/beans_production.json
+          python scripts/run_crawler.py --all --notify --dry-run --output data/beans_production.json \
+            --record-events --events-output data/bean_events.json
         fi
     
     - name: Run coffee crawler (specific cafe, dry-run artifact only)
@@ -95,7 +100,8 @@ jobs:
         if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
           python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --test --notify --dry-run --output data/beans_${{ github.event.inputs.specific_cafe }}.json
         else
-          python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --notify --dry-run --output data/beans_${{ github.event.inputs.specific_cafe }}.json
+          python scripts/run_crawler.py --cafe ${{ github.event.inputs.specific_cafe }} --notify --dry-run --output data/beans_${{ github.event.inputs.specific_cafe }}.json \
+            --record-events --events-output data/bean_events.json
         fi
 
     - name: Validate crawl output
@@ -127,7 +133,27 @@ jobs:
         PY
         )
         node scripts/reset_single_brand_from_crawl.mjs data/beans_${{ github.event.inputs.specific_cafe }}.json "$BRAND"
-    
+
+    # 무료 유입 엔진: 텔레그램 공개 채널에 신상/재입고/가격 인하 다이제스트 발행
+    - name: Publish Telegram channel digest
+      if: ${{ github.event.inputs.test_mode != 'true' && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHANNEL_ID != '' }}
+      continue-on-error: true
+      run: |
+        if [ -f "data/bean_events.json" ]; then
+          python -m coffee_crawler.utils.telegram_notifier --events data/bean_events.json
+        else
+          echo "변경 이벤트 파일이 없어 다이제스트 발행을 건너뜁니다."
+        fi
+
+    # 유료 상품: 즐겨찾기 원두 재입고/가격 변동 DM
+    - name: Send favorite bean alerts
+      if: ${{ github.event.inputs.test_mode != 'true' && env.TELEGRAM_BOT_TOKEN != '' }}
+      continue-on-error: true
+      env:
+        GOOGLE_APPLICATION_CREDENTIALS: "firebase_credentials.json"
+      run: |
+        python scripts/send_favorite_alerts.py --since-hours 25
+
     - name: Generate summary report
       run: |
         python -c "

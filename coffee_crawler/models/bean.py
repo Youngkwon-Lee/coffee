@@ -5,9 +5,48 @@
 """
 
 from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from datetime import datetime, timedelta
 import hashlib
+import re
+
+# 가격 문자열 패턴 ("12,000원", "₩12000", "12000" 등)
+PRICE_KRW_PATTERN = re.compile(r'(\d{1,3}(?:,\d{3})+|\d+)')
+
+
+def parse_price_krw(value: Union[str, int, float, None]) -> Optional[int]:
+    """
+    가격 값을 원 단위 정수로 변환
+
+    "12,000원" -> 12000, 12000 -> 12000, "가격문의" -> None
+
+    Args:
+        value: 가격 문자열 또는 숫자
+
+    Returns:
+        원 단위 정수 (변환 실패 시 None)
+    """
+    if value is None or isinstance(value, bool):
+        return None
+
+    if isinstance(value, (int, float)):
+        price = int(value)
+        return price if price > 0 else None
+
+    if not isinstance(value, str):
+        return None
+
+    match = PRICE_KRW_PATTERN.search(value.replace(' ', ''))
+    if not match:
+        return None
+
+    try:
+        price = int(match.group(1).replace(',', ''))
+    except ValueError:
+        return None
+
+    return price if price > 0 else None
+
 
 @dataclass
 class Bean:
@@ -17,7 +56,8 @@ class Bean:
     name: str
     brand: str
     price: str  # "12,000원" 형태로 저장
-    
+    price_krw: Optional[int] = None  # price를 원 단위 정수로 변환한 값 (12000)
+
     # 기존 필드들 (기존 구조와 동일)
     origin: Optional[str] = None          # 원산지
     roast: Optional[str] = None           # 로스팅 정도 (중배전, 라이트 등)
@@ -62,6 +102,10 @@ class Bean:
     
     def _sync_fields(self):
         """호환성을 위한 필드 동기화"""
+        # price와 price_krw 동기화 ("12,000원" -> 12000)
+        if self.price_krw is None:
+            self.price_krw = parse_price_krw(self.price)
+
         # link와 url 동기화
         if self.link and not self.url:
             self.url = self.link
@@ -111,6 +155,7 @@ class Bean:
             'name': self.name,
             'brand': self.brand,
             'price': self.price,
+            'price_krw': self.price_krw,
             'origin': self.origin,
             'roast': self.roast,
             'flavor': self.flavor,
@@ -141,6 +186,7 @@ class Bean:
             'name': self.name,
             'brand': self.brand,
             'price': self.price,
+            'price_krw': self.price_krw,
             'origin': self.origin,
             'roast': self.roast,
             'roast_level': self.roast_level,
@@ -179,6 +225,7 @@ class Bean:
             name=name,
             brand=brand,
             price=price,
+            price_krw=parse_price_krw(data.get('price_krw')) or parse_price_krw(price),
             origin=data.get('origin'),
             roast=data.get('roast'),
             flavor=data.get('flavor'),
@@ -258,10 +305,16 @@ class Bean:
         changes = {}
         
         # 가격 변경 확인
-        if self.price != other.price:
-            changes['price'] = {'old': self.price, 'new': other.price}
+        if self.price != other.price or self.price_krw != other.price_krw:
+            changes['price'] = {
+                'old': self.price,
+                'new': other.price,
+                'old_krw': self.price_krw,
+                'new_krw': other.price_krw
+            }
             self.price = other.price
-        
+            self.price_krw = other.price_krw
+
         # 이름 변경 확인
         if self.name != other.name:
             changes['name'] = {'old': self.name, 'new': other.name}
@@ -329,10 +382,22 @@ class Bean:
         
         return len(common_chars) / len(total_chars)
     
+    def get_price_krw(self) -> Optional[int]:
+        """원 단위 정수 가격 반환 (없으면 None)"""
+        if self.price_krw is None:
+            self.price_krw = parse_price_krw(self.price)
+        return self.price_krw
+
+    def has_price(self) -> bool:
+        """유효한 가격 정보가 있는지 확인"""
+        price_krw = self.get_price_krw()
+        return price_krw is not None and price_krw > 0
+
     def get_price_formatted(self) -> str:
         """포맷된 가격 문자열 반환"""
-        if self.price > 0:
-            return f"{self.price:,}원"
+        price_krw = self.get_price_krw()
+        if price_krw is not None and price_krw > 0:
+            return f"{price_krw:,}원"
         return "가격 정보 없음"
     
     def get_origin_display(self) -> str:
@@ -356,9 +421,9 @@ class Bean:
     def is_complete(self) -> bool:
         """필수 정보가 모두 있는지 확인"""
         return bool(
-            self.name and 
-            self.brand and 
-            self.price > 0 and 
+            self.name and
+            self.brand and
+            self.has_price() and
             self.url
         )
     
@@ -370,7 +435,7 @@ class Bean:
         # 필수 필드
         if self.name: score += 0.25
         if self.brand: score += 0.25
-        if self.price > 0: score += 0.25
+        if self.has_price(): score += 0.25
         if self.url: score += 0.25
         
         # 추가 정보 필드
