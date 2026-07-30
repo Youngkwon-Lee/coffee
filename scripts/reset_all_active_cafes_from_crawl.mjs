@@ -1,16 +1,14 @@
 import fs from 'fs';
 import crypto from 'crypto';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, query, where, writeBatch, doc } from 'firebase/firestore';
+import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCcy5cm_7diVnjW0EmbejXWzvwqsDr53gw',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'coffee-37b81.firebaseapp.com',
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'coffee-37b81',
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'coffee-37b81.firebasestorage.app',
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '931541737029',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:931541737029:web:3f24a512e5c157f837cd2c'
-};
+// firestore.rules가 beans 쓰기를 admin/system 클레임으로 제한하므로 Admin SDK 필수
+const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || 'firebase_credentials.json';
+const app = fs.existsSync(credPath)
+  ? initializeApp({ credential: cert(JSON.parse(fs.readFileSync(credPath, 'utf8'))) })
+  : initializeApp({ credential: applicationDefault(), projectId: 'coffee-37b81' });
+const db = getFirestore(app);
 
 const inputPath = process.argv[2];
 if (!inputPath) {
@@ -19,8 +17,6 @@ if (!inputPath) {
 }
 
 const crawled = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 fs.mkdirSync('reports', { recursive: true });
 
 function stableBeanId(bean) {
@@ -82,27 +78,27 @@ const summary = [];
 
 for (const brand of brands) {
   const newRows = normalized.filter((x) => x.brand === brand);
-  const existingSnap = await getDocs(query(collection(db, 'beans'), where('brand', '==', brand)));
+  const existingSnap = await db.collection('beans').where('brand', '==', brand).get();
   const existingRows = existingSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const backupPath = `reports/${brand.replace(/[^a-zA-Z0-9가-힣]+/g, '_')}-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
   fs.writeFileSync(backupPath, JSON.stringify(existingRows, null, 2));
 
-  let batch = writeBatch(db);
+  let batch = db.batch();
   let ops = 0;
   let batches = 0;
   for (const d of existingSnap.docs) {
-    batch.delete(doc(db, 'beans', d.id));
+    batch.delete(db.collection('beans').doc(d.id));
     ops++;
-    if (ops >= 400) { await batch.commit(); batch = writeBatch(db); ops = 0; batches++; }
+    if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; batches++; }
   }
   for (const row of newRows) {
-    batch.set(doc(db, 'beans', stableBeanId(row)), row);
+    batch.set(db.collection('beans').doc(stableBeanId(row)), row);
     ops++;
-    if (ops >= 400) { await batch.commit(); batch = writeBatch(db); ops = 0; batches++; }
+    if (ops >= 400) { await batch.commit(); batch = db.batch(); ops = 0; batches++; }
   }
   if (ops > 0) { await batch.commit(); batches++; }
 
-  const verifySnap = await getDocs(query(collection(db, 'beans'), where('brand', '==', brand)));
+  const verifySnap = await db.collection('beans').where('brand', '==', brand).get();
   const verifyRows = verifySnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   summary.push({
     brand,
