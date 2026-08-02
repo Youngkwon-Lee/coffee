@@ -36,6 +36,12 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
       allow create: if isOwner(userId);
     }
+
+    // 사용자별 커피 기록 (대화형 위저드가 쓰는 컬렉션) - 본인만 접근 가능
+    match /users/{userId}/coffee_records/{recordId} {
+      allow read, write: if isOwner(userId);
+      allow create: if isOwner(userId);
+    }
     
     // 사용자별 찜 목록 - 본인만 접근 가능
     match /users/{userId}/favorites/{favoriteId} {
