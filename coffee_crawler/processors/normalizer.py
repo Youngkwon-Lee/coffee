@@ -642,6 +642,17 @@ NON_COFFEE_KEYWORDS = [
     # 장비
     '드리퍼', 'dripper', '저울', 'scale', '그라인더', 'grinder', '케틀',
     'kettle', '서버', 'server', '여과지', '필터페이퍼', 'v60',
+    # 의류/잡화 (2026-08-02 오츠커피 사례 보강)
+    'long sleeve', 'longsleeve', 'boat neck', 'cardigan', '가디건',
+    'jacket', '자켓', '재킷', 'bandana', '반다나', 'tote bag', 'totebag',
+    'paris bag', 'baseball cap', '6panel', 'panel cap', 'washed cap',
+    '볼펜', 'ballpen', '연필', '포스터', '달력', '캘린더', '다이어리',
+]
+
+# 굿즈 키워드에 걸려도 커피 상품으로 간주하는 예외 (오탐 방지)
+COFFEE_EXCEPTIONS = [
+    '드립백', 'drip bag', '원두', '블렌드', 'blend', 'whole bean',
+    '싱글오리진', 'single origin', '필터커피', 'filter coffee',
 ]
 
 
@@ -650,8 +661,7 @@ def is_non_coffee_product(name: str) -> bool:
     if not name:
         return False
     low = str(name).lower()
-    # '드립백', '필터커피' 같은 커피 상품 오탐 방지
-    if '드립백' in low or '원두' in low or '블렌드' in low:
+    if any(e in low for e in COFFEE_EXCEPTIONS):
         return False
     return any(k in low for k in NON_COFFEE_KEYWORDS)
 
