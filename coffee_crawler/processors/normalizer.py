@@ -629,15 +629,49 @@ def normalize_bean(bean_data: Dict[str, Any]) -> Dict[str, Any]:
     normalizer = get_normalizer()
     return normalizer.normalize(bean_data)
 
+# 원두가 아닌 상품(굿즈/의류/기물) 판별 키워드.
+# 로스터리 카테고리 페이지에 굿즈가 섞여 들어오는 사고 방지 (2026-08-02 OATSLIFE Pullover 사례).
+NON_COFFEE_KEYWORDS = [
+    # 의류
+    'pullover', '풀오버', '티셔츠', 't-shirt', 'tshirt', '후드', 'hoodie',
+    '스웨트', '맨투맨', '모자', '볼캡', 'cap)', '양말', '앞치마', 'apron',
+    # 기물/굿즈
+    '머그', 'mug', '텀블러', 'tumbler', '유리잔', '유리컵', '샷잔', '샷글라스',
+    '글라스', 'glass', '컵받침', '코스터', 'coaster', '트레이', '에코백',
+    '파우치', '키링', '스티커', '엽서', '노트북', '우산', '담요', '캔들',
+    # 장비
+    '드리퍼', 'dripper', '저울', 'scale', '그라인더', 'grinder', '케틀',
+    'kettle', '서버', 'server', '여과지', '필터페이퍼', 'v60',
+]
+
+
+def is_non_coffee_product(name: str) -> bool:
+    """상품명이 원두가 아닌 굿즈/기물/의류로 보이는지 판별한다."""
+    if not name:
+        return False
+    low = str(name).lower()
+    # '드립백', '필터커피' 같은 커피 상품 오탐 방지
+    if '드립백' in low or '원두' in low or '블렌드' in low:
+        return False
+    return any(k in low for k in NON_COFFEE_KEYWORDS)
+
+
 def normalize_beans(beans_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     원두 데이터 목록 정규화 함수
-    
+
     Args:
         beans_data: 정규화할 원두 데이터 목록
-        
+
     Returns:
-        정규화된 원두 데이터 목록
+        정규화된 원두 데이터 목록 (굿즈/비커피 상품 제외)
     """
     normalizer = get_normalizer()
-    return [normalizer.normalize(bean) for bean in beans_data] 
+    normalized = []
+    for bean in beans_data:
+        name = bean.get('name', '')
+        if is_non_coffee_product(name):
+            logger.info(f"굿즈/비커피 상품 제외: {name}")
+            continue
+        normalized.append(normalizer.normalize(bean))
+    return normalized 
