@@ -187,18 +187,36 @@ def main() -> int:
     skipped = 0
     errors = 0
 
+    # 순회 대상 구성.
+    # 예전에는 crawler_config의 카페만 돌아서, Firestore에만 있는 카페(현재 42곳 중
+    # 30곳)는 이미지가 영영 채워지지 않았다. 매주 "성공"으로 끝나는데 절반 가까이가
+    # 빈 채로 남아 있던 이유다.
+    targets = []
+    seen_docs = set()
+
     for cafe_key, c in cafes.items():
         if not c.get("active", True):
             continue
-
         url = str(c.get("url") or "").strip()
         label = str(c.get("label") or cafe_key)
+        doc_id = find_cafe_doc_id(cafe_key, label, cafe_docs)
+        targets.append((cafe_key, label, url, doc_id))
+        if doc_id:
+            seen_docs.add(doc_id)
+
+    # crawler_config에 없는 Firestore 카페는 문서의 website를 출처로 쓴다.
+    for d in cafe_docs:
+        if d["id"] in seen_docs:
+            continue
+        site = str(d.get("website") or "").strip()
+        targets.append((d["id"], str(d.get("name") or d["id"]), site, d["id"]))
+
+    for cafe_key, label, url, doc_id in targets:
         if not url.startswith("http"):
             skipped += 1
             continue
 
         checked += 1
-        doc_id = find_cafe_doc_id(cafe_key, label, cafe_docs)
         if not doc_id:
             logger.warning(f"no matching cafe doc: {cafe_key} / {label}")
             continue
