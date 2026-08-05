@@ -164,7 +164,10 @@ cafes:
 
   bunkercompany:
     label: "벙커컴퍼니"
-    type: "html"
+    # 식스샵(sixshop) 플랫폼이라 상품을 JS로 그린다. 정적 HTML에는
+    # class="shopProductWrapper skeleton"인 자리표시자("제목","가격")만 있어
+    # 크롤러가 전부 걸러냈다. 렌더링 후에는 30개가 정상적으로 나온다.
+    type: "selenium"
     url: "https://bunkercompany.co.kr/shop"
     schedule: "0 0 * * 1"
     active: true
