@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "enhance-beans": "node scripts/run-enhancement.js"
+    "enhance-beans": "node scripts/run-enhancement.js",
+    "firebase:domains:help": "ts-node scripts/update-firebase-domains.ts",
+    "cafes:metadata:catalog": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --catalog-only",
+    "cafes:metadata:plan": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts",
+    "cafes:metadata:write": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write",
+    "cafes:metadata:create": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write --create-missing"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.1.0",
