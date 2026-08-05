@@ -318,6 +318,13 @@ class SeleniumCrawler(BaseCrawler):
                 image_url = urljoin(self.url, image_url)
             
             # Bean 객체 생성
+            # 정적 파싱 폴백으로 내려온 경우 JS 렌더링 전 자리표시자를 잡을 수 있다.
+            # HtmlCrawler와 같은 기준으로 걸러낸다 — 이게 없으면 "제목"/"가격"이
+            # 그대로 저장돼 사용자에게 노출된다.
+            if name in {'제목', '상품명', 'Product Title'} or not product_url:
+                self.logger.debug("플레이스홀더 상품 항목 스킵")
+                return None
+
             # Bean 모델에는 id/cafe/image_url/description/metadata 필드가 없다.
             # 이 시그니처로 호출하면 TypeError가 나고, 호출부가 예외를 삼켜
             # "제품 정보 추출 중 오류"만 남긴 채 결과가 통째로 0건이 된다.
@@ -344,11 +351,6 @@ class SeleniumCrawler(BaseCrawler):
         Returns:
             초기화된 WebDriver 객체
         """
-        # GitHub Actions 환경에서는 항상 None 반환
-        if os.environ.get('GITHUB_ACTIONS') == 'true':
-            self.logger.info("GitHub Actions 환경에서는 WebDriver 초기화를 건너뜁니다")
-            return None
-        
         # 환경 변수 확인 - USE_SELENIUM이 'false'이면 초기화 건너뛰기
         if os.environ.get('USE_SELENIUM', '').lower() == 'false':
             self.logger.info("환경 변수 USE_SELENIUM=false로 설정되어 Selenium 초기화 건너뜀")
