@@ -194,7 +194,15 @@ class HtmlCrawler(BaseCrawler):
             return None
 
         # 링크 추출
-        link_elem = item_soup.select_one(self.selectors['product_link'])
+        # 상품 항목 자체가 <a>인 쇼핑몰이 있다(예: 로우키). 그때는 product_link를
+        # 빈 값으로 두고 항목 자신을 링크로 쓴다 — select_one('')은 항상 실패하므로
+        # 빈 셀렉터를 그대로 넘기면 전 상품이 조용히 버려진다.
+        link_selector = (self.selectors.get('product_link') or '').strip()
+        if link_selector:
+            link_elem = item_soup.select_one(link_selector)
+        else:
+            link_elem = item_soup if item_soup.name == 'a' else item_soup.select_one('a[href]')
+
         if not link_elem:
             self.logger.warning("상품 링크를 찾을 수 없음")
             return None

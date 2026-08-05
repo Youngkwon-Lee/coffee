@@ -82,12 +82,13 @@ cafes:
     schedule: "0 0 * * 1"
     active: true
     selectors:
-      product_list_container: ".prdList"
-      product_item: ".prdList > li"
-      product_link: ".thumbnail a"
-      product_title: ".name"
-      product_price: "span:contains('원')"
-      product_image: ".thumbnail img"
+      # 2026-08: 카페24 → imweb 개편으로 .prdList가 사라져 83일간 0건 수집이었다.
+      product_list_container: "._item_wrap"
+      product_item: ".shop-item"
+      product_link: ".item-thumbs a"
+      product_title: ".item-pay h2"
+      product_price: ".item-pay .pay"
+      product_image: ".item-thumbs img"
       pagination_container: ".paging"
       next_page: ".next"
 
@@ -188,12 +189,14 @@ cafes:
     encoding: "utf-8"
     page_delay: 3
     selectors:
-      product_list_container: ".sct"
-      product_item: ".sct_li"
-      product_link: ".sct_img a"
-      product_title: ".sct_txt a"
-      product_price: ".sct_cost"
-      product_image: ".sct_img img"
+      # 2026-08: 사이트 개편으로 .sct_li가 사라져 23일간 0건이었다.
+      # .sct-item 자체가 <a>라 product_link는 항목 자신을 쓴다(빈 값 = self).
+      product_list_container: ".sct-grid"
+      product_item: ".sct-item"
+      product_link: ""
+      product_title: ".sct-name"
+      product_price: ".sct-price"
+      product_image: ".sct-thumb img"
       pagination_container: ".pagination"
       next_page: ".pagination .page-link"
 
