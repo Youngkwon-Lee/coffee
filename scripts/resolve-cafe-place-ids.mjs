@@ -71,15 +71,24 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
  * 둘을 함께 본다. 후보 이름에는 문서의 aliases(로마자 변형 포함)도 넣어
  * "생추어리 (Sanctuary)" ↔ "Sanctuary" 같은 표기 차이를 흡수한다.
  */
+const MAX_METERS = 1000;
+
 function judge(candidates, googleName, meters) {
   const got = normalize(googleName);
   if (!got) return { ok: false, why: "구글 이름 없음" };
+
+  // 좌표를 아는데 1km를 넘으면 이름이 아무리 비슷해도 다른 지점이다.
+  // 별칭에 브랜드명만 들어 있으면("앤트러사이트") 같은 브랜드의 엉뚱한 지점이
+  // 이름 포함으로 통과한다 — 성수동 문서에 마포 서교점이 붙는 사고가 있었다.
+  if (Number.isFinite(meters) && meters > MAX_METERS) {
+    return { ok: false, why: `거리 초과 ${Math.round(meters)}m` };
+  }
 
   let best = 0;
   for (const c of candidates) {
     const want = normalize(c);
     if (!want) continue;
-    if (got.includes(want) || want.includes(got)) return { ok: true, why: "이름 포함" };
+    if (got.includes(want) || want.includes(got)) return { ok: true, why: `이름 포함 (${Math.round(meters)}m)` };
     best = Math.max(best, dice(want, got));
   }
 
