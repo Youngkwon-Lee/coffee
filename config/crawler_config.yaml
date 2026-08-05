@@ -173,6 +173,8 @@ cafes:
     active: true
     encoding: "utf-8"
     page_delay: 3
+    # 식스샵은 상품을 JS로 그린다. 기본 2초로는 스켈레톤 단계에서 읽어 0건이 된다.
+    page_load_delay: 10
     selectors:
       product_list_container: "#productListWrapper42703510"
       product_item: ".shopProductWrapper"
