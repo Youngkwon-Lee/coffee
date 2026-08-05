@@ -22,9 +22,14 @@ on:
 
 jobs:
   crawl-validate-and-apply:
-    runs-on: ubuntu-latest
+    # 자체 러너(홈 데스크톱)로 돌린다. lowkeycoffee.com과 bunkercompany.co.kr이
+    # GitHub Actions IP를 막아 각각 CI/로컬에서만 0건이 나오던 문제가 있었는데,
+    # 데스크톱 IP에서는 둘 다 200으로 응답한다.
+    runs-on: [self-hosted, coffee-crawler]
     env:
-      ALLOW_ZERO_BRANDS: "벙커컴퍼니"
+      # 자체 러너에서는 벙커컴퍼니도 정상 수집된다(GitHub IP 차단이 원인이었음).
+      # 예외를 비워 두어야 수집이 멈추면 즉시 빨갛게 뜬다.
+      ALLOW_ZERO_BRANDS: ""
       # 텔레그램 발행/알림 (미설정 시 관련 스텝 자동 스킵)
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
@@ -45,8 +50,10 @@ jobs:
         node-version: '20'
         cache: 'npm'
     
+    # 자체 러너에는 무비밀번호 sudo가 없다. 이 라이브러리들은 EasyOCR(선택 기능)용이고
+    # 없으면 경고 후 건너뛰므로 수집 자체는 영향받지 않는다.
     - name: Install system dependencies
-      if: ${{ github.event.inputs.test_mode != 'true' }}
+      if: ${{ github.event.inputs.test_mode != 'true' && runner.environment == 'github-hosted' }}
       run: |
         sudo apt-get update
         sudo apt-get install -y libgl1-mesa-dev libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1 libglib2.0-dev
