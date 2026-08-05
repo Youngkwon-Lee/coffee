@@ -19,7 +19,6 @@ from datetime import datetime
 # 자체 러너(홈 데스크톱)에도 GITHUB_ACTIONS=true가 설정되는데, 예전 조건은 그것만
 # 보고 Selenium을 꺼버려서 JS 렌더링이 필요한 쇼핑몰이 조용히 0건이 됐다.
 # USE_SELENIUM=false로 명시하면 언제든 끌 수 있다.
-is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
 use_selenium = os.environ.get('USE_SELENIUM', '').lower() != 'false'
 
 if use_selenium:
@@ -117,9 +116,11 @@ class SeleniumCrawler(BaseCrawler):
         """
         self.start_time = time.time()  # 시간 측정 시작
         
-        # GitHub Actions 환경이거나 USE_SELENIUM=false 설정이면 requests와 BeautifulSoup 사용
-        if is_github_actions or not use_selenium:
-            self.logger.info("GitHub Actions 환경 또는 USE_SELENIUM=false 설정으로 requests/BeautifulSoup 사용")
+        # 브라우저를 띄울 수 없을 때만 정적 파싱으로 내려간다.
+        # 환경 이름(GITHUB_ACTIONS)으로 판단하면 자체 러너에서도 Selenium이 꺼져,
+        # JS로 상품을 그리는 쇼핑몰이 조용히 0건이 된다.
+        if not use_selenium:
+            self.logger.info("Selenium 미사용(USE_SELENIUM=false 또는 미설치) — requests/BeautifulSoup으로 대체")
             return self._crawl_with_requests(test_mode)
         
         self.logger.info(f"Selenium 크롤링 시작: {self.url}")
@@ -425,8 +426,7 @@ class SeleniumCrawler(BaseCrawler):
 
     def _close_driver(self):
         """WebDriver 종료"""
-        if is_github_actions or not use_selenium:
-            self.logger.info("GitHub Actions 또는 USE_SELENIUM=false 환경에서는 WebDriver 종료 건너뜀")
+        if not use_selenium:
             return
             
         if self.driver:
@@ -448,9 +448,7 @@ class SeleniumCrawler(BaseCrawler):
         Returns:
             추출된 원두 정보 또는 None
         """
-        # GitHub Actions이나 USE_SELENIUM=false 환경에서는 사용하지 않음
-        if is_github_actions or not use_selenium:
-            self.logger.info("GitHub Actions 또는 USE_SELENIUM=false 환경에서는 Selenium 정보 추출 건너뜀")
+        if not use_selenium:
             return None
         
         try:
@@ -533,8 +531,8 @@ class SeleniumCrawler(BaseCrawler):
         Returns:
             제품 상세 설명
         """
-        if is_github_actions:
-            return ""  # GitHub Actions에서는 사용하지 않음
+        if not use_selenium:
+            return ""  # 드라이버가 없으면 상세 설명을 가져올 수 없다
             
         try:
             # 현재 페이지 URL 저장
@@ -589,8 +587,8 @@ class SeleniumCrawler(BaseCrawler):
         Returns:
             다음 페이지 이동 성공 여부
         """
-        if is_github_actions:
-            return False  # GitHub Actions에서는 사용하지 않음
+        if not use_selenium:
+            return False  # 드라이버가 없으면 페이지 이동을 할 수 없다
             
         try:
             # 페이지네이션 컨테이너 찾기
