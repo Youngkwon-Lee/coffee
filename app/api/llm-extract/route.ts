@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+const ORIGIN_KEYWORDS = [
+  'ETHIOPIA', 'KENYA', 'COLOMBIA', 'GUATEMALA', 'BRAZIL', 'PANAMA', 'COSTA', 'COSTARICA',
+  'ELSALVADOR', 'EL', 'SALVADOR', 'HONDURAS', 'RWANDA', 'BURUNDI', 'PERU', 'BOLIVIA',
+  'NICARAGUA', 'YEMEN', 'INDONESIA', 'TANZANIA', 'UGANDA', '에티오피아', '케냐', '콜롬비아',
+  '과테말라', '브라질', '파나마', '코스타리카', '엘살바도르', '온두라스', '르완다', '부룬디',
+  '페루', '볼리비아', '예멘', '인도네시아', '탄자니아', '우간다'
+];
+
+function titleCaseFlavor(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function isOriginCandidate(value: string) {
+  const compact = value.replace(/[^A-Za-z가-힣]/g, '').toUpperCase();
+  return ORIGIN_KEYWORDS.some((keyword) => compact === keyword.replace(/[^A-Za-z가-힣]/g, '').toUpperCase());
+}
+
 function heuristicExtract(text: string, confidence = 0.4) {
   const t = text || '';
 
@@ -9,6 +30,12 @@ function heuristicExtract(text: string, confidence = 0.4) {
     .replace(/CHOCOLAT\b/gi, 'CHOCOLATE')
     .replace(/MACATAMA\b/gi, 'MACADAMIA')
     .replace(/BLENDlNG/gi, 'BLENDING')
+    .replace(/RASPTHERRY/gi, 'RASPBERRY')
+    .replace(/CRANTEIRY/gi, 'CRANBERRY')
+    .replace(/BIACK/gi, 'BLACK')
+    .replace(/SLKY/gi, 'SILKY')
+    .replace(/AATOP/gi, 'AA TOP')
+    .replace(/워사드/gi, '워시드')
     .replace(/\|/g, '\n');
 
   const lower = normalized.toLowerCase();
@@ -20,7 +47,8 @@ function heuristicExtract(text: string, confidence = 0.4) {
   const upperTokenCafeCandidates = lines
     .flatMap((l) => l.split(/\s+/))
     .filter((w) => /^[A-Z]{3,8}$/.test(w))
-    .filter((w) => !['TYPE','ROAST','REGION','NET','WT','WASHED','NATURAL','HONEY','BLENDING','BLEND','FARM','GATE','PRICE'].includes(w));
+    .filter((w) => !['TYPE','ROAST','REGION','NET','WT','WASHED','NATURAL','HONEY','BLENDING','BLEND','FARM','GATE','PRICE'].includes(w))
+    .filter((w) => !isOriginCandidate(w));
 
   let cafe = '';
   for (const c of cafeHints) {
@@ -36,7 +64,18 @@ function heuristicExtract(text: string, confidence = 0.4) {
     else if (/terarosa/i.test(normalized)) cafe = '테라로사';
     else if (/center\s*coffee|centre\s*coffee/i.test(normalized)) cafe = '센터커피';
     else if (/\bSEY\b|SEY\s+ERIE/i.test(normalized)) cafe = 'SEY';
-    else if (upperTokenCafeCandidates.length > 0) cafe = upperTokenCafeCandidates[0];
+    else {
+      const brandContextLine = lines.find((line) => /(coffee|roasters|roastery|cafe|카페|로스터리)/i.test(line));
+      if (brandContextLine) {
+        const contextualCafeCandidate = upperTokenCafeCandidates.find((token) => brandContextLine.toUpperCase().includes(token));
+        if (contextualCafeCandidate) {
+          cafe = contextualCafeCandidate;
+        }
+      }
+    }
+  }
+  if (cafe && isOriginCandidate(cafe)) {
+    cafe = '';
   }
 
   let processing = '';
@@ -45,6 +84,14 @@ function heuristicExtract(text: string, confidence = 0.4) {
       processing = /blend/i.test(p) ? 'Blend' : p;
       break;
     }
+  }
+  if (!processing) {
+    if (/(워시드|워사드|washed)/i.test(normalized)) processing = 'Washed';
+    else if (/(내추럴|natural)/i.test(normalized)) processing = 'Natural';
+    else if (/(허니|honey)/i.test(normalized)) processing = 'Honey';
+    else if (/(세미워시드|semi[-\s]?washed)/i.test(normalized)) processing = 'Semi-Washed';
+    else if (/(아나에로빅|anaerobic)/i.test(normalized)) processing = 'Anaerobic';
+    else if (/(카보닉|carbonic)/i.test(normalized)) processing = 'Carbonic';
   }
 
   const flavorHints: Array<[string, RegExp]> = [
@@ -59,13 +106,73 @@ function heuristicExtract(text: string, confidence = 0.4) {
   ];
   const flavor = flavorHints.filter(([, re]) => re.test(normalized)).map(([name]) => name).slice(0, 6);
 
+  const flavorLineIndex = lines.findIndex((line) => /flavor\s*note/i.test(line));
+  const extractedFlavorNotes: string[] = [];
+  if (flavorLineIndex >= 0) {
+    const candidateLines = [
+      lines[flavorLineIndex].replace(/.*flavor\s*note[:\s-]*/i, '').trim(),
+      lines[flavorLineIndex + 1] || '',
+    ].filter(Boolean);
+
+    const exactFlavorMap: Array<[RegExp, string]> = [
+      [/raspberry/i, 'Raspberry'],
+      [/cranberry/i, 'Cranberry'],
+      [/blueberry/i, 'Blueberry'],
+      [/strawberry/i, 'Strawberry'],
+      [/black\s*tea/i, 'Black Tea'],
+      [/silky/i, 'Silky'],
+      [/jasmine/i, 'Jasmine'],
+      [/chocolate/i, 'Chocolate'],
+      [/caramel/i, 'Caramel'],
+    ];
+
+    for (const candidate of candidateLines) {
+      const normalizedCandidate = candidate
+        .replace(/[.;]/g, ',')
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      for (const part of normalizedCandidate) {
+        let matched = '';
+        for (const [pattern, label] of exactFlavorMap) {
+          if (pattern.test(part)) {
+            matched = label;
+            break;
+          }
+        }
+        if (!matched && /^[A-Za-z][A-Za-z\s]{2,20}$/.test(part)) {
+          matched = titleCaseFlavor(part);
+        }
+        if (matched && !extractedFlavorNotes.includes(matched)) {
+          extractedFlavorNotes.push(matched);
+        }
+      }
+    }
+  }
+
+  const finalFlavor = (extractedFlavorNotes.length > 0 ? extractedFlavorNotes : flavor).slice(0, 5);
+
   let bean = '';
 
+  const firstOriginLine = lines.find((line) => {
+    const upper = line.toUpperCase();
+    return ORIGIN_KEYWORDS.some((keyword) => upper.includes(keyword)) && /[A-Z0-9]{2,}/.test(upper);
+  });
+  if (firstOriginLine && firstOriginLine.length <= 60 && !/flavor\s*note/i.test(firstOriginLine)) {
+    bean = firstOriginLine
+      .replace(/\bAATOP\b/gi, 'AA TOP')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
   // 1) 일반적인 원두 라인 탐색
-  for (const ln of lines) {
-    if (/원두|bean|blend|blending|에티오피아|콜롬비아|케냐|과테말라|브라질/i.test(ln) && ln.length <= 80) {
-      bean = ln;
-      break;
+  if (!bean) {
+    for (const ln of lines) {
+      if (/원두|bean|blend|blending|에티오피아|콜롬비아|케냐|과테말라|브라질/i.test(ln) && ln.length <= 80) {
+        bean = ln;
+        break;
+      }
     }
   }
 
@@ -142,7 +249,7 @@ function heuristicExtract(text: string, confidence = 0.4) {
     cafe,
     bean,
     processing,
-    flavor,
+    flavor: finalFlavor,
     confidence,
     raw_text: text,
     llm_response: '',
@@ -151,10 +258,6 @@ function heuristicExtract(text: string, confidence = 0.4) {
 }
 
 export async function POST(request: NextRequest) {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-
   let inputText = '';
   let inputConfidence: number | undefined = undefined;
 
@@ -169,6 +272,20 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      const fallback = heuristicExtract(text, confidence || 0.4);
+      return NextResponse.json({
+        ...fallback,
+        error: 'OPENAI_API_KEY missing; fallback used',
+        details: 'OpenAI API key is not configured in this environment.',
+      });
+    }
+
+    const openai = new OpenAI({
+      apiKey,
+    });
 
     // LLM 프롬프트 구성
     const prompt = `
