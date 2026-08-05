@@ -216,16 +216,22 @@ class HtmlCrawler(BaseCrawler):
         title_elem = item_soup.select_one(self.selectors['product_title'])
         if not title_elem:
             title_elem = link_elem  # 링크 텍스트를 제목으로 사용
-        title = title_elem.get_text().strip()
+        # 카페24 목록은 상품명을 <img alt>에만 담는다. img의 get_text()는 빈 문자열이라
+        # 그대로 두면 제목 없음으로 전부 걸러진다.
+        if title_elem.name == 'img':
+            title = (title_elem.get('alt') or '').strip()
+        else:
+            title = title_elem.get_text().strip()
         title = re.sub(r'^\s*[:\-\|]+\s*', '', title)
         title = re.sub(r'^\s*상품명\s*[:：]\s*', '', title)
         
         # 가격 추출
         price = 0
-        price_elem = item_soup.select_one(self.selectors['product_price'])
-        if price_elem:
-            price_text = price_elem.get_text().strip()
-            price = self._extract_price(price_text)
+        # 첫 일치가 "판매가" 같은 라벨인 경우가 흔하다(카페24). 숫자가 나올 때까지 훑는다.
+        for price_elem in item_soup.select(self.selectors['product_price']):
+            price = self._extract_price(price_elem.get_text().strip())
+            if price:
+                break
         else:
             # 가격 선택자가 실패한 경우, 상품 카드 전체 텍스트에서 fallback 추출
             price = self._extract_price(item_soup.get_text(" ", strip=True))

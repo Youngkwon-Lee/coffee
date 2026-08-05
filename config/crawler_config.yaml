@@ -218,6 +218,95 @@ cafes:
       product_image: "img"
 
 # 기본 필터링 설정
+
+  # 2026-08-05 재등록. 아래 5곳은 설정에서 빠진 채 DB에만 83일 된 데이터가 남아
+  # 있었다(총 58개, 전체 268개의 22%). 사용자에겐 낡은 가격이 최신처럼 보이고
+  # 재입고 알림도 오지 않던 상태다.
+  biroso:
+    label: "비로소커피"
+    type: "html"
+    url: "https://birosocoffee.com/product/list.html?cate_no=24"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    selectors:
+      # 카페24 표준 구조. 상품명은 .prdImg img의 alt에서 온다.
+      product_list_container: ".prdList"
+      product_item: ".prdList > li"
+      product_link: ".prdImg a"
+      product_title: ".prdImg img"
+      product_price: ".xans-product-listitem li span"
+      product_image: ".prdImg img"
+      pagination_container: ".xans-product-normalpaging"
+      next_page: ".next"
+  oats:
+    label: "오츠커피"
+    type: "html"
+    url: "https://oatscoffee.kr/product/list.html?cate_no=24"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    selectors:
+      product_list_container: ".prdList"
+      product_item: ".prdList > li"
+      product_link: ".prdImg a"
+      product_title: ".prdImg img"
+      product_price: ".xans-product-listitem li span"
+      product_image: ".prdImg img"
+      pagination_container: ".xans-product-normalpaging"
+      next_page: ".next"
+  pontcoffee:
+    label: "폰트커피"
+    type: "html"
+    # cate_no=32(SHOP)는 도매파트너 전용이라 로그인 없이는 alert만 돌아온다.
+    # 소매 원두는 cate_no=29(Coffee).
+    url: "https://pontcoffee.com/product/list.html?cate_no=29"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    selectors:
+      product_list_container: ".prdList"
+      product_item: ".prdList > li"
+      product_link: ".prdImg a"
+      product_title: ".prdImg img"
+      product_price: ".xans-product-listitem li span"
+      product_image: ".prdImg img"
+      pagination_container: ".xans-product-normalpaging"
+      next_page: ".next"
+  anthracite:
+    label: "앤트러사이트"
+    type: "html"
+    url: "https://anthracitecoffee.com/shop"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    selectors:
+      # imweb. 모모스커피와 같은 구조이고, 항목 자체가 <a>라 product_link는 비운다.
+      product_list_container: "._item_wrap"
+      product_item: ".shop-item"
+      product_link: ""
+      product_title: ".item-pay h2"
+      product_price: ".item-pay .pay"
+      product_image: ".shop-item-thumb img"
+      pagination_container: ".paging"
+      next_page: ".next"
+  beanbrothers:
+    label: "빈브라더스"
+    type: "html"
+    url: "https://www.beanbrothers.co.kr/goods/goods_list.php?cateCd=007001"
+    schedule: "0 0 * * 1"
+    active: true
+    encoding: "utf-8"
+    selectors:
+      # 고도몰(godomall)
+      product_list_container: ".goods_list"
+      product_item: ".goods_list_item"
+      product_link: "a"
+      product_title: ".item_name"
+      product_price: ".item_price"
+      product_image: "img"
+      pagination_container: ".paging"
+      next_page: ".next"
 filters:
   exclude:
     - "키트"
