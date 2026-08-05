@@ -4,7 +4,34 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
+try:
+    import yaml
+except ImportError:  # 설정을 못 읽으면 기존 검사만 수행한다
+    yaml = None
+
 PLACEHOLDER_TOKENS = ('placeholder', 'example.com', 'placehold.co', 'via.placeholder.com')
+CONFIG_PATH = Path(__file__).resolve().parent.parent / 'config' / 'crawler_config.yaml'
+
+
+def expected_brands():
+    """설정에서 active=true인 카페의 label 목록.
+
+    산출물에 등장한 브랜드만 검사하면, 한 카페가 통째로 실패해 0건이 되었을 때
+    그 브랜드는 집계에 아예 나타나지 않아 검증을 그냥 통과한다. 기대 목록과
+    대조해야 '수집이 멈춘 것'을 잡아낼 수 있다.
+    """
+    if yaml is None or not CONFIG_PATH.exists():
+        return None
+    try:
+        cfg = yaml.safe_load(CONFIG_PATH.read_text(encoding='utf-8')) or {}
+    except Exception:
+        return None
+    cafes = cfg.get('cafes') or {}
+    return {
+        str(c.get('label') or cafe_id).strip()
+        for cafe_id, c in cafes.items()
+        if c.get('active')
+    }
 
 
 def main():
@@ -46,8 +73,13 @@ def main():
             issues[brand].append(f'{name or f"row#{idx}"}: sample row present')
 
     zero_brands = sorted([brand for brand in allow_zero if by_brand.get(brand, 0) == 0])
-    blocking_zero = [brand for brand, count in by_brand.items() if count == 0 and brand not in allow_zero]
-    # by_brand won't include absent brands; caller should pass allowed zeros only for exceptional known brands
+
+    # 설정상 활성인데 산출물에 한 건도 없는 브랜드 = 수집이 멈춘 것.
+    expected = expected_brands()
+    missing = sorted(
+        b for b in (expected or set())
+        if by_brand.get(b, 0) == 0 and b not in allow_zero
+    )
 
     bad = {brand: msgs for brand, msgs in issues.items() if msgs}
     summary = {
@@ -55,8 +87,20 @@ def main():
         'brands': dict(sorted(by_brand.items())),
         'issue_brand_count': len(bad),
         'allowed_zero_brands': zero_brands,
+        'expected_brands': sorted(expected) if expected else None,
+        'missing_brands': missing,
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+    if missing:
+        print('\n❌ 수집 결과가 0건인 활성 카페:')
+        for brand in missing:
+            print(f'  - {brand}')
+        print('  크롤러가 조용히 실패했을 가능성이 높다. 의도된 중단이면 --allow-zero로 넘긴다.')
+        return 1
+
+    if expected is None:
+        print('\n⚠️  crawler_config.yaml을 읽지 못해 누락 검사를 건너뛴다(PyYAML 미설치 또는 파일 없음).')
 
     if bad:
         print('\n❌ validation issues:')
