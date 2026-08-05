@@ -21,6 +21,15 @@ const DELETE_DOCS = [
   { id: "lowkey", reason: "로우키 성수와 동일 매장(성수동2가 289-5 = 아차산로5길 37)" },
 ];
 
+/**
+ * 삭제 전에 남길 문서로 옮길 값.
+ * 지울 쪽에만 있는 실제 전화번호를 잃지 않기 위해서다(자리표시자 번호는 제외).
+ */
+const MERGE_BEFORE_DELETE = [
+  { from: "default-value", to: "default-value-hannam", fields: ["phone"] },
+  { from: "lowkey", to: "로우키 성수", fields: ["phone"] },
+];
+
 const CLEAR_FIELDS = [
   { id: "center-coffee", fields: { phone: "" }, reason: "조작된 전화번호(02-1234-5678) 제거" },
   // anthracite(성수동)와 "앤트러사이트 합정"은 서로 다른 지점인데 place_id 매칭이
@@ -49,6 +58,27 @@ async function main() {
 
   console.log(apply ? "MODE: APPLY (실제 반영)" : "MODE: DRY-RUN (--apply로 반영)");
   console.log("");
+
+  for (const { from, to, fields } of MERGE_BEFORE_DELETE) {
+    const src = await db.collection("cafes").doc(from).get();
+    const dst = await db.collection("cafes").doc(to).get();
+    if (!src.exists || !dst.exists) {
+      console.log(`SKIP merge ${from} → ${to} — 문서 없음`);
+      continue;
+    }
+    const sd = src.data() || {};
+    const dd = dst.data() || {};
+    const patch = {};
+    for (const f of fields) {
+      if (sd[f] && !dd[f]) patch[f] = sd[f];
+    }
+    if (!Object.keys(patch).length) {
+      console.log(`SKIP merge ${from} → ${to} — 옮길 값 없음(대상에 이미 있음)`);
+      continue;
+    }
+    console.log(`MERGE  ${from} → ${to}: ${JSON.stringify(patch)}`);
+    if (apply) await dst.ref.set(patch, { merge: true });
+  }
 
   for (const { id, reason } of DELETE_DOCS) {
     const ref = db.collection("cafes").doc(id);
