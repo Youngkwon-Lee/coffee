@@ -15,23 +15,30 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
 
-# 전역 변수: GitHub Actions 환경 여부
+# GitHub Actions 여부가 아니라 "브라우저를 실제로 띄울 수 있는가"로 판단한다.
+# 자체 러너(홈 데스크톱)에도 GITHUB_ACTIONS=true가 설정되는데, 예전 조건은 그것만
+# 보고 Selenium을 꺼버려서 JS 렌더링이 필요한 쇼핑몰이 조용히 0건이 됐다.
+# USE_SELENIUM=false로 명시하면 언제든 끌 수 있다.
 is_github_actions = os.environ.get('GITHUB_ACTIONS') == 'true'
 use_selenium = os.environ.get('USE_SELENIUM', '').lower() != 'false'
 
-# GitHub Actions 환경에서는 항상 Selenium 사용 비활성화
-if is_github_actions:
-    use_selenium = False
-
-if not is_github_actions:
-    from selenium import webdriver
-    from selenium.webdriver.chrome.service import Service
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    from selenium.common.exceptions import TimeoutException, WebDriverException, NoSuchElementException
-    from webdriver_manager.chrome import ChromeDriverManager
+if use_selenium:
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.chrome.service import Service
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.common.exceptions import TimeoutException, WebDriverException, NoSuchElementException
+        from webdriver_manager.chrome import ChromeDriverManager
+    except ImportError as exc:
+        # 설치돼 있지 않으면 조용히 죽지 말고 남긴다. 이 경로로 빠지면 JS 렌더링이
+        # 필요한 쇼핑몰은 0건이 되므로 원인을 로그에서 찾을 수 있어야 한다.
+        logging.getLogger(__name__).warning(
+            "Selenium을 불러오지 못해 정적 파싱으로 대체한다: %s", exc
+        )
+        use_selenium = False
 
 from coffee_crawler.crawlers.base_crawler import BaseCrawler
 from coffee_crawler.models.bean import Bean
