@@ -1,0 +1,40 @@
+name: Cafe Metadata Sync
+
+# 카페 카탈로그(src/data/cafeMetadataCatalog.ts)를 Firestore cafes 컬렉션에 반영한다.
+# 자격증명이 로컬에 없어 수동 실행이 어려우므로 여기서 돌린다.
+# 기본은 plan(대조만) — 실제 쓰기는 mode를 write/create로 명시해야 한다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan(대조만) / write(기존 문서 갱신) / create(없는 문서도 생성)"
+        required: true
+        default: "plan"
+        type: choice
+        options: [plan, write, create]
+
+jobs:
+  sync:
+    runs-on: [self-hosted, coffee-crawler]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Node dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run cafe metadata sync (${{ inputs.mode }})
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: |
+          case "${{ inputs.mode }}" in
+            plan)   npm run cafes:metadata:plan ;;
+            write)  npm run cafes:metadata:write ;;
+            create) npm run cafes:metadata:create ;;
+          esac
