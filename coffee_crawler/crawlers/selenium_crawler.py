@@ -189,7 +189,9 @@ class SeleniumCrawler(BaseCrawler):
         filtered_beans = self._filter_beans(beans)
         
         self.logger.info(f"Selenium 크롤링 완료: {len(filtered_beans)}개 원두 정보 수집 (총 {len(beans)}개 중), 소요시간: {time.time() - self.start_time:.2f}초")
-        return filtered_beans
+        # 상위 계층(run_crawler/저장부)은 dict를 기대한다. HtmlCrawler는 to_dict()로
+        # 넘기는데 여기만 Bean 객체를 반환해, 30개를 수집하고도 최종 결과가 0건이었다.
+        return [b.to_dict() if hasattr(b, 'to_dict') else b for b in filtered_beans]
 
     def _crawl_with_requests(self, test_mode=False) -> List[Bean]:
         """
@@ -243,7 +245,7 @@ class SeleniumCrawler(BaseCrawler):
         filtered_beans = self._filter_beans(beans)
         
         self.logger.info(f"requests 크롤링 완료: {len(filtered_beans)}개 원두 정보 수집 (총 {len(beans)}개 중), 소요시간: {time.time() - self.start_time:.2f}초")
-        return filtered_beans
+        return [b.to_dict() if hasattr(b, 'to_dict') else b for b in filtered_beans]
 
     def _extract_product_info_bs4(self, item_soup) -> Optional[Bean]:
         """
