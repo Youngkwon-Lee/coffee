@@ -193,3 +193,6 @@ temp/
 .venv/
 tmp_ocr/
 *.traineddata
+
+# PaddleOCR 로컬 전용 가상환경 (761MB). OCR 폴백 2단계에서만 쓰고 배포엔 안 올라간다.
+.venv-paddle/
