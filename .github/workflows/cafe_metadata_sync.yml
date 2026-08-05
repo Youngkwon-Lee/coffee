@@ -12,7 +12,7 @@ on:
         required: true
         default: "plan"
         type: choice
-        options: [plan, write, create]
+        options: [plan, write, create, cleanup-plan, cleanup-apply]
 
 jobs:
   sync:
@@ -37,4 +37,6 @@ jobs:
             plan)   npm run cafes:metadata:plan ;;
             write)  npm run cafes:metadata:write ;;
             create) npm run cafes:metadata:create ;;
+            cleanup-plan)  node scripts/cleanup-cafe-records.mjs ;;
+            cleanup-apply) node scripts/cleanup-cafe-records.mjs --apply ;;
           esac
