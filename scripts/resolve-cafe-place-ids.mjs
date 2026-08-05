@@ -125,8 +125,17 @@ async function main() {
   console.log(apply ? "MODE: APPLY" : "MODE: DRY-RUN (--apply로 반영)");
   const snap = await db.collection("cafes").get();
 
+  // 이미 다른 문서가 쓰고 있는 place_id는 다시 붙이지 않는다.
+  // 서로 다른 지점(앤트러사이트 성수/합정)에 같은 장소가 붙는 사고가 있었다.
+  const taken = new Map();
+  for (const doc of snap.docs) {
+    const pid = (doc.data() || {}).googlePlaceId;
+    if (pid) taken.set(pid, doc.data().name || doc.id);
+  }
+
   let matched = 0;
   let ambiguous = 0;
+  let collided = 0;
   let notFound = 0;
   let skipped = 0;
 
@@ -166,6 +175,12 @@ async function main() {
         Number(cand.location?.latitude), Number(cand.location?.longitude)
       );
       const verdict = judge(candidates, cand.displayName?.text, meters);
+      if (verdict.ok && taken.has(cand.id)) {
+        // 통과했지만 다른 문서가 이미 쓰는 장소다 → 다음 후보로 넘어간다.
+        console.log(`충돌   ${name}  ←  "${cand.displayName?.text}" — 이미 "${taken.get(cand.id)}"가 사용 중, 다음 후보 확인`);
+        collided++;
+        continue;
+      }
       if (verdict.ok) {
         picked = { cand, verdict, meters };
         break;
@@ -184,13 +199,14 @@ async function main() {
     matched++;
     console.log(`매칭   ${name}  →  ${top.id}  [${picked.verdict.why}]`);
     console.log(`         "${top.displayName?.text}" / ${top.formattedAddress}`);
+    taken.set(top.id, name);
     if (apply) {
       await doc.ref.set({ googlePlaceId: top.id }, { merge: true });
     }
   }
 
   console.log("");
-  console.log(`요약: 매칭 ${matched} / 모호 ${ambiguous} / 없음 ${notFound} / 건너뜀 ${skipped}`);
+  console.log(`요약: 매칭 ${matched} / 모호 ${ambiguous} / 없음 ${notFound} / 건너뜀 ${skipped} / 충돌회피 ${collided}`);
 }
 
 main().catch((err) => {

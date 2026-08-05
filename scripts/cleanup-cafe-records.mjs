@@ -15,10 +15,22 @@ import admin from "firebase-admin";
 
 const DELETE_DOCS = [
   { id: "nouvelle-vague", reason: "실존 확인 불가, 시드 자리표시자 데이터" },
+  // 아래 둘은 지점명이 있는 문서와 같은 가게다(지번 주소 vs 도로명 주소).
+  // 지점을 보여주는 쪽(default-value-hannam, "로우키 성수")을 남긴다.
+  { id: "default-value", reason: "디폴트밸류 한남점과 동일 매장(한남동 683-142 = 한남대로27가길 22)" },
+  { id: "lowkey", reason: "로우키 성수와 동일 매장(성수동2가 289-5 = 아차산로5길 37)" },
 ];
 
 const CLEAR_FIELDS = [
   { id: "center-coffee", fields: { phone: "" }, reason: "조작된 전화번호(02-1234-5678) 제거" },
+  // anthracite(성수동)와 "앤트러사이트 합정"은 서로 다른 지점인데 place_id 매칭이
+  // 겹쳐 둘 다 합정 장소를 가리켰다(저작자가 "앤트러사이트 합정본점"). 성수 쪽
+  // place_id를 비워 다시 매칭시키고, 이름의 오타와 조작된 전화번호도 함께 고친다.
+  {
+    id: "anthracite",
+    fields: { googlePlaceId: "", name: "앤트러사이트 성수", phone: "" },
+    reason: "합정 place_id 오매칭 해제 + 이름 오타(앤쓰러사이트) + 조작 전화(02-4567-8901)",
+  },
 ];
 
 function initAdmin() {
