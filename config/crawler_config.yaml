@@ -176,7 +176,8 @@ cafes:
     selectors:
       product_list_container: "#productListWrapper42703510"
       product_item: ".shopProductWrapper"
-      product_link: ".shopProductWrapper a"
+      # 항목 자체가 .shopProductWrapper라 하위에서 같은 클래스를 다시 찾으면 안 된다.
+      product_link: "a"
       product_title: ".shopProduct.productName"
       product_price: ".shopProduct.price"
       product_image: ".thumb.img"
