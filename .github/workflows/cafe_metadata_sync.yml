@@ -12,7 +12,7 @@ on:
         required: true
         default: "plan"
         type: choice
-        options: [plan, write, create, cleanup-plan, cleanup-apply]
+        options: [plan, write, create, cleanup-plan, cleanup-apply, placeid-plan, placeid-apply]
 
 jobs:
   sync:
@@ -32,6 +32,7 @@ jobs:
       - name: Run cafe metadata sync (${{ inputs.mode }})
         env:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_CREDENTIALS }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
         run: |
           case "${{ inputs.mode }}" in
             plan)   npm run cafes:metadata:plan ;;
@@ -39,4 +40,6 @@ jobs:
             create) npm run cafes:metadata:create ;;
             cleanup-plan)  node scripts/cleanup-cafe-records.mjs ;;
             cleanup-apply) node scripts/cleanup-cafe-records.mjs --apply ;;
+            placeid-plan)  node scripts/resolve-cafe-place-ids.mjs ;;
+            placeid-apply) node scripts/resolve-cafe-place-ids.mjs --apply ;;
           esac

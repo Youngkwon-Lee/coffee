@@ -28,6 +28,8 @@ interface Cafe {
   description?: string;
   phone?: string;
   website?: string;
+  /** Google Places ID. 정책상 무기한 저장이 허용되는 유일한 값이라 이것만 담는다. */
+  googlePlaceId?: string;
   operatingHours?: string;
   features?: {
     laptop_friendly?: boolean;
@@ -93,7 +95,28 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
   onClick: () => void;
 }) {
   const brandPhotoUrl = getBrandPhotoUrl(cafe);
-  const imageSrc = cafe.imageUrl || brandPhotoUrl || getCafeImageByLocation(cafe.name, cafe.address);
+  const fallbackSrc = cafe.imageUrl || brandPhotoUrl || getCafeImageByLocation(cafe.name, cafe.address);
+
+  // 자체 수집 이미지가 없고 place_id가 있으면 Google 사진을 표시 시점에 받아온다.
+  // 사진 URL은 저장하지 않는다(Places 정책). 실패하면 조용히 폴백으로 남는다.
+  const [googlePhoto, setGooglePhoto] = useState<{ uri: string; author?: string } | null>(null);
+  useEffect(() => {
+    if (cafe.imageUrl || !cafe.googlePlaceId) return;
+    let alive = true;
+    fetch(`/api/cafe-photo?placeId=${encodeURIComponent(cafe.googlePlaceId)}&w=800`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d?.photoUri) {
+          setGooglePhoto({ uri: d.photoUri, author: d.attributions?.[0]?.displayName });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [cafe.imageUrl, cafe.googlePlaceId]);
+
+  const imageSrc = googlePhoto?.uri || fallbackSrc;
 
   return (
     <div 
@@ -112,10 +135,15 @@ const CafeCard = memo(function CafeCard({ cafe, onToggleWishlist, isWishlisted, 
             priority={false}
             sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
-          {/* 이미지 소스 표시 */}
+          {/* 이미지 출처 표시.
+              Google 사진은 저작자 표시가 정책상 의무라 이름을 함께 노출한다. */}
           {!cafe.imageUrl && (
-            <div className="absolute bottom-2 left-2 bg-[#120f0d]/80 backdrop-blur-sm text-coffee-light/80 text-[10px] px-2 py-0.5 rounded border border-white/5 font-semibold">
-              {brandPhotoUrl ? '브랜드 추천' : 'AI 생성'}
+            <div className="absolute bottom-2 left-2 max-w-[85%] truncate bg-[#120f0d]/80 backdrop-blur-sm text-coffee-light/80 text-[10px] px-2 py-0.5 rounded border border-white/5 font-semibold">
+              {googlePhoto
+                ? `Google${googlePhoto.author ? ` · ${googlePhoto.author}` : ''}`
+                : brandPhotoUrl
+                  ? '브랜드 추천'
+                  : 'AI 생성'}
             </div>
           )}
           {/* 위시리스트 버튼 */}
