@@ -2,20 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, getAdditionalUserInfo } from "firebase/auth";
+import { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, getAdditionalUserInfo } from "firebase/auth";
 import { auth, db } from "@/firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { useCustomAlert } from "../components/CustomAlert";
+import { createGoogleSignInProvider, getGoogleSignInErrorMessage } from "@/utils/firebaseAuth";
 import Link from "next/link";
 import { Coffee, Sparkles, Cpu, Database, BarChart3, Cloud, ChevronLeft, ArrowRight } from "lucide-react";
+
+type FirebaseAuthErrorLike = {
+  code?: string;
+};
 
 export default function LoginPage() {
   const [user, loading] = useAuthState(auth);
   const { showAlert, AlertComponent } = useCustomAlert();
   const router = useRouter();
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [trialData, setTrialData] = useState<any>(null);
+  const [trialData, setTrialData] = useState<Record<string, unknown> | null>(null);
   const [loginMethod, setLoginMethod] = useState<'social' | 'email'>('social');
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -46,10 +51,7 @@ export default function LoginPage() {
     setIsSigningIn(true);
     
     try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope('email');
-      provider.addScope('profile');
-      
+      const provider = createGoogleSignInProvider();
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       const isNewUser = !!getAdditionalUserInfo(result)?.isNewUser;
@@ -89,22 +91,13 @@ export default function LoginPage() {
         router.push(isNewUser ? "/onboarding" : "/");
       }, 1500);
 
-    } catch (error: any) {
+    } catch (error) {
       console.error("로그인 오류:", error);
-      
-      let errorMessage = "로그인 중 오류가 발생했습니다.";
-      if (error.code === 'auth/popup-closed-by-user') {
-        errorMessage = "로그인이 취소되었습니다.";
-      } else if (error.code === 'auth/popup-blocked') {
-        errorMessage = "팝업이 차단되었습니다. 브라우저 설정에서 팝업 차단을 해제하고 다시 시도해주세요.";
-      } else if (error.code === 'auth/unauthorized-domain') {
-        errorMessage = "승인되지 않은 도메인입니다.\n\nFirebase 콘솔 > Authentication > Settings > Authorized domains에 현재 도메인(coffee-omega-lovat.vercel.app)을 등록해주시기 바랍니다.";
-      }
       
       showAlert({
         type: 'error',
         title: '로그인 실패',
-        message: errorMessage,
+        message: getGoogleSignInErrorMessage(error),
         confirmText: '확인'
       });
     } finally {
@@ -171,19 +164,20 @@ export default function LoginPage() {
         router.push(isNewSignup ? "/onboarding" : "/");
       }, 1500);
 
-    } catch (error: any) {
+    } catch (error) {
       console.error(`${isLogin ? '로그인' : '회원가입'} 오류:`, error);
+      const authError = error as FirebaseAuthErrorLike;
       
       let errorMessage = `${isLogin ? '로그인' : '회원가입'} 중 오류가 발생했습니다.`;
-      if (error.code === 'auth/user-not-found') {
+      if (authError.code === 'auth/user-not-found') {
         errorMessage = '존재하지 않는 계정입니다.';
-      } else if (error.code === 'auth/wrong-password') {
+      } else if (authError.code === 'auth/wrong-password') {
         errorMessage = '비밀번호가 올바르지 않습니다.';
-      } else if (error.code === 'auth/email-already-in-use') {
+      } else if (authError.code === 'auth/email-already-in-use') {
         errorMessage = '이미 사용 중인 이메일입니다.';
-      } else if (error.code === 'auth/weak-password') {
+      } else if (authError.code === 'auth/weak-password') {
         errorMessage = '비밀번호는 6자 이상이어야 합니다.';
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (authError.code === 'auth/invalid-email') {
         errorMessage = '올바르지 않은 이메일 형식입니다.';
       }
       

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface CustomAlertProps {
@@ -105,7 +105,7 @@ export default function CustomAlert({
             </div>
 
             {/* 메시지 */}
-            <p className="text-center text-coffee-light opacity-90 mb-6 leading-relaxed">
+            <p className="text-center text-coffee-light opacity-90 mb-6 leading-relaxed whitespace-pre-line">
               {message}
             </p>
 
