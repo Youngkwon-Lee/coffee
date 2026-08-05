@@ -54,7 +54,7 @@ export default function BasketPage() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen pt-20 pb-20 bg-gradient-to-br from-amber-50 to-rose-100">
+    <main className="flex flex-col items-center min-h-screen pt-20 pb-20">
       <h1 className="text-2xl font-bold mb-6 text-espresso">🛒 내 장바구니</h1>
       {loading ? (
         <div className="text-center py-10">로딩 중...</div>
@@ -63,7 +63,7 @@ export default function BasketPage() {
       ) : (
         <div className="w-full max-w-md flex flex-col gap-6">
           {beans.map(bean => (
-            <div key={bean.id} className="bg-white/80 rounded-2xl shadow p-4 flex flex-col md:flex-row gap-4 border border-caramel items-center relative">
+            <div key={bean.id} className="card-coffee p-4 flex flex-col md:flex-row gap-4 border border-caramel items-center relative">
               <Image src={bean.image || "/beans/default.jpg"} alt={bean.name} width={100} height={100} className="rounded-xl object-cover w-24 h-24" />
               <div className="flex-1 flex flex-col gap-1">
                 <div className="text-lg font-bold text-espresso">{bean.name}</div>

@@ -115,14 +115,14 @@ export default function AlertSettingsPage() {
 
   return (
     <>
-      <main className="flex flex-col items-center min-h-screen pt-20 pb-20 bg-gradient-to-br from-amber-50 to-rose-100">
+      <main className="flex flex-col items-center min-h-screen pt-20 pb-20">
         <h1 className="text-2xl font-bold mb-6 text-espresso">🔔 알림 설정</h1>
 
         <div className="w-full max-w-md flex flex-col gap-4 px-4">
           {loading ? (
             <div className="text-center py-10 text-mocha">로딩 중...</div>
           ) : !user ? (
-            <div className="bg-white/80 rounded-2xl shadow p-6 border border-caramel text-center flex flex-col gap-3">
+            <div className="card-coffee p-6 text-center flex flex-col gap-3">
               <p className="text-mocha font-bold">로그인 후 알림을 설정할 수 있습니다.</p>
               <button
                 onClick={handleGoogleLogin}
@@ -134,7 +134,7 @@ export default function AlertSettingsPage() {
           ) : (
             <>
               {/* 플랜 상태 */}
-              <section className="bg-white/80 rounded-2xl shadow p-5 border border-caramel">
+              <section className="card-coffee p-5">
                 <h2 className="text-lg font-bold text-espresso mb-2">내 플랜</h2>
                 <p className="text-sm text-mocha font-bold mb-1">
                   {isPremium ? "프리미엄" : "무료"}
@@ -147,7 +147,7 @@ export default function AlertSettingsPage() {
               </section>
 
               {/* 텔레그램 연결 */}
-              <section className="bg-white/80 rounded-2xl shadow p-5 border border-caramel flex flex-col gap-3">
+              <section className="card-coffee p-5 flex flex-col gap-3">
                 <h2 className="text-lg font-bold text-espresso">텔레그램 연결</h2>
 
                 <p className="text-sm font-bold">

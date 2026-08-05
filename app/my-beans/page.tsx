@@ -72,7 +72,7 @@ export default function MyBeansPage() {
   };
 
   return (
-    <main className="flex flex-col items-center min-h-screen pt-20 pb-20 bg-gradient-to-br from-amber-50 to-rose-100">
+    <main className="flex flex-col items-center min-h-screen pt-20 pb-20">
       <h1 className="text-2xl font-bold mb-6 text-espresso">☕ 내 원두 보관함</h1>
       {/* 로그인/로그아웃 UI */}
       <div className="mb-4 flex gap-2 items-center">
