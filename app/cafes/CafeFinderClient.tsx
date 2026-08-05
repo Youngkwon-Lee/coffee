@@ -14,6 +14,10 @@ interface Cafe {
   address: string;
   lat: number;
   lng: number;
+  // sync-cafe-metadata가 Firestore에 채우는 필드. CafeClient에는 이미 있었는데
+  // 여기만 빠져서 website 참조가 타입 오류로 남아 있었다.
+  website?: string;
+  aliases?: string[];
   tags?: string[];
   flavor?: string;
   menu?: string;
