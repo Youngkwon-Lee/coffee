@@ -196,6 +196,14 @@ const curatedCafeMetadata: CafeMetadataEntry[] = [
     website: "https://bonanzacoffee.kr",
     aliases: buildCafeAliases("보난자커피 목동 현대점", "https://bonanzacoffee.kr"),
   },
+  {
+    // Firestore에는 있었지만 카탈로그에 없어 website가 비어 있었고, 그래서
+    // 이미지 수집 대상에서도 빠져 있었다. 도메인은 응답 200으로 확인함.
+    id: "coffeelibre",
+    name: "커피리브레",
+    website: "https://coffeelibre.kr",
+    aliases: buildCafeAliases("커피리브레", "https://coffeelibre.kr", ["coffee libre", "리브레"]),
+  },
 ];
 
 type PurchaseCafeData = {
