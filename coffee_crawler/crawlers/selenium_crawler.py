@@ -316,18 +316,17 @@ class SeleniumCrawler(BaseCrawler):
                 image_url = urljoin(self.url, image_url)
             
             # Bean 객체 생성
+            # Bean 모델에는 id/cafe/image_url/description/metadata 필드가 없다.
+            # 이 시그니처로 호출하면 TypeError가 나고, 호출부가 예외를 삼켜
+            # "제품 정보 추출 중 오류"만 남긴 채 결과가 통째로 0건이 된다.
+            # HtmlCrawler와 같은 스키마를 쓴다.
             bean = Bean(
-                id=self._generate_id(name),
                 name=name,
+                brand=self.cafe.name,
                 price=price,
-                cafe=self.cafe_name,
                 url=product_url,
-                image_url=image_url,
-                description="",
-                metadata={
-                    "source_url": self.url,
-                    "crawled_at": self._get_current_time()
-                }
+                images=[image_url] if image_url else [],
+                cafe_id=self.cafe_id,
             )
             
             return bean
@@ -501,18 +500,14 @@ class SeleniumCrawler(BaseCrawler):
                 description = self._fetch_product_detail(product_url)
             
             # Bean 객체 생성
+            # Bean 모델 스키마에 맞춘다(id/cafe/image_url/description/metadata 없음).
             bean = Bean(
-                id=self._generate_id(name),
                 name=name,
+                brand=self.cafe.name,
                 price=price,
-                cafe=self.cafe_name,
                 url=product_url,
-                image_url=image_url,
-                description=description,
-                metadata={
-                    "source_url": self.url,
-                    "crawled_at": self._get_current_time()
-                }
+                images=[image_url] if image_url else [],
+                cafe_id=self.cafe_id,
             )
             
             return bean
