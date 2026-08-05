@@ -789,6 +789,33 @@ NEXT_PUBLIC_OPENWEATHER_API_KEY=your_weather_api_key
 }
 ```
 
+### Firebase Authentication 승인 도메인 체크
+
+Google 로그인이 `auth/unauthorized-domain`으로 실패하면 코드 문제가 아니라 Firebase Authentication 설정 문제일 가능성이 큽니다.
+
+#### 언제 확인해야 하나요?
+- 새 Vercel 프로덕션 도메인을 연결했을 때
+- 새 Vercel 프리뷰 URL에서 OAuth 로그인을 테스트할 때
+- Firebase 콘솔에서 아직 해당 도메인을 승인하지 않았을 때
+
+#### 수동 설정 절차
+1. Firebase Console 접속
+2. 프로젝트 `coffee-37b81` 선택
+3. `Authentication > Settings > Authorized domains` 이동
+4. 현재 배포 도메인 추가
+   - 예: `coffee-omega-lovat.vercel.app`
+
+#### 꼭 알아둘 점
+- Vercel 프리뷰 URL은 와일드카드 등록이 되지 않으므로 실제 도메인을 하나씩 추가해야 합니다.
+- 로그인 코드에서 안내 팝업이 떠도, 최종 해결은 Firebase 콘솔에서 도메인을 등록하는 것입니다.
+- 현재 도메인 안내가 필요하면 `npm run firebase:domains:help -- coffee-omega-lovat.vercel.app`로 절차와 REST 예시를 확인할 수 있습니다.
+
+#### 배포 후 QA 체크
+- `/login` 페이지가 정상적으로 렌더링되는지 확인
+- `구글 로그인` 버튼 클릭 시 팝업이 열리는지 확인
+- 도메인이 미승인 상태라면 정확한 안내 문구가 노출되는지 확인
+- 도메인 승인 후 실제 Google 로그인 완료까지 확인
+
 ### 헬스 체크 API
 ```typescript
 // app/api/health/route.ts
