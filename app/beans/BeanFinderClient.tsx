@@ -257,7 +257,7 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
     }
     const fetchWishlist = async () => {
       try {
-        const snap = await getDocs(collection(db, `users/${user.uid}/bean_favorites`));
+        const snap = await getDocs(collection(db, `users/${user.uid}/favorites_beans`));
         setWishlist(snap.docs.map(doc => doc.id));
       } catch (error) {
         console.error("원두 위시리스트 로드 실패:", error);
@@ -270,7 +270,10 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
     if (!user) return;
     
     try {
-      const ref = doc(db, `users/${user.uid}/bean_favorites`, beanId);
+      // 컬렉션명은 favorites_beans로 통일한다. 이 파일만 bean_favorites를 쓰고 있었는데,
+      // 규칙에 없는 이름이라 찜이 403으로 조용히 실패했고(핸들러가 console.error만 함),
+      // 저장됐더라도 보관함(my-beans)은 favorites_beans를 읽어서 안 보였다.
+      const ref = doc(db, `users/${user.uid}/favorites_beans`, beanId);
       if (wishlist.includes(beanId)) {
         await deleteDoc(ref);
         setWishlist(wishlist.filter(id => id !== beanId));
@@ -279,6 +282,8 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
         setWishlist([...wishlist, beanId]);
       }
     } catch (error) {
+      // TODO: 실패가 조용히 묻힌다. 하트가 안 바뀌는 것 말고 단서가 없어서
+      // 이번 버그도 눈에 안 띄었다. CustomAlert 작업이 정리되면 사용자에게 노출할 것.
       console.error("원두 위시리스트 업데이트 실패:", error);
     }
   };
