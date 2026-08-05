@@ -8,14 +8,25 @@ import { db, auth } from "@/firebase";
 import { motion } from "framer-motion";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useCustomAlert } from "../../components/CustomAlert";
+import { Camera, ImagePlus, Lightbulb, ScanSearch, Sparkles, X } from "lucide-react";
 
 // Tesseract.js 동적 import (에러 방지)
-let Tesseract: {
-  recognize: (image: File | Blob, languages?: string, options?: unknown) => Promise<{ data?: { text?: string } }>;
-} | null = null;
+// OCR 폴백 사슬의 마지막 단계다: GLM-OCR(OpenAI/Ollama) → PaddleOCR → Tesseract.
+// 앞의 둘은 서버가 필요하고 Tesseract는 브라우저에서 도니, 여기까지 오면 항상 답이 나온다.
+//
+// recognize의 첫 인자는 data URL 문자열도 받는다(preprocessForOCR가 문자열을 돌려준다).
+// 라이브러리 타입 전체를 끌어오는 대신 실제로 쓰는 부분만 좁혀서 선언한다.
+type TesseractLike = {
+  recognize: (
+    image: string | File | Blob,
+    languages?: string,
+    options?: Record<string, unknown>
+  ) => Promise<{ data?: { text?: string } }>;
+};
+let Tesseract: TesseractLike | null = null;
 if (typeof window !== "undefined") {
   import('tesseract.js').then(module => {
-    Tesseract = module.default;
+    Tesseract = module.default as unknown as TesseractLike;
   }).catch(err => {
     console.warn("Tesseract.js 로드 실패:", err);
   });
@@ -32,6 +43,68 @@ interface AnalysisResult {
   raw_text?: string;
   source?: string;
 }
+
+interface CafeLocationCandidate {
+  id: string;
+  name: string;
+  address: string;
+  aliases?: string[];
+  lat: number;
+  lng: number;
+  distanceMeters: number;
+}
+
+interface GeoPoint {
+  lat: number;
+  lng: number;
+}
+
+const MIN_RECOMMENDED_IMAGE_EDGE = 900;
+const AUTO_FILL_DISTANCE_METERS = 120;
+const NEARBY_CAFE_DISTANCE_METERS = 700;
+
+const normalizeCafeText = (value: string) =>
+  value
+    .replace(/프리츠/gi, "프릳츠")
+    .replace(/센터\s*코피/gi, "센터커피")
+    .replace(/센타커피/gi, "센터커피")
+    .replace(/coftee/gi, "coffee")
+    .replace(/cofee/gi, "coffee")
+    .replace(/coffe\b/gi, "coffee")
+    .replace(/centre/gi, "center")
+    .replace(/low\s*key/gi, "lowkey")
+    .toLowerCase()
+    .replace(/[\s"'`~!@#$%^&*()_\-+={[}\]|\\:;“”‘’<>,.?/]/g, "")
+    .trim();
+
+const buildCafeTokens = (name: string, aliases: string[] = []) => {
+  const rawParts = name
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const collapsed = normalizeCafeText(name);
+  const withoutBranch = normalizeCafeText(
+    rawParts
+      .filter((part) => !/(점|store|branch)$/i.test(part))
+      .join(" ")
+  );
+  const firstToken = normalizeCafeText(rawParts[0] || "");
+  const aliasTokens = aliases.map((alias) => normalizeCafeText(alias));
+
+  return Array.from(new Set([collapsed, withoutBranch, firstToken, ...aliasTokens])).filter((token) => token.length >= 2);
+};
+
+const readAscii = (view: DataView, start: number, length: number) => {
+  let out = "";
+  for (let i = 0; i < length; i += 1) {
+    const charCode = view.getUint8(start + i);
+    if (charCode === 0) {
+      break;
+    }
+    out += String.fromCharCode(charCode);
+  }
+  return out;
+};
 
 // 커피 플레이버 휠 데이터 (이미지 기반)
 const FLAVOR_CATEGORIES = {
@@ -105,9 +178,22 @@ export default function PhotoRecordPageSimple() {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [analysisError, setAnalysisError] = useState<string>("");
   const [glmUnavailable, setGlmUnavailable] = useState(false);
+  const [paddleUnavailable, setPaddleUnavailable] = useState(false);
   const [showValidationHints, setShowValidationHints] = useState(false);
   const [cafeSuggestions, setCafeSuggestions] = useState<string[]>([]);
   const [showCafeSuggestions, setShowCafeSuggestions] = useState(false);
+  const [nearbyCafeCandidates, setNearbyCafeCandidates] = useState<CafeLocationCandidate[]>([]);
+  const [locationLookupState, setLocationLookupState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [locationLookupMessage, setLocationLookupMessage] = useState("");
+  const [autoDetectedCafeName, setAutoDetectedCafeName] = useState("");
+  const [hasUserEditedCafe, setHasUserEditedCafe] = useState(false);
+  const [isCafeAutoFilledFromLocation, setIsCafeAutoFilledFromLocation] = useState(false);
+  const [isCafeAutoFilledFromText, setIsCafeAutoFilledFromText] = useState(false);
+  const [cafeCatalog, setCafeCatalog] = useState<CafeLocationCandidate[]>([]);
+  const [hasAttemptedLocationLookup, setHasAttemptedLocationLookup] = useState(false);
+  const [locationSourceLabel, setLocationSourceLabel] = useState("현재 위치");
+  const [ocrCafeMatchMessage, setOcrCafeMatchMessage] = useState("");
+  const [imageCaptureLocation, setImageCaptureLocation] = useState<GeoPoint | null>(null);
 
   // 체험 모드 상태
   const [trialCount, setTrialCount] = useState(() => {
@@ -120,6 +206,7 @@ export default function PhotoRecordPageSimple() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const locationLookupAbortRef = useRef(false);
   const router = useRouter();
 
   const loadFrequentCafes = useCallback(async () => {
@@ -198,12 +285,415 @@ export default function PhotoRecordPageSimple() {
     }
   }, [analysisResult]);
 
+  useEffect(() => {
+    if (analysisResult?.cafe) {
+      setIsCafeAutoFilledFromLocation(false);
+      setIsCafeAutoFilledFromText(false);
+      setAutoDetectedCafeName("");
+      setOcrCafeMatchMessage("");
+    }
+  }, [analysisResult?.cafe]);
+
+  useEffect(() => {
+    return () => {
+      locationLookupAbortRef.current = true;
+    };
+  }, []);
+
+  const haversineDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const earthRadiusKm = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadiusKm * c * 1000;
+  };
+
+  const parseExifGps = async (file: File): Promise<GeoPoint | null> => {
+    if (!/jpe?g/i.test(file.type) && !/\.jpe?g$/i.test(file.name)) {
+      return null;
+    }
+
+    const buffer = await file.arrayBuffer();
+    const view = new DataView(buffer);
+
+    if (view.byteLength < 4 || view.getUint16(0, false) !== 0xffd8) {
+      return null;
+    }
+
+    let offset = 2;
+
+    const readRational = (valueOffset: number, littleEndian: boolean) => {
+      const numerator = view.getUint32(valueOffset, littleEndian);
+      const denominator = view.getUint32(valueOffset + 4, littleEndian);
+      return denominator === 0 ? 0 : numerator / denominator;
+    };
+
+    const readGpsCoordinate = (
+      tiffOffset: number,
+      gpsOffset: number,
+      coordinateTag: number,
+      refTag: number,
+      littleEndian: boolean
+    ) => {
+      const entries = view.getUint16(gpsOffset, littleEndian);
+      let ref = "";
+      let coordOffset = 0;
+      let coordCount = 0;
+
+      for (let i = 0; i < entries; i += 1) {
+        const entryOffset = gpsOffset + 2 + i * 12;
+        const tag = view.getUint16(entryOffset, littleEndian);
+        const type = view.getUint16(entryOffset + 2, littleEndian);
+        const count = view.getUint32(entryOffset + 4, littleEndian);
+        const valueOrOffset = entryOffset + 8;
+
+        if (tag === refTag && type === 2) {
+          ref = readAscii(view, valueOrOffset, Math.min(count, 4));
+        }
+
+        if (tag === coordinateTag && type === 5) {
+          coordCount = count;
+          coordOffset = tiffOffset + view.getUint32(valueOrOffset, littleEndian);
+        }
+      }
+
+      if (!ref || coordOffset === 0 || coordCount < 3) {
+        return null;
+      }
+
+      const degrees = readRational(coordOffset, littleEndian);
+      const minutes = readRational(coordOffset + 8, littleEndian);
+      const seconds = readRational(coordOffset + 16, littleEndian);
+      const decimal = degrees + minutes / 60 + seconds / 3600;
+
+      return /[sw]/i.test(ref) ? -decimal : decimal;
+    };
+
+    while (offset < view.byteLength) {
+      if (view.getUint8(offset) !== 0xff) {
+        break;
+      }
+
+      const marker = view.getUint8(offset + 1);
+      if (marker === 0xda || marker === 0xd9) {
+        break;
+      }
+
+      const segmentLength = view.getUint16(offset + 2, false);
+      if (marker === 0xe1 && readAscii(view, offset + 4, 4) === "Exif") {
+        const tiffOffset = offset + 10;
+        const byteOrder = readAscii(view, tiffOffset, 2);
+        const littleEndian = byteOrder === "II";
+        const firstIfdOffset = view.getUint32(tiffOffset + 4, littleEndian);
+        const firstIfd = tiffOffset + firstIfdOffset;
+        const entries = view.getUint16(firstIfd, littleEndian);
+        let gpsIfdOffset = 0;
+
+        for (let i = 0; i < entries; i += 1) {
+          const entryOffset = firstIfd + 2 + i * 12;
+          const tag = view.getUint16(entryOffset, littleEndian);
+          if (tag === 0x8825) {
+            gpsIfdOffset = tiffOffset + view.getUint32(entryOffset + 8, littleEndian);
+            break;
+          }
+        }
+
+        if (gpsIfdOffset) {
+          const lat = readGpsCoordinate(tiffOffset, gpsIfdOffset, 0x0002, 0x0001, littleEndian);
+          const lng = readGpsCoordinate(tiffOffset, gpsIfdOffset, 0x0004, 0x0003, littleEndian);
+
+          if (typeof lat === "number" && typeof lng === "number") {
+            return { lat, lng };
+          }
+        }
+      }
+
+      offset += segmentLength + 2;
+    }
+
+    return null;
+  };
+
+  const loadCafeCatalog = useCallback(async () => {
+    if (cafeCatalog.length > 0) {
+      return cafeCatalog;
+    }
+
+    const response = await fetch("/api/cafes", {
+      method: "GET",
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      throw new Error("카페 좌표 목록을 불러오지 못했습니다.");
+    }
+
+    // /api/cafes 응답은 unknown이다. 좌표만 신뢰하고 나머지는 방어적으로 읽는다.
+    const payload: { cafes?: unknown } = await response.json();
+    const cafes = Array.isArray(payload?.cafes)
+      ? (payload.cafes as Array<Record<string, unknown>>)
+          .map((cafe): CafeLocationCandidate | null => {
+            const lat = Number(cafe?.lat);
+            const lng = Number(cafe?.lng);
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || !cafe?.name || !cafe?.address || !cafe?.id) {
+              return null;
+            }
+
+            return {
+              id: String(cafe.id),
+              name: String(cafe.name),
+              address: String(cafe.address),
+              aliases: Array.isArray(cafe.aliases) ? cafe.aliases.map((alias: unknown) => String(alias)) : [],
+              lat,
+              lng,
+              distanceMeters: Number.POSITIVE_INFINITY,
+            };
+          })
+          .filter((cafe): cafe is CafeLocationCandidate => cafe !== null)
+      : [];
+
+    setCafeCatalog(cafes);
+    return cafes;
+  }, [cafeCatalog]);
+
+  const inferCafeFromRawText = useCallback(
+    async (rawText: string, preferredCandidates: CafeLocationCandidate[] = []) => {
+      const normalizedText = normalizeCafeText(rawText);
+      if (!normalizedText || normalizedText.length < 2) {
+        return null;
+      }
+
+      const catalog = preferredCandidates.length > 0 ? preferredCandidates : await loadCafeCatalog();
+      let bestMatch: CafeLocationCandidate | null = null;
+      let bestScore = 0;
+
+      for (const cafe of catalog) {
+        const tokens = buildCafeTokens(cafe.name, cafe.aliases || []);
+        let score = 0;
+
+        for (const token of tokens) {
+          if (normalizedText.includes(token)) {
+            score = Math.max(score, token.length + (token === tokens[0] ? 4 : 0));
+          }
+        }
+
+        if (preferredCandidates.some((candidate) => candidate.id === cafe.id)) {
+          score += 3;
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = cafe;
+        }
+      }
+
+      return bestScore >= 4 ? bestMatch : null;
+    },
+    [loadCafeCatalog]
+  );
+
+  const applyNearbyCafeRecommendation = useCallback((candidates: CafeLocationCandidate[], sourceLabel: string) => {
+    const nearest = candidates[0];
+    const second = candidates[1];
+
+    if (!nearest) {
+      setNearbyCafeCandidates([]);
+      setLocationLookupState("ready");
+      setLocationSourceLabel(sourceLabel);
+      setLocationLookupMessage(`${sourceLabel} 기준으로 등록된 카페를 찾지 못했어요. 직접 입력하거나 자주 가는 카페를 선택해주세요.`);
+      return;
+    }
+
+    const hasClearWinner =
+      nearest.distanceMeters <= AUTO_FILL_DISTANCE_METERS &&
+      (!second || second.distanceMeters - nearest.distanceMeters >= 120);
+
+    setNearbyCafeCandidates(candidates.slice(0, 3));
+
+    if (!hasUserEditedCafe && !analysisResult?.cafe && hasClearWinner) {
+      setForm((prev) => ({ ...prev, cafe: nearest.name }));
+      setAutoDetectedCafeName(nearest.name);
+      setIsCafeAutoFilledFromLocation(true);
+      setLocationLookupMessage(
+        `${sourceLabel} 기준으로 가장 가까운 카페인 ${nearest.name}을(를) 자동 입력했어요.`
+      );
+      setLocationSourceLabel(sourceLabel);
+      return;
+    }
+
+    setLocationLookupMessage(`${sourceLabel} 기준으로 가까운 카페 후보를 찾았어요. 아래에서 선택할 수 있습니다.`);
+    setLocationSourceLabel(sourceLabel);
+  }, [analysisResult?.cafe, hasUserEditedCafe]);
+
+  const detectNearbyCafeFromLocation = useCallback(async (preferredCoords?: GeoPoint, preferredLabel?: string) => {
+    setLocationLookupState("loading");
+    setLocationLookupMessage(`${preferredLabel || "현재 위치"}로 가까운 카페를 찾는 중...`);
+
+    try {
+      const cafes = await loadCafeCatalog();
+      let latitude = preferredCoords?.lat;
+      let longitude = preferredCoords?.lng;
+      let sourceLabel = preferredLabel || "현재 위치";
+
+      if (typeof latitude !== "number" || typeof longitude !== "number") {
+        if (typeof window === "undefined" || !("geolocation" in navigator)) {
+          setLocationLookupState("error");
+          setLocationLookupMessage("이 기기에서는 위치 기반 카페 추천을 사용할 수 없어요.");
+          return;
+        }
+
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 1000 * 60 * 5,
+          });
+        });
+
+        if (locationLookupAbortRef.current) {
+          return;
+        }
+
+        latitude = position.coords.latitude;
+        longitude = position.coords.longitude;
+        sourceLabel = "현재 위치";
+      }
+
+      const candidates = cafes
+        .map((cafe: CafeLocationCandidate) => ({
+          ...cafe,
+          distanceMeters: haversineDistanceMeters(latitude, longitude, cafe.lat, cafe.lng),
+        }))
+        .filter((cafe: CafeLocationCandidate) => cafe.distanceMeters <= NEARBY_CAFE_DISTANCE_METERS)
+        .sort((a: CafeLocationCandidate, b: CafeLocationCandidate) => a.distanceMeters - b.distanceMeters);
+
+      setLocationLookupState("ready");
+      applyNearbyCafeRecommendation(candidates, sourceLabel);
+    } catch (error) {
+      const geoError = error as GeolocationPositionError | Error;
+      let message = "위치 정보를 가져오지 못했어요. 카페명은 직접 입력해주세요.";
+
+      if ("code" in geoError) {
+        if (geoError.code === 1) {
+          message = "위치 권한이 허용되지 않았어요. 권한을 허용하면 근처 카페를 추천할 수 있어요.";
+        } else if (geoError.code === 2) {
+          message = "현재 위치를 확인할 수 없어요. 실내에서는 GPS 정확도가 떨어질 수 있어요.";
+        } else if (geoError.code === 3) {
+          message = "위치 확인 시간이 초과되었어요. 다시 시도해주세요.";
+        }
+      }
+
+      setLocationLookupState("error");
+      setLocationLookupMessage(message);
+      setNearbyCafeCandidates([]);
+    }
+  }, [applyNearbyCafeRecommendation, loadCafeCatalog]);
+
+  useEffect(() => {
+    if (!preview || analyzing || hasAttemptedLocationLookup || hasUserEditedCafe || analysisResult?.cafe) {
+      return;
+    }
+
+    setHasAttemptedLocationLookup(true);
+    if (imageCaptureLocation) {
+      void detectNearbyCafeFromLocation(imageCaptureLocation, "사진 촬영 위치");
+      return;
+    }
+
+    void detectNearbyCafeFromLocation();
+  }, [
+    analysisResult?.cafe,
+    analyzing,
+    detectNearbyCafeFromLocation,
+    hasAttemptedLocationLookup,
+    hasUserEditedCafe,
+    imageCaptureLocation,
+    preview,
+  ]);
+
+  useEffect(() => {
+    if (!analysisResult?.raw_text || analysisResult?.cafe || hasUserEditedCafe || form.cafe.trim()) {
+      return;
+    }
+
+    let isActive = true;
+
+    const run = async () => {
+      const match = await inferCafeFromRawText(analysisResult.raw_text || "", nearbyCafeCandidates);
+      if (!isActive || !match) {
+        return;
+      }
+
+      setForm((prev) => ({ ...prev, cafe: match.name }));
+      setAutoDetectedCafeName(match.name);
+      setIsCafeAutoFilledFromLocation(false);
+      setIsCafeAutoFilledFromText(true);
+      setOcrCafeMatchMessage(`OCR 텍스트에서 ${match.name} 브랜드를 감지해 카페명을 자동 입력했어요.`);
+    };
+
+    void run();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    analysisResult?.cafe,
+    analysisResult?.raw_text,
+    form.cafe,
+    hasUserEditedCafe,
+    inferCafeFromRawText,
+    nearbyCafeCandidates,
+  ]);
+
+  useEffect(() => {
+    if (!analysisResult?.cafe || !nearbyCafeCandidates.length || hasUserEditedCafe) {
+      return;
+    }
+
+    const normalizedDetectedCafe = normalizeCafeText(analysisResult.cafe);
+    if (!normalizedDetectedCafe) {
+      return;
+    }
+
+    const branchMatch = nearbyCafeCandidates.find((candidate) =>
+      buildCafeTokens(candidate.name, candidate.aliases || []).some((token) =>
+        normalizedDetectedCafe.includes(token) || token.includes(normalizedDetectedCafe)
+      )
+    );
+
+    if (!branchMatch || form.cafe === branchMatch.name) {
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, cafe: branchMatch.name }));
+    setAutoDetectedCafeName(branchMatch.name);
+    setIsCafeAutoFilledFromLocation(true);
+    setIsCafeAutoFilledFromText(false);
+    setLocationLookupMessage(
+      `OCR에서 ${analysisResult.cafe} 브랜드를 감지했고, ${locationSourceLabel} 기준으로 가장 가까운 지점인 ${branchMatch.name}으로 보정했어요.`
+    );
+    setOcrCafeMatchMessage("");
+  }, [
+    analysisResult?.cafe,
+    form.cafe,
+    hasUserEditedCafe,
+    locationSourceLabel,
+    nearbyCafeCandidates,
+  ]);
+
   // 이미지 압축 함수
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
-      const img = new Image();
+      const img = document.createElement('img');
 
       img.onload = () => {
         // 최대 크기 설정 (OCR 성능과 속도 균형)
@@ -253,6 +743,25 @@ export default function PhotoRecordPageSimple() {
     });
   };
 
+  const getImageDimensions = (file: File): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      const url = URL.createObjectURL(file);
+
+      img.onload = () => {
+        resolve({ width: img.width, height: img.height });
+        URL.revokeObjectURL(url);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("이미지 크기를 확인할 수 없습니다."));
+      };
+
+      img.src = url;
+    });
+  };
+
   // 파일 선택/촬영 시 미리보기 (이미지 압축 포함)
   const handleFileChange = async (file: File) => {
     if (file) {
@@ -281,6 +790,16 @@ export default function PhotoRecordPageSimple() {
       try {
         setAnalysisStep("이미지 최적화 중...");
 
+        const { width, height } = await getImageDimensions(file);
+        const exifGps = await parseExifGps(file).catch(() => null);
+        if (Math.max(width, height) < MIN_RECOMMENDED_IMAGE_EDGE) {
+          showAlert({
+            type: 'warning',
+            title: '작은 이미지 감지',
+            message: `현재 이미지 해상도는 ${width}x${height}px 입니다.\n\n텍스트가 작은 라벨 사진은 OCR 정확도가 크게 떨어질 수 있어요.\n가능하면 더 가까이서, 더 크게 촬영한 이미지를 권장합니다.`
+          });
+        }
+
         // 이미지 압축
         const compressedFile = await compressImage(file);
 
@@ -291,6 +810,17 @@ export default function PhotoRecordPageSimple() {
         setAnalysisStep("");
         setOcrProgress(0);
         setAnalysisError(""); // 에러 상태도 초기화
+        setNearbyCafeCandidates([]);
+        setLocationLookupState("idle");
+        setLocationLookupMessage("");
+        setLocationSourceLabel("현재 위치");
+        setAutoDetectedCafeName("");
+        setHasUserEditedCafe(false);
+        setIsCafeAutoFilledFromLocation(false);
+        setIsCafeAutoFilledFromText(false);
+        setHasAttemptedLocationLookup(false);
+        setOcrCafeMatchMessage("");
+        setImageCaptureLocation(exifGps);
 
         // 기존 preview URL 정리
         return () => {
@@ -312,6 +842,17 @@ export default function PhotoRecordPageSimple() {
         setAnalysisResult(null);
         setAnalysisStep("");
         setOcrProgress(0);
+        setNearbyCafeCandidates([]);
+        setLocationLookupState("idle");
+        setLocationLookupMessage("");
+        setLocationSourceLabel("현재 위치");
+        setAutoDetectedCafeName("");
+        setHasUserEditedCafe(false);
+        setIsCafeAutoFilledFromLocation(false);
+        setIsCafeAutoFilledFromText(false);
+        setHasAttemptedLocationLookup(false);
+        setOcrCafeMatchMessage("");
+        setImageCaptureLocation(null);
       }
     }
   };
@@ -355,9 +896,35 @@ export default function PhotoRecordPageSimple() {
     };
   };
 
+  const performPaddleOcr = async (imageFile: File): Promise<string> => {
+    setAnalysisStep("PaddleOCR로 텍스트 인식 중...");
+    setOcrProgress(20);
+
+    const formData = new FormData();
+    formData.append("image", imageFile);
+    formData.append("lang", "korean");
+
+    const response = await fetch("/api/paddle-ocr", {
+      method: "POST",
+      body: formData,
+      signal: AbortSignal.timeout(120000),
+    });
+
+    setOcrProgress(85);
+
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => null);
+      throw new Error(errorPayload?.details || errorPayload?.error || "PaddleOCR 서버 오류");
+    }
+
+    const result = await response.json();
+    setOcrProgress(100);
+    return typeof result.text === "string" ? result.text.trim() : "";
+  };
+
   const preprocessForOCR = (file: File): Promise<string | File> => {
     return new Promise((resolve) => {
-      const img = new Image();
+      const img = document.createElement('img');
       const url = URL.createObjectURL(file);
       img.onload = () => {
         try {
@@ -368,12 +935,19 @@ export default function PhotoRecordPageSimple() {
             return;
           }
 
-          canvas.width = img.width;
-          canvas.height = img.height;
+          const largestEdge = Math.max(img.width, img.height);
+          const scaleFactor = largestEdge < 1200 ? Math.min(3, 1200 / largestEdge) : 1;
+          const targetWidth = Math.round(img.width * scaleFactor);
+          const targetHeight = Math.round(img.height * scaleFactor);
 
-          // 대비/밝기 보정 후 렌더링
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          // 작은 이미지 라벨을 대비하기 위해 업스케일 후 대비/밝기 보정
           ctx.filter = 'grayscale(100%) contrast(140%) brightness(110%)';
-          ctx.drawImage(img, 0, 0);
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
           // 간단 이진화(적응형 대체)로 텍스트 대비 강화
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -532,6 +1106,7 @@ export default function PhotoRecordPageSimple() {
       setAnalyzing(true);
       setAnalysisError("");
       setGlmUnavailable(false);
+      setPaddleUnavailable(false);
       setAnalysisStep("분석 준비 중...");
 
       let result: AnalysisResult | null = null;
@@ -556,9 +1131,29 @@ export default function PhotoRecordPageSimple() {
         setGlmUnavailable(true);
       }
 
-      // 2단계: GLM-OCR 실패 시 기존 Tesseract + OpenAI 파이프라인
+      // 2단계: GLM-OCR 실패 시 PaddleOCR 우선 시도
       if (!result || !result.bean) {
-        const extractedText = await performOCR(image);
+        let extractedText = "";
+
+        try {
+          setAnalysisStep("PaddleOCR 연결 확인 중...");
+          const healthCheck = await fetch("/api/paddle-ocr", { method: "GET", signal: AbortSignal.timeout(3000) });
+          const health = await healthCheck.json();
+
+          if (health.status === "ok") {
+            extractedText = await performPaddleOcr(image);
+          } else {
+            setPaddleUnavailable(true);
+          }
+        } catch (paddleErr) {
+          console.log("PaddleOCR 사용 불가, Tesseract 폴백:", paddleErr);
+          setPaddleUnavailable(true);
+        }
+
+        // 3단계: PaddleOCR도 실패하면 기존 Tesseract 사용
+        if (!extractedText || extractedText.trim().length < 3) {
+          extractedText = await performOCR(image);
+        }
 
         if (!extractedText || extractedText.trim().length < 3) {
           setAnalysisError("이미지에서 텍스트를 찾을 수 없습니다. 수동으로 입력해주세요.");
@@ -797,8 +1392,11 @@ export default function PhotoRecordPageSimple() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-6"
         >
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-coffee-gold/10 border border-coffee-gold/20 text-coffee-gold mb-4 shadow-lg shadow-coffee-gold/5">
+            <ScanSearch className="w-8 h-8" strokeWidth={1.8} />
+          </div>
           <h1 className="text-3xl md:text-4xl font-bold text-coffee-light mb-2">
-            📸 AI 커피 분석
+            AI 커피 분석
           </h1>
           <p className="text-coffee-light opacity-70">커피백이나 메뉴판을 촬영해서 AI 분석을 받아보세요</p>
         </motion.div>
@@ -806,6 +1404,12 @@ export default function PhotoRecordPageSimple() {
         {glmUnavailable && (
           <div className="mb-4 bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-3 text-sm text-yellow-100">
             GLM-OCR 연결이 불안정해 현재는 폴백 엔진(Tesseract + 보조 파서)으로 분석 중입니다.
+          </div>
+        )}
+
+        {paddleUnavailable && (
+          <div className="mb-4 bg-orange-900/30 border border-orange-500/40 rounded-xl p-3 text-sm text-orange-100">
+            PaddleOCR를 사용할 수 없어 현재는 브라우저 OCR(Tesseract.js)로 분석 중입니다.
           </div>
         )}
 
@@ -832,10 +1436,22 @@ export default function PhotoRecordPageSimple() {
                   setPreview(null);
                   setImage(null);
                   setAnalysisResult(null);
+                  setNearbyCafeCandidates([]);
+                  setLocationLookupState("idle");
+                  setLocationLookupMessage("");
+                  setLocationSourceLabel("현재 위치");
+                  setAutoDetectedCafeName("");
+                  setHasUserEditedCafe(false);
+                  setIsCafeAutoFilledFromLocation(false);
+                  setIsCafeAutoFilledFromText(false);
+                  setHasAttemptedLocationLookup(false);
+                  setOcrCafeMatchMessage("");
+                  setImageCaptureLocation(null);
                 }}
-                className="absolute -top-3 -right-3 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-300"
+                className="absolute -top-3 -right-3 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-300 shadow-lg"
+                aria-label="선택한 이미지 제거"
               >
-                <span className="text-lg">✕</span>
+                <X className="w-5 h-5" strokeWidth={2.4} />
               </button>
 
               {analyzing && (
@@ -867,7 +1483,9 @@ export default function PhotoRecordPageSimple() {
                 <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-coffee-gold"></div>
                 <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-coffee-gold"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-4xl text-coffee-gold opacity-70">📸</div>
+                  <div className="w-16 h-16 rounded-2xl bg-coffee-gold/10 border border-coffee-gold/20 flex items-center justify-center text-coffee-gold">
+                    <Camera className="w-8 h-8" strokeWidth={1.8} />
+                  </div>
                 </div>
               </div>
 
@@ -879,7 +1497,9 @@ export default function PhotoRecordPageSimple() {
               {/* 촬영 가이드 팁 */}
               <div className="bg-coffee-medium rounded-lg p-4 text-left">
                 <h4 className="text-coffee-light font-semibold mb-2 flex items-center gap-2">
-                  <span className="text-coffee-gold">💡</span>
+                  <span className="w-7 h-7 rounded-full bg-coffee-gold/10 border border-coffee-gold/20 text-coffee-gold flex items-center justify-center">
+                    <Lightbulb className="w-4 h-4" strokeWidth={2} />
+                  </span>
                   촬영 가이드
                 </h4>
                 <ul className="text-coffee-light opacity-70 text-sm space-y-1">
@@ -913,8 +1533,10 @@ export default function PhotoRecordPageSimple() {
               className="btn-primary w-full flex items-center justify-center gap-3 py-4"
               onClick={() => cameraInputRef.current?.click()}
             >
-              <span className="text-2xl">📷</span>
-              <span>사진 촬영하기</span>
+              <span className="w-11 h-11 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center">
+                <Camera className="w-5 h-5" strokeWidth={2} />
+              </span>
+              <span className="font-semibold">사진 촬영하기</span>
             </motion.button>
 
             <input
@@ -933,8 +1555,10 @@ export default function PhotoRecordPageSimple() {
               className="btn-secondary w-full flex items-center justify-center gap-3 py-4"
               onClick={() => fileInputRef.current?.click()}
             >
-              <span className="text-2xl">🖼️</span>
-              <span>갤러리에서 선택</span>
+              <span className="w-11 h-11 rounded-2xl bg-coffee-light/5 border border-coffee-light/10 flex items-center justify-center">
+                <ImagePlus className="w-5 h-5" strokeWidth={2} />
+              </span>
+              <span className="font-semibold">갤러리에서 선택</span>
             </motion.button>
           </div>
         )}
@@ -949,7 +1573,9 @@ export default function PhotoRecordPageSimple() {
             className="btn-primary w-full flex items-center justify-center gap-3 py-4 mb-6 relative"
             onClick={handleAnalyze}
           >
-            <span className="text-2xl">🤖</span>
+            <span className="w-11 h-11 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center">
+              <Sparkles className="w-5 h-5" strokeWidth={2} />
+            </span>
             <div className="flex flex-col items-center">
               <span>AI 분석 시작하기</span>
               {!user && trialCount < MAX_TRIAL_COUNT && (
@@ -1264,6 +1890,18 @@ export default function PhotoRecordPageSimple() {
                     type="text"
                     value={form.cafe}
                     onChange={(e) => {
+                      if (!hasUserEditedCafe) {
+                        setHasUserEditedCafe(true);
+                      }
+                      if (isCafeAutoFilledFromLocation) {
+                        setIsCafeAutoFilledFromLocation(false);
+                      }
+                      if (isCafeAutoFilledFromText) {
+                        setIsCafeAutoFilledFromText(false);
+                      }
+                      if (ocrCafeMatchMessage) {
+                        setOcrCafeMatchMessage("");
+                      }
                       setForm(prev => ({ ...prev, cafe: e.target.value }));
                       setShowCafeSuggestions(e.target.value.length > 0 && cafeSuggestions.length > 0);
                     }}
@@ -1276,6 +1914,76 @@ export default function PhotoRecordPageSimple() {
                   {showValidationHints && !form.cafe?.trim() && (
                     <p className="text-xs text-red-300 mt-1">카페명을 입력해주세요.</p>
                   )}
+
+                  <div className="mt-3 space-y-2">
+                    {locationLookupState === "loading" && (
+                      <div className="rounded-lg border border-sky-500/30 bg-sky-900/20 px-3 py-2 text-xs text-sky-100">
+                        📍 {locationLookupMessage}
+                      </div>
+                    )}
+
+                    {locationLookupMessage && locationLookupState !== "loading" && (
+                      <div
+                        className={`rounded-lg px-3 py-2 text-xs ${
+                          locationLookupState === "error"
+                            ? "border border-yellow-500/30 bg-yellow-900/20 text-yellow-100"
+                            : isCafeAutoFilledFromLocation
+                              ? "border border-green-500/30 bg-green-900/20 text-green-100"
+                              : "border border-coffee-gold/30 bg-coffee-medium/60 text-coffee-light"
+                        }`}
+                      >
+                        {isCafeAutoFilledFromLocation && autoDetectedCafeName ? `📍 ${locationLookupMessage}` : locationLookupMessage}
+                      </div>
+                    )}
+
+                    {ocrCafeMatchMessage && (
+                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-900/20 px-3 py-2 text-xs text-emerald-100">
+                        🔎 {ocrCafeMatchMessage}
+                      </div>
+                    )}
+
+                    {(nearbyCafeCandidates.length > 0 || (locationLookupState !== "idle" && locationLookupState !== "loading")) && (
+                      <div className="rounded-lg border border-coffee-medium bg-coffee-dark/50 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className="text-xs font-medium text-coffee-light">
+                            {nearbyCafeCandidates.length > 0 ? `${locationSourceLabel} 기반 카페 후보` : "위치 기반 추천"}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => void detectNearbyCafeFromLocation()}
+                            className="text-[11px] text-coffee-gold hover:text-yellow-300"
+                          >
+                            현재 위치로 다시 찾기
+                          </button>
+                        </div>
+                        {nearbyCafeCandidates.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {nearbyCafeCandidates.map((cafe) => (
+                            <button
+                              key={cafe.id}
+                              type="button"
+                              onClick={() => {
+                                setForm(prev => ({ ...prev, cafe: cafe.name }));
+                                setHasUserEditedCafe(true);
+                                setIsCafeAutoFilledFromLocation(false);
+                                setIsCafeAutoFilledFromText(false);
+                                setOcrCafeMatchMessage("");
+                                setShowCafeSuggestions(false);
+                              }}
+                              className="rounded-full border border-coffee-gold/20 bg-coffee-medium px-3 py-1.5 text-xs text-coffee-light transition-colors hover:bg-coffee-gold hover:text-coffee-dark"
+                            >
+                              {cafe.name} · {Math.round(cafe.distanceMeters)}m
+                            </button>
+                          ))}
+                        </div>
+                        ) : (
+                          <p className="text-xs text-coffee-light/70">
+                            위치 권한을 허용하면 근처 카페를 다시 추천해드릴게요.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* 자동완성 드롭다운 */}
                   {showCafeSuggestions && (
@@ -1291,6 +1999,10 @@ export default function PhotoRecordPageSimple() {
                             type="button"
                             onClick={() => {
                               setForm(prev => ({ ...prev, cafe }));
+                              setHasUserEditedCafe(true);
+                              setIsCafeAutoFilledFromLocation(false);
+                              setIsCafeAutoFilledFromText(false);
+                              setOcrCafeMatchMessage("");
                               setShowCafeSuggestions(false);
                             }}
                             className="w-full text-left px-4 py-3 text-coffee-light hover:bg-coffee-medium transition-colors flex items-center gap-3"
