@@ -38,7 +38,10 @@ export default function BasketPage() {
     const fetchBeans = async () => {
       const beansCol = collection(db, "beans");
       const beanSnapshot = await getDocs(beansCol);
-      const beanList = beanSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Bean[];
+      // 스프레드를 뒤에 두면 문서 데이터의 id 필드가 문서 ID를 덮어쓴다.
+      // beans 문서에는 id("비로소커피_클래식_200g")가 따로 들어 있어서, 찜/장바구니가
+      // 저장하는 문서 ID와 어긋나 필터가 항상 비게 된다.
+      const beanList = beanSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Bean[];
       setBeans(beanList.filter(bean => basket.includes(bean.id)));
       setLoading(false);
     };

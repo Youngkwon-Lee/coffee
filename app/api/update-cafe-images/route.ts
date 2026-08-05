@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     
     // 현재 카페 목록 가져오기
     const cafesSnapshot = await getDocs(collection(db, 'cafes'));
-    const cafes = cafesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const cafes = cafesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
     
     console.log(`총 ${cafes.length}개 카페 발견`);
     
