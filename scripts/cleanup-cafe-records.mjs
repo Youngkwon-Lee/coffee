@@ -30,6 +30,26 @@ const MERGE_BEFORE_DELETE = [
   { from: "lowkey", to: "로우키 성수", fields: ["phone"] },
 ];
 
+/** 잘못된 값을 올바른 값으로 덮어쓴다(비우는 게 아니라 교체). */
+const FIX_FIELDS = [
+  {
+    // 주소가 전혀 다른 가게 것이었다. 와우산로29길 47 1-2층은 "라헬의부엌 홍대점"
+    // (수플레 브런치)이고, Sanctuary는 월드컵북로 65 2층이다. 이름·설명은
+    // 생추어리가 맞는데 주소만 섞여 들어왔다 — 사용자가 엉뚱한 가게로 간다.
+    //
+    // 좌표도 함께 비운다. Places 약관상 구글 좌표는 30일까지만 캐시할 수 있어
+    // 영구 저장이 안 되고, 잘못된 좌표는 근접 검색을 오염시킨다.
+    // 없는 것이 틀린 것보다 낫다. 지오코딩은 별도로 붙여야 한다.
+    id: "생추어리 (Sanctuary)",
+    fields: {
+      address: "서울특별시 마포구 월드컵북로 65, 2층",
+      lat: null,
+      lng: null,
+    },
+    reason: "주소가 라헬의부엌 홍대점 것이었음 → 실제 Sanctuary 주소로 교체, 잘못된 좌표 제거",
+  },
+];
+
 const CLEAR_FIELDS = [
   { id: "center-coffee", fields: { phone: "" }, reason: "조작된 전화번호(02-1234-5678) 제거" },
   // anthracite(성수동)와 "앤트러사이트 합정"은 서로 다른 지점인데 place_id 매칭이
@@ -93,6 +113,28 @@ async function main() {
     if (apply) {
       await ref.delete();
       console.log("  → 삭제됨");
+    }
+  }
+
+  for (const { id, fields, reason } of FIX_FIELDS) {
+    const ref = db.collection("cafes").doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      console.log(`SKIP fix ${id} — 문서 없음`);
+      continue;
+    }
+    const d = snap.data() || {};
+    console.log(`FIX    ${id} (${d.name ?? "?"}) — ${reason}`);
+    for (const [k, v] of Object.entries(fields)) {
+      console.log(`  ${k}: "${d[k] ?? ""}" → ${v === null ? "(삭제)" : `"${v}"`}`);
+    }
+    if (apply) {
+      const patch = {};
+      for (const [k, v] of Object.entries(fields)) {
+        patch[k] = v === null ? admin.firestore.FieldValue.delete() : v;
+      }
+      await ref.set(patch, { merge: true });
+      console.log("  → 반영됨");
     }
   }
 
