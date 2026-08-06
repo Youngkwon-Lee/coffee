@@ -3,10 +3,13 @@
  * 좌표가 없는 카페에 주소 기반 좌표를 채운다.
  *
  * Google Places의 좌표는 약관상 30일까지만 캐시할 수 있어 영구 저장이 안 된다.
- * 카카오 로컬 API의 주소 검색은 그런 제약이 없고 무료라 이쪽을 쓴다.
- * (카카오는 장소 사진을 주지 않으므로 사진은 계속 Places를 쓴다 — 역할이 다르다.)
+ * 그래서 지오코딩은 별도 출처를 쓴다.
  *
- * 도로명 주소로 먼저 찾고, 실패하면 키워드(장소명+주소) 검색으로 넘어간다.
+ * 기본은 Nominatim(OpenStreetMap) — API 키가 필요 없다. 대신 이용 정책상
+ * 초당 1건 이하로 제한하고 연락처가 담긴 User-Agent를 보내야 한다. 대량 작업에는
+ * 맞지 않으므로, 대상이 많아지면 KAKAO_REST_API_KEY를 넣어 카카오로 전환한다
+ * (카카오는 좌표 저장 제약이 없고 한국 주소 정확도가 더 높다).
+ *
  * 기본은 dry-run. --apply를 줘야 반영한다.
  */
 
@@ -15,6 +18,33 @@ import admin from "firebase-admin";
 const KAKAO_KEY = process.env.KAKAO_REST_API_KEY || "";
 const ADDR_URL = "https://dapi.kakao.com/v2/local/search/address.json";
 const KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json";
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+const CONTACT = process.env.GEOCODE_CONTACT || "kwon3856@gmail.com";
+const USER_AGENT = `wondu-radar/1.0 (cafe geocoding; contact: ${CONTACT})`;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Nominatim 조회. 키 불필요, 초당 1건 제한을 지킨다. */
+async function nominatim(query) {
+  const params = new URLSearchParams({
+    format: "json",
+    limit: "1",
+    countrycodes: "kr",
+    q: query,
+  });
+  const res = await fetch(`${NOMINATIM_URL}?${params}`, {
+    headers: { "User-Agent": USER_AGENT },
+  });
+  if (!res.ok) throw new Error(`nominatim ${res.status}`);
+  const j = await res.json();
+  const hit = j?.[0];
+  if (!hit) return null;
+  return {
+    lat: Number(hit.lat),
+    lng: Number(hit.lon),
+    via: `OSM "${String(hit.display_name).slice(0, 50)}"`,
+  };
+}
 
 function initAdmin() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -46,6 +76,14 @@ async function kakao(url, params) {
 async function resolveCoords(name, address) {
   const clean = cleanAddress(address);
 
+  // 키가 없으면 Nominatim으로 처리한다.
+  if (!KAKAO_KEY) {
+    if (!clean) return null;
+    const hit = await nominatim(clean);
+    await sleep(1200); // 이용 정책: 초당 1건 이하
+    return hit;
+  }
+
   if (clean) {
     const a = await kakao(ADDR_URL, { query: clean });
     const hit = a.documents?.[0];
@@ -69,13 +107,10 @@ async function resolveCoords(name, address) {
 
 async function main() {
   const apply = process.argv.includes("--apply");
-  if (!KAKAO_KEY) {
-    console.error("KAKAO_REST_API_KEY가 없다. 종료.");
-    process.exit(1);
-  }
   const db = initAdmin();
 
   console.log(apply ? "MODE: APPLY" : "MODE: DRY-RUN (--apply로 반영)");
+  console.log(KAKAO_KEY ? "출처: 카카오 로컬" : "출처: Nominatim(OSM) — 키 없음, 초당 1건 제한");
   const snap = await db.collection("cafes").get();
 
   let filled = 0;

@@ -12,7 +12,7 @@ on:
         required: true
         default: "plan"
         type: choice
-        options: [plan, write, create, cleanup-plan, cleanup-apply, placeid-plan, placeid-apply]
+        options: [plan, write, create, cleanup-plan, cleanup-apply, placeid-plan, placeid-apply, geocode-plan, geocode-apply]
 
 jobs:
   sync:
@@ -33,6 +33,8 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_CREDENTIALS }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          # 없으면 Nominatim(키 불필요)으로 동작한다. 대상이 많아지면 넣을 것.
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
         run: |
           case "${{ inputs.mode }}" in
             plan)   npm run cafes:metadata:plan ;;
@@ -42,4 +44,6 @@ jobs:
             cleanup-apply) node scripts/cleanup-cafe-records.mjs --apply ;;
             placeid-plan)  node scripts/resolve-cafe-place-ids.mjs ;;
             placeid-apply) node scripts/resolve-cafe-place-ids.mjs --apply ;;
+            geocode-plan)  node scripts/geocode-cafes.mjs ;;
+            geocode-apply) node scripts/geocode-cafes.mjs --apply ;;
           esac
