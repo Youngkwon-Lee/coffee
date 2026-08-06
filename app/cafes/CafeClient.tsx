@@ -6,7 +6,7 @@ import CafeDetailModal from "../components/CafeDetailModal";
 import { getCafeImageByLocation } from "../utils/imageService";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
-import MapModal from '../components/MapModal';
+import OpenMapModal from '../components/OpenMapModal';
 import Link from "next/link";
 import { Heart, Star, Search, SlidersHorizontal, MapPin, Sparkles, Compass, Store, ChevronRight, ChevronDown, Map as MapIcon } from "lucide-react";
 
@@ -504,8 +504,9 @@ export default function CafeClient({
           isWishlisted={wishlist.includes(selectedCafe.id)}
         />
       )}
-    {/* 지도 모달. 좌표가 있는 카페만 넘긴다 — 좌표 없는 문서는 지도에 찍을 수 없다. */}
-      <MapModal
+    {/* 지도 모달. 좌표가 있는 카페만 넘긴다 — 좌표 없는 문서는 지도에 찍을 수 없다.
+          OpenFreeMap 기반이라 API 키가 필요 없다. */}
+      <OpenMapModal
         isOpen={showMap}
         onClose={() => setShowMap(false)}
         cafes={filteredCafes
@@ -516,7 +517,6 @@ export default function CafeClient({
             address: c.address,
             lat: c.lat,
             lng: c.lng,
-            imageUrl: c.imageUrl,
             rating: c.rating,
           }))}
       />
