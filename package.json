@@ -9,6 +9,7 @@
     "lint": "next lint",
     "enhance-beans": "node scripts/run-enhancement.js",
     "firebase:domains:help": "ts-node scripts/update-firebase-domains.ts",
+    "test:place-match": "node scripts/__tests__/place-match.test.mjs",
     "cafes:metadata:catalog": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --catalog-only",
     "cafes:metadata:plan": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts",
     "cafes:metadata:write": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write",
