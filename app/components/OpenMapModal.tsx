@@ -38,6 +38,12 @@ export default function OpenMapModal({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<unknown>(null);
+  // 호출부가 배열을 인라인으로 만들면 매 렌더마다 새 참조가 된다. 그것을 effect
+  // 의존성에 두면 초기화가 계속 취소돼 지도가 비어 버린다 — ref로 최신값만 읽는다.
+  const cafesRef = useRef(cafes);
+  cafesRef.current = cafes;
+  const selectedRef = useRef(selectedCafe);
+  selectedRef.current = selectedCafe;
   const [failed, setFailed] = useState(false);
   const [picked, setPicked] = useState<MapCafe | null>(null);
 
@@ -51,17 +57,19 @@ export default function OpenMapModal({
         const maplibre = await import("maplibre-gl");
         if (cancelled || !containerRef.current) return;
 
-        const center: [number, number] = selectedCafe
-          ? [selectedCafe.lng, selectedCafe.lat]
-          : cafes.length
-            ? [cafes[0].lng, cafes[0].lat]
+        const list = cafesRef.current;
+        const sel = selectedRef.current;
+        const center: [number, number] = sel
+          ? [sel.lng, sel.lat]
+          : list.length
+            ? [list[0].lng, list[0].lat]
             : SEOUL;
 
         const map = new maplibre.Map({
           container: containerRef.current,
           style: STYLE_URL,
           center,
-          zoom: selectedCafe ? 15 : 11,
+          zoom: sel ? 15 : 11,
           attributionControl: { compact: true },
         });
         mapRef.current = map;
@@ -71,13 +79,13 @@ export default function OpenMapModal({
 
         map.on("load", () => {
           if (cancelled) return;
-          for (const c of cafes) {
+          for (const c of cafesRef.current) {
             const el = document.createElement("button");
             el.type = "button";
             el.setAttribute("aria-label", c.name);
             el.className =
               "w-7 h-7 rounded-full border-2 border-white shadow-md cursor-pointer transition-transform hover:scale-110";
-            el.style.background = c.id === selectedCafe?.id ? "#e05252" : "#c5a880";
+            el.style.background = c.id === selectedRef.current?.id ? "#e05252" : "#c5a880";
             el.onclick = (e) => {
               e.stopPropagation();
               setPicked(c);
@@ -86,9 +94,9 @@ export default function OpenMapModal({
             new maplibre.Marker({ element: el }).setLngLat([c.lng, c.lat]).addTo(map);
           }
           // 카페가 여럿이면 전부 보이게 맞춘다.
-          if (cafes.length > 1 && !selectedCafe) {
+          if (cafesRef.current.length > 1 && !selectedRef.current) {
             const b = new maplibre.LngLatBounds();
-            cafes.forEach((c) => b.extend([c.lng, c.lat]));
+            cafesRef.current.forEach((c) => b.extend([c.lng, c.lat]));
             map.fitBounds(b, { padding: 56, maxZoom: 14 });
           }
         });
@@ -100,7 +108,7 @@ export default function OpenMapModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, cafes, selectedCafe]);
+  }, [isOpen]);
 
   // 닫을 때 지도를 정리한다. 남겨두면 다시 열 때 컨테이너가 어긋난다.
   useEffect(() => {
