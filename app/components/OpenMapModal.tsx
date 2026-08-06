@@ -163,8 +163,12 @@ export default function OpenMapModal({
             ))}
           </ul>
         ) : (
-          <div className="relative flex-1">
-            <div ref={containerRef} className="absolute inset-0" />
+          <div className="relative flex-1 min-h-0">
+            {/* maplibre-gl.css가 .maplibregl-map에 position:relative를 걸어 우리
+                absolute를 덮어쓴다. 그러면 inset-0이 무력화돼 높이가 0이 되고,
+                MapLibre가 뷰포트를 0으로 보고 타일을 아예 요청하지 않는다.
+                크기를 직접 준다. */}
+            <div ref={containerRef} className="w-full h-full" />
             {picked && (
               <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/10 bg-[#120f0d]/95 backdrop-blur p-3">
                 <div className="text-sm font-semibold text-[#f8f6f3]">{picked.name}</div>
