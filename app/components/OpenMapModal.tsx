@@ -51,6 +51,7 @@ export default function OpenMapModal({
     if (!isOpen || !containerRef.current || mapRef.current) return;
 
     let cancelled = false;
+    let resizeObs: ResizeObserver | null = null;
     (async () => {
       try {
         // v6는 default export가 없다 — 네임스페이스를 그대로 쓴다.
@@ -77,8 +78,9 @@ export default function OpenMapModal({
         map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
         map.on("error", () => setFailed(true));
 
-        map.on("load", () => {
-          if (cancelled) return;
+        // 마커는 DOM 오버레이라 스타일 로드를 기다릴 필요가 없다.
+        // load 안에 두면 그 이벤트가 늦거나 안 올 때 마커까지 사라진다.
+        {
           for (const c of cafesRef.current) {
             const el = document.createElement("button");
             el.type = "button";
@@ -93,11 +95,21 @@ export default function OpenMapModal({
             };
             new maplibre.Marker({ element: el }).setLngLat([c.lng, c.lat]).addTo(map);
           }
-          // 카페가 여럿이면 전부 보이게 맞춘다.
+        }
+
+        // 모달 안에서는 지도가 만들어지는 시점에 컨테이너 크기가 아직 0이다.
+        // 그러면 MapLibre가 필요한 타일 범위를 계산하지 못해 타일 요청을 아예
+        // 보내지 않는다(스타일·스프라이트만 받고 화면이 빈 채로 멈춘다).
+        // 레이아웃이 잡힌 뒤 resize를 불러줘야 한다.
+        const ro = new ResizeObserver(() => map.resize());
+        ro.observe(containerRef.current);
+        resizeObs = ro;
+        requestAnimationFrame(() => {
+          map.resize();
           if (cafesRef.current.length > 1 && !selectedRef.current) {
             const b = new maplibre.LngLatBounds();
             cafesRef.current.forEach((c) => b.extend([c.lng, c.lat]));
-            map.fitBounds(b, { padding: 56, maxZoom: 14 });
+            map.fitBounds(b, { padding: 56, maxZoom: 14, duration: 0 });
           }
         });
       } catch {
@@ -107,6 +119,7 @@ export default function OpenMapModal({
 
     return () => {
       cancelled = true;
+      resizeObs?.disconnect();
     };
   }, [isOpen]);
 
