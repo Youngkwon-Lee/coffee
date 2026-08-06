@@ -30,6 +30,8 @@ const cases = [
   ["앤트러사이트 성수", ["앤트러사이트","anthracite"], "앤트러사이트 합정본점", 3800, false],
   // 같은 지점은 계속 통과해야 한다
   ["앤트러사이트 성수", ["앤트러사이트","anthracite"], "앤트러사이트 성수", 30, true],
+  // 괄호 안 영문 표기: 호출부가 괄호 내용을 후보로 넣어주면 통과해야 한다
+  ["Sanctuary", ["생추어리"], "Sanctuary", Infinity, true],
 ];
 let fail=0;
 for (const [name, aliases, g, m, expect] of cases) {

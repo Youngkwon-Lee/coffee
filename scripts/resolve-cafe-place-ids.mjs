@@ -176,7 +176,16 @@ async function main() {
     }
 
     // 후보를 여러 개 훑어 가장 그럴듯한 것을 고른다.
-    const candidates = [name, ...(Array.isArray(d.aliases) ? d.aliases : [])];
+    // "생추어리 (Sanctuary)"처럼 괄호에 영문 표기가 든 경우, normalize가 괄호를
+    // 지워버려 영문이 사라진다. 구글이 "Sanctuary"로 부르면 한/영 비교라 유사도가
+    // 0이 된다 — 괄호 안 내용을 별도 후보로 넣는다.
+    const parenParts = String(name).match(/\(([^)]+)\)/g)?.map((x) => x.slice(1, -1).trim()) ?? [];
+    const candidates = [
+      name,
+      ...parenParts,
+      String(name).replace(/\(.*?\)/g, "").trim(),
+      ...(Array.isArray(d.aliases) ? d.aliases : []),
+    ].filter(Boolean);
     let picked = null;
     for (const cand of places) {
       const meters = distanceMeters(
