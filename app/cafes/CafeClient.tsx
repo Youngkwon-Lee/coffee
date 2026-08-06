@@ -6,9 +6,9 @@ import CafeDetailModal from "../components/CafeDetailModal";
 import { getCafeImageByLocation } from "../utils/imageService";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
-import GoogleMapView from './GoogleMapView';
+import MapModal from '../components/MapModal';
 import Link from "next/link";
-import { Heart, Star, Search, SlidersHorizontal, MapPin, Sparkles, Compass, Store, ChevronRight, ChevronDown } from "lucide-react";
+import { Heart, Star, Search, SlidersHorizontal, MapPin, Sparkles, Compass, Store, ChevronRight, ChevronDown, Map as MapIcon } from "lucide-react";
 
 // Cafe 인터페이스
 interface Cafe {
@@ -289,6 +289,8 @@ export default function CafeClient({
   };
 
   // Filter cafes based on search and selected filter - Memoized
+  const [showMap, setShowMap] = useState(false);
+
   const filteredCafes = useMemo(() => {
     return cafes.filter(cafe => {
       const matchesSearch = cafe.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -321,10 +323,21 @@ export default function CafeClient({
     <section className="p-4 pb-24">
       <div className="flex items-center justify-between mb-4">
         <h2 className="section-heading text-[#f8f6f3] text-xl tracking-tight">내 주변 카페</h2>
-        <button className="bg-white/5 border border-white/10 hover:bg-white/10 hover:border-[#c5a880]/30 transition-all text-[#c5a880] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
-          <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.5} />
-          <span>상세 필터</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* 지도 보기. MapModal은 이미 구현돼 있었는데 어디서도 렌더되지 않았다.
+              카카오맵 키가 없으면 모달이 목록 형태로 폴백한다. */}
+          <button
+            onClick={() => setShowMap(true)}
+            className="bg-white/5 border border-white/10 hover:bg-white/10 hover:border-[#c5a880]/30 transition-all text-[#c5a880] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+          >
+            <MapIcon className="w-3.5 h-3.5" strokeWidth={1.5} />
+            <span>지도</span>
+          </button>
+          <button className="bg-white/5 border border-white/10 hover:bg-white/10 hover:border-[#c5a880]/30 transition-all text-[#c5a880] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+            <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.5} />
+            <span>상세 필터</span>
+          </button>
+        </div>
       </div>
 
       {!user && (
@@ -491,6 +504,23 @@ export default function CafeClient({
           isWishlisted={wishlist.includes(selectedCafe.id)}
         />
       )}
+    {/* 지도 모달. 좌표가 있는 카페만 넘긴다 — 좌표 없는 문서는 지도에 찍을 수 없다. */}
+      <MapModal
+        isOpen={showMap}
+        onClose={() => setShowMap(false)}
+        cafes={filteredCafes
+          .filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng))
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            address: c.address,
+            lat: c.lat,
+            lng: c.lng,
+            imageUrl: c.imageUrl,
+            rating: c.rating,
+          }))}
+      />
+
     </section>
   );
 } 
