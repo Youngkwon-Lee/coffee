@@ -1,5 +1,14 @@
 export const dynamic = 'force-dynamic';
 
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: '원두 찾기 — 국내 로스터리 원두 비교',
+  description:
+    '프릳츠·테라로사·앤트러사이트·모모스 등 국내 로스터리 원두를 향미·가격·로스팅으로 비교하고, 재입고 알림을 받아보세요.',
+  alternates: { canonical: '/beans' },
+};
+
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
 import BeanFinderClient from "./BeanFinderClient";

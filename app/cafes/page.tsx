@@ -1,5 +1,14 @@
 export const dynamic = 'force-dynamic';
 
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: '로스터리 카페 찾기',
+  description:
+    '전국 로스터리 카페의 위치·영업시간·대표 메뉴와 판매 중인 원두를 확인하세요.',
+  alternates: { canonical: '/cafes' },
+};
+
 import CafeClient from './CafeClient';
 import type { Cafe } from "./CafeClient";
 import { db } from "../../src/firebase";
