@@ -74,6 +74,11 @@ export default function OpenMapModal({
           zoom: sel ? 15 : 11,
         });
         mapRef.current = map;
+        // 검증용 핸들. 자동화 브라우저는 탭이 항상 백그라운드라
+        // requestAnimationFrame이 0회 실행되고, MapLibre는 rAF로 그리므로
+        // 화면이 비어 보인다. map._render()를 직접 부르고 gl.readPixels로
+        // 픽셀을 비교하는 것이 유일한 검증 방법이라 인스턴스를 노출한다.
+        (window as unknown as { __coffeeMap?: unknown }).__coffeeMap = map;
 
         map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
         map.on("error", () => setFailed(true));
