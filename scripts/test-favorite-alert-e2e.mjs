@@ -18,7 +18,9 @@
 
 import admin from "firebase-admin";
 
-const TEST_EVENT_ID = "__e2e_test_restock__";
+// Firestore는 밑줄 두 개로 시작·끝나는 문서 ID를 예약어로 금지한다
+// ("Resource id ... is invalid because it is reserved").
+const TEST_EVENT_ID = "e2e-test-restock";
 
 function initAdmin() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
