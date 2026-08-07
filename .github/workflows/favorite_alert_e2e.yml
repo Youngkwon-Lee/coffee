@@ -1,0 +1,61 @@
+name: Favorite Alert E2E
+
+# 찜 → 재입고 알림이 실제로 텔레그램까지 도달하는지 확인한다.
+# 유료 전환의 근거인데 찜이 오래 깨져 있어서 한 번도 실증되지 않았다.
+#
+# 테스트용 찜·이벤트를 만들고 알림을 보낸 뒤 항상 정리한다.
+# 실행 후 텔레그램 DM이 왔는지는 사람이 확인해야 한다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      uid:
+        description: "알림을 받을 사용자 uid (텔레그램 연결된 계정)"
+        required: true
+        type: string
+
+jobs:
+  e2e:
+    runs-on: [self-hosted, coffee-crawler]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.test.txt
+          npm ci --no-audit --no-fund
+
+      - name: Setup Firebase credentials
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: echo "$FIREBASE_CREDENTIALS" > firebase_credentials.json
+
+      - name: Create test favorite and restock event
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: node scripts/test-favorite-alert-e2e.mjs --uid "${{ inputs.uid }}" --setup
+
+      - name: Send favorite alerts
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: firebase_credentials.json
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python scripts/send_favorite_alerts.py --since-hours 1
+
+      # 성공이든 실패든 테스트 데이터는 남기지 않는다.
+      - name: Cleanup test data
+        if: always()
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: node scripts/test-favorite-alert-e2e.mjs --uid "${{ inputs.uid }}" --cleanup
