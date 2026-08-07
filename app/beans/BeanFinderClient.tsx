@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { db, auth } from "@/firebase";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -77,8 +78,20 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
       </div>
       
       <div className="flex-1 flex flex-col">
+        {/* 제목을 상세 링크로 둔다. 크롤러가 상세 페이지를 발견하는 경로이고,
+            sitemap만으로는 내부 링크가 없어 색인 우선순위가 낮게 잡힌다. */}
         <h3 className="font-semibold text-coffee-light mb-1 line-clamp-1">
-          {bean.name || '이름 없음'}
+          {bean.id ? (
+            <Link
+              href={`/beans/${encodeURIComponent(bean.id)}`}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              className="hover:underline"
+            >
+              {bean.name || '이름 없음'}
+            </Link>
+          ) : (
+            bean.name || '이름 없음'
+          )}
         </h3>
         
         <p className="text-sm text-coffee-light opacity-70 mb-2">

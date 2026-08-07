@@ -17,9 +17,39 @@ const playfair = Playfair_Display({
   weight: ["500", "600", "700"],
 });
 
+const SITE_URL = "https://coffee-omega-lovat.vercel.app";
+
+// 검색으로 유입되려면 사람들이 실제로 치는 말이 들어가야 한다.
+// "Coffee Journal / 당신만의 커피 여정"으로는 '프릳츠 원두 재입고'를 검색한
+// 사람에게 닿지 않는다.
 export const metadata: Metadata = {
-  title: "Coffee Journal",
-  description: "당신만의 커피 여정을 기록하세요",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "원두레이더 — 국내 로스터리 원두 신상·재입고 알림",
+    template: "%s | 원두레이더",
+  },
+  description:
+    "프릳츠·앤트러사이트·테라로사 등 국내 스페셜티 로스터리 17곳의 원두를 매일 수집합니다. 찜한 원두가 재입고되거나 가격이 바뀌면 텔레그램으로 알려드립니다.",
+  keywords: [
+    "원두", "스페셜티 커피", "원두 재입고", "원두 신상", "로스터리",
+    "프릳츠", "앤트러사이트", "테라로사", "커피리브레", "모모스커피",
+    "원두 추천", "싱글오리진", "드립백",
+  ],
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    url: SITE_URL,
+    siteName: "원두레이더",
+    title: "원두레이더 — 국내 로스터리 원두 신상·재입고 알림",
+    description:
+      "로스터리 17곳의 원두를 매일 수집합니다. 찜한 원두가 재입고되면 텔레그램으로 알려드립니다.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "원두레이더 — 원두 신상·재입고 알림",
+    description: "국내 스페셜티 로스터리 17곳의 원두를 매일 수집합니다.",
+  },
+  robots: { index: true, follow: true },
   icons: {
     icon: '/favicon.ico',
     apple: '/icon-192.png',
