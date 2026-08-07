@@ -32,6 +32,20 @@ type Cafe = {
 
 type BeanRow = { id: string; name: string; price?: string };
 
+/**
+ * Next.js 15 App Router는 params에 **이미 퍼센트 인코딩된** 원본 세그먼트를 넘긴다.
+ * 그대로 encodeURIComponent를 걸면 이중 인코딩되어("%EB%B9%84" → "%25EB%25B9%2584")
+ * Firestore가 404를 준다. 한글 문서 ID를 쓰는 카페 28곳이 전부 이 경로로 404였다.
+ * 잘못된 인코딩(%zz)이면 decodeURIComponent가 던지므로 원본을 그대로 쓴다.
+ */
+function decodeParam(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function val(f: Record<string, unknown> | undefined): unknown {
   if (!f) return undefined;
   const o = f as Record<string, unknown>;
@@ -51,7 +65,8 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
 
-async function getCafe(id: string): Promise<Cafe | null> {
+async function getCafe(rawId: string): Promise<Cafe | null> {
+  const id = decodeParam(rawId);
   const res = await fetch(`${BASE}/cafes/${encodeURIComponent(id)}`, {
     next: { revalidate: 86400 },
   });
@@ -147,7 +162,7 @@ export async function generateMetadata({
     title: `${cafe.name} 원두`,
     description,
     openGraph: { title: `${cafe.name} 원두 | 원두레이더`, description },
-    alternates: { canonical: `/cafes/${encodeURIComponent(id)}` },
+    alternates: { canonical: `/cafes/${encodeURIComponent(decodeParam(id))}` },
   };
 }
 

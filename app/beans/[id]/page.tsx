@@ -26,6 +26,20 @@ type Bean = {
   lastUpdated?: string;
 };
 
+/**
+ * Next.js 15 App Router는 params에 **이미 퍼센트 인코딩된** 원본 세그먼트를 넘긴다.
+ * 그대로 encodeURIComponent를 걸면 이중 인코딩되어("%EB%B9%84" → "%25EB%25B9%2584")
+ * Firestore가 404를 준다. 한글 문서 ID를 쓰는 카페 28곳이 전부 이 경로로 404였다.
+ * 잘못된 인코딩(%zz)이면 decodeURIComponent가 던지므로 원본을 그대로 쓴다.
+ */
+function decodeParam(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function val(f: Record<string, unknown> | undefined): unknown {
   if (!f) return undefined;
   const o = f as Record<string, unknown>;
@@ -40,7 +54,8 @@ function val(f: Record<string, unknown> | undefined): unknown {
   return undefined;
 }
 
-async function getBean(id: string): Promise<Bean | null> {
+async function getBean(rawId: string): Promise<Bean | null> {
+  const id = decodeParam(rawId);
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/beans/${encodeURIComponent(id)}`;
   const res = await fetch(url, { next: { revalidate: 3600 } });
   if (!res.ok) return null;
@@ -88,7 +103,7 @@ export async function generateMetadata({
       description: bits.join(" · "),
       images: bean.image ? [{ url: bean.image }] : undefined,
     },
-    alternates: { canonical: `/beans/${encodeURIComponent(id)}` },
+    alternates: { canonical: `/beans/${encodeURIComponent(decodeParam(id))}` },
   };
 }
 
