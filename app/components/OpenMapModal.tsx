@@ -54,8 +54,9 @@ export default function OpenMapModal({
     let resizeObs: ResizeObserver | null = null;
     (async () => {
       try {
-        // v6는 default export가 없다 — 네임스페이스를 그대로 쓴다.
-        const maplibre = await import("maplibre-gl");
+        // maplibre-gl은 5.6.0으로 고정했다. 6.x에서는 같은 스타일·컨테이너로도
+        // 배경만 칠하고 벡터 타일을 그리지 않았다(브라우저에서 v5는 정상 렌더 확인).
+        const maplibre = (await import("maplibre-gl")).default;
         if (cancelled || !containerRef.current) return;
 
         const list = cafesRef.current;
@@ -71,7 +72,6 @@ export default function OpenMapModal({
           style: STYLE_URL,
           center,
           zoom: sel ? 15 : 11,
-          attributionControl: { compact: true },
         });
         mapRef.current = map;
 
