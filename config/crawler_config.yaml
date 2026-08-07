@@ -314,7 +314,10 @@ cafes:
       pagination_container: ".paging"
       next_page: ".next"
 filters:
-  exclude:
+  # 키 이름은 반드시 `exclude_keywords`. base_crawler가 읽는 이름이다.
+  # (`exclude`로만 두면 제외 목록이 빈 채로 굿즈가 전부 원두로 저장된다.)
+  # 제품명만 검사한다 — 설명까지 보면 추출 안내가 든 정상 원두가 빠진다.
+  exclude_keywords:
     - "키트"
     - "박스"
     - "선물"
@@ -343,6 +346,32 @@ filters:
     - "텀블러"
     - "머그"
     - "mug"
+    # 의류·굿즈. 로스터리 쇼핑몰은 원두와 같은 목록에 굿즈를 같이 올린다.
+    - "pullover"
+    - "hoodie"
+    - "sweatshirt"
+    - "t-shirt"
+    - "tshirt"
+    - "후드"
+    - "티셔츠"
+    - "맨투맨"
+    - "양말"
+    - "socks"
+    - "에코백"
+    - "토트백"
+    - "파우치"
+    - "키링"
+    - "스티커"
+    - "굿즈"
+    - "goods"
+    - "apparel"
+    # 기구·소모품
+    - "드리퍼"
+    - "dripper"
+    - "그라인더"
+    - "grinder"
+    - "저울"
+    - "포터필터"
     # - "디카페인"
     # - "decaf"
     # - "디카페인"

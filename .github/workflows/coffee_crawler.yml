@@ -84,7 +84,13 @@ jobs:
     - name: Ensure output directories
       run: |
         mkdir -p data reports logs
-    
+
+    # 크롤 전에 확인한다. 필터가 비면 굿즈·드립백·선물세트가 원두로 저장되고,
+    # 로그는 계속 성공으로 남는다(실제로 61건이 그렇게 들어왔다).
+    # 저장한 뒤 발견하면 Firestore를 되돌려야 하므로 여기서 먼저 막는다.
+    - name: Check bean filter
+      run: python scripts/test_bean_filter.py
+
     - name: Run coffee crawler (all cafes, dry-run artifact only)
       if: ${{ github.event.inputs.specific_cafe == '' }}
       env:

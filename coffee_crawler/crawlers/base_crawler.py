@@ -41,19 +41,32 @@ class BaseCrawler(ABC):
         
         # 필터 설정
         self.include_keywords = config.get('include_keywords', [])
-        self.exclude_keywords = config.get('exclude_keywords', [])
-        
+        self.exclude_keywords = config.get('exclude_keywords', []) or config.get('exclude', [])
+
         # 카페별 필터 설정이 없는 경우 기본 필터 사용
         if not self.include_keywords or not self.exclude_keywords:
             from coffee_crawler.utils.config_loader import load_crawler_config
             crawler_config = load_crawler_config()
             filters = crawler_config.get('filters', {})
-            
+
             if not self.include_keywords:
                 self.include_keywords = filters.get('include_keywords', [])
             if not self.exclude_keywords:
-                self.exclude_keywords = filters.get('exclude_keywords', [])
-                
+                # `exclude`는 구 키 이름. 설정은 `exclude` 한 가지만 갖고 있었고
+                # 코드는 `exclude_keywords`만 읽어서, 제외 목록이 빈 채로
+                # 굿즈·드립백·선물세트가 전부 원두로 저장되고 있었다.
+                # 조용히 통과하는 실패였으므로 두 키를 모두 받고, 아래에서 비면 경고한다.
+                self.exclude_keywords = (
+                    filters.get('exclude_keywords') or filters.get('exclude') or []
+                )
+
+        # 제외 목록이 비면 굿즈가 그대로 원두로 들어온다. 조용히 넘기지 않는다.
+        if not self.exclude_keywords:
+            self.logger.warning(
+                "제외 키워드가 비어 있습니다 — 굿즈·드립백·선물세트가 원두로 저장됩니다. "
+                "config/crawler_config.yaml의 filters.exclude_keywords를 확인하세요."
+            )
+
         # 재시도 설정
         self.max_retries = config.get('max_retries', 3)
         self.retry_delay = config.get('retry_delay', 2.0)
@@ -168,14 +181,15 @@ class BaseCrawler(ABC):
         """
         name = item.get('name', '').lower()
         description = item.get('description', '').lower()
-        
-        # 제외 키워드 확인
+
+        # 제외 키워드는 제품명만 본다. 설명까지 보면 "콜드브루로 내려도 좋습니다",
+        # "핸드드립 추천" 같은 추출 안내가 든 정상 원두가 통째로 빠진다.
+        # 상품 종류(드립백·굿즈·세트)는 이름에 드러나므로 이름 검사로 충분하다.
         for keyword in self.exclude_keywords:
-            keyword_lower = keyword.lower()
-            if keyword_lower in name or keyword_lower in description:
+            if keyword.lower() in name:
                 self.logger.debug(f"제외 키워드 '{keyword}' 포함: {name}")
                 return False
-        
+
         # 포함 키워드 확인
         if self.include_keywords:
             for keyword in self.include_keywords:

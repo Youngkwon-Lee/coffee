@@ -123,9 +123,11 @@ export default async function BeanDetailPage({
           {bean.brand && (
             <p className="text-sm font-semibold text-[#c5a880]">{bean.brand}</p>
           )}
-          <h1 className="mt-1 font-display text-2xl font-bold text-coffee-light">
+          {/* 레이아웃 헤더가 이미 h1("Coffee Tracker")을 쓴다. 한 문서에 h1이
+              둘이면 검색엔진이 주제를 잡기 어려우니 h2로 둔다. */}
+          <h2 className="mt-1 font-display text-2xl font-bold text-coffee-light">
             {bean.name}
-          </h1>
+          </h2>
           <p className="mt-2 text-lg font-semibold text-coffee-light">
             {priceText(bean.price)}
           </p>

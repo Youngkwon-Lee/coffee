@@ -13,7 +13,8 @@
     "cafes:metadata:catalog": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --catalog-only",
     "cafes:metadata:plan": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts",
     "cafes:metadata:write": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write",
-    "cafes:metadata:create": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write --create-missing"
+    "cafes:metadata:create": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write --create-missing",
+    "test:bean-filter": "python3 scripts/test_bean_filter.py"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.1.0",
