@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 /**
@@ -24,6 +24,9 @@ type MapCafe = {
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
 const SEOUL: [number, number] = [126.978, 37.5665];
+// 카페 하나를 들여다보는 수준. 전체를 fitBounds하면 천안·부산이 섞여 한국 전체가
+// 나오고 정작 각 카페는 점으로만 보인다.
+const CAFE_ZOOM = 16;
 
 export default function OpenMapModal({
   isOpen,
@@ -46,6 +49,19 @@ export default function OpenMapModal({
   selectedRef.current = selectedCafe;
   const [failed, setFailed] = useState(false);
   const [picked, setPicked] = useState<MapCafe | null>(null);
+  const [idx, setIdx] = useState(0);
+
+  // 특정 카페로 이동. 전체를 한 화면에 담지 않고 하나씩 확대해 보여준다.
+  const goTo = (i: number) => {
+    const list = cafesRef.current;
+    if (!list.length) return;
+    const n = ((i % list.length) + list.length) % list.length;
+    setIdx(n);
+    const c = list[n];
+    setPicked(c);
+    const m = mapRef.current as { flyTo?: (o: unknown) => void } | null;
+    m?.flyTo?.({ center: [c.lng, c.lat], zoom: CAFE_ZOOM, duration: 600 });
+  };
 
   useEffect(() => {
     if (!isOpen || !containerRef.current || mapRef.current) return;
@@ -71,7 +87,7 @@ export default function OpenMapModal({
           container: containerRef.current,
           style: STYLE_URL,
           center,
-          zoom: sel ? 15 : 11,
+          zoom: CAFE_ZOOM,
         });
         mapRef.current = map;
         // 검증용 핸들. 자동화 브라우저는 탭이 항상 백그라운드라
@@ -82,6 +98,9 @@ export default function OpenMapModal({
 
         map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
         map.on("error", () => setFailed(true));
+
+        setPicked(sel ?? list[0] ?? null);
+        setIdx(sel ? Math.max(0, list.findIndex((c) => c.id === sel.id)) : 0);
 
         // 마커는 DOM 오버레이라 스타일 로드를 기다릴 필요가 없다.
         // load 안에 두면 그 이벤트가 늦거나 안 올 때 마커까지 사라진다.
@@ -96,7 +115,8 @@ export default function OpenMapModal({
             el.onclick = (e) => {
               e.stopPropagation();
               setPicked(c);
-              map.flyTo({ center: [c.lng, c.lat], zoom: 16 });
+              setIdx(cafesRef.current.findIndex((x) => x.id === c.id));
+              map.flyTo({ center: [c.lng, c.lat], zoom: CAFE_ZOOM, duration: 600 });
             };
             new maplibre.Marker({ element: el }).setLngLat([c.lng, c.lat]).addTo(map);
           }
@@ -109,14 +129,7 @@ export default function OpenMapModal({
         const ro = new ResizeObserver(() => map.resize());
         ro.observe(containerRef.current);
         resizeObs = ro;
-        requestAnimationFrame(() => {
-          map.resize();
-          if (cafesRef.current.length > 1 && !selectedRef.current) {
-            const b = new maplibre.LngLatBounds();
-            cafesRef.current.forEach((c) => b.extend([c.lng, c.lat]));
-            map.fitBounds(b, { padding: 56, maxZoom: 14, duration: 0 });
-          }
-        });
+        requestAnimationFrame(() => map.resize());
       } catch {
         setFailed(true);
       }
@@ -175,9 +188,30 @@ export default function OpenMapModal({
                 크기를 직접 준다. */}
             <div ref={containerRef} className="w-full h-full" />
             {picked && (
-              <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/10 bg-[#120f0d]/95 backdrop-blur p-3">
-                <div className="text-sm font-semibold text-[#f8f6f3]">{picked.name}</div>
-                <div className="mt-0.5 text-xs text-[#f8f6f3]/55">{picked.address}</div>
+              <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/10 bg-[#120f0d]/95 backdrop-blur p-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => goTo(idx - 1)}
+                  aria-label="이전 카페"
+                  className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-lg text-[#c5a880] hover:bg-white/5"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="min-w-0 flex-1 text-center">
+                  <div className="truncate text-sm font-semibold text-[#f8f6f3]">{picked.name}</div>
+                  <div className="truncate mt-0.5 text-xs text-[#f8f6f3]/55">{picked.address}</div>
+                  <div className="mt-1 text-[10px] text-[#f8f6f3]/40">
+                    {idx + 1} / {cafes.length}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => goTo(idx + 1)}
+                  aria-label="다음 카페"
+                  className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-lg text-[#c5a880] hover:bg-white/5"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
               </div>
             )}
           </div>
