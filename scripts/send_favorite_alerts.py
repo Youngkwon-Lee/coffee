@@ -55,6 +55,45 @@ FREE_PLAN_FAVORITE_LIMIT = 3
 PREMIUM_PLAN = 'premium'
 
 
+def resolve_premium(user_data: Dict[str, Any], uid: str) -> bool:
+    """
+    프리미엄 여부. plan == 'premium' 이면서 premium_until이 지나지 않아야 한다.
+
+    plan만 보면 결제를 멈춘 사람이 영구 프리미엄으로 남는다. 지금은 계좌이체
+    수동 활성화라 자동 해지가 없으므로, 만료일을 지키는 쪽이 유일한 방어선이다.
+
+    premium_until이 없으면 만료 없는 수동 부여로 본다(초기 수동 운영용).
+    값이 있는데 해석할 수 없으면 프리미엄을 주지 않는다 — 과금 판정에서
+    모호하면 안전한 쪽(무료)으로 떨어뜨린다.
+    """
+    if str(user_data.get('plan') or '').lower() != PREMIUM_PLAN:
+        return False
+
+    until = user_data.get('premium_until') or user_data.get('premiumUntil')
+    if until in (None, ''):
+        return True
+
+    # Firestore Timestamp / datetime / ISO 문자열을 모두 받는다.
+    if hasattr(until, 'timestamp'):
+        expires = datetime.fromtimestamp(until.timestamp(), tz=timezone.utc)
+    elif isinstance(until, str):
+        try:
+            expires = datetime.fromisoformat(until.replace('Z', '+00:00'))
+        except ValueError:
+            logger.warning(f"premium_until 해석 실패({uid}): {until!r} — 무료로 처리")
+            return False
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+    else:
+        logger.warning(f"premium_until 타입 미지원({uid}): {type(until).__name__} — 무료로 처리")
+        return False
+
+    if expires <= datetime.now(timezone.utc):
+        logger.info(f"프리미엄 만료({uid}): {expires.isoformat()}")
+        return False
+    return True
+
+
 def parse_args():
     """명령행 인수 파싱"""
     parser = argparse.ArgumentParser(description='즐겨찾기 원두 재입고/가격 알림 발송')
@@ -259,7 +298,7 @@ def main() -> int:
             continue
 
         uid = user_doc.id
-        is_premium = str(user_data.get('plan') or '').lower() == PREMIUM_PLAN
+        is_premium = resolve_premium(user_data, uid)
 
         try:
             favorites = fetch_favorites(db, uid)

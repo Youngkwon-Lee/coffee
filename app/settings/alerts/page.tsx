@@ -15,6 +15,9 @@ const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 6;
 const FREE_FAVORITE_LIMIT = 3;
 
+// docs/MONETIZATION.md 기준 가격. 결제는 아직 계좌이체 + 수동 활성화다.
+const PREMIUM_PRICE_KRW = 2900;
+
 function generateLinkCode(): string {
   const buffer = new Uint32Array(CODE_LENGTH);
 
@@ -38,6 +41,8 @@ export default function AlertSettingsPage() {
   const [plan, setPlan] = useState<string>("free");
   const [linkCode, setLinkCode] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [requested, setRequested] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const { showAlert, AlertComponent } = useCustomAlert();
 
   const isPremium = plan.toLowerCase() === "premium";
@@ -55,6 +60,11 @@ export default function AlertSettingsPage() {
       const data = snap.exists() ? snap.data() : {};
       setChatId(data?.telegramChatId ? String(data.telegramChatId) : null);
       setPlan(typeof data?.plan === "string" ? data.plan : "free");
+
+      // 이미 신청했는지. 신청 버튼을 계속 눌러도 문서 하나만 생기지만,
+      // 화면에서 "접수됨"을 보여줘야 사용자가 다시 누르지 않는다.
+      const reqSnap = await getDoc(doc(db, "premium_requests", uid));
+      setRequested(reqSnap.exists());
     } catch (error) {
       console.error("알림 설정 정보를 불러오지 못했습니다:", error);
     } finally {
@@ -67,6 +77,7 @@ export default function AlertSettingsPage() {
       setChatId(null);
       setPlan("free");
       setLinkCode(null);
+      setRequested(false);
       setLoading(false);
       return;
     }
@@ -84,6 +95,48 @@ export default function AlertSettingsPage() {
         message: getGoogleSignInErrorMessage(error),
         confirmText: "확인",
       });
+    }
+  };
+
+  /**
+   * 프리미엄 신청. 결제는 아직 자동화하지 않았다(docs/MONETIZATION.md:
+   * 30명까지 계좌이체 + 수동 활성화). 신청만 남기고 안내는 텔레그램으로 한다.
+   *
+   * 텔레그램 연동을 먼저 요구하는 이유: 연동이 없으면 연락할 방법도,
+   * 결제 후 알림을 보낼 방법도 없다.
+   */
+  const handleRequestPremium = async () => {
+    if (!user) return;
+
+    setRequesting(true);
+    try {
+      await setDoc(
+        doc(db, "premium_requests", user.uid),
+        {
+          uid: user.uid,
+          email: user.email ?? null,
+          status: "pending",
+          requestedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      setRequested(true);
+      showAlert({
+        type: "success",
+        title: "신청이 접수되었습니다",
+        message: "텔레그램으로 결제 방법을 안내드립니다. 확인까지 하루 정도 걸릴 수 있습니다.",
+        confirmText: "확인",
+      });
+    } catch (error) {
+      console.error("프리미엄 신청 실패:", error);
+      showAlert({
+        type: "error",
+        title: "신청하지 못했습니다",
+        message: "잠시 후 다시 시도해 주세요.",
+        confirmText: "확인",
+      });
+    } finally {
+      setRequesting(false);
     }
   };
 
@@ -144,6 +197,38 @@ export default function AlertSettingsPage() {
                     ? "즐겨찾기한 모든 원두의 재입고·가격 변동 알림을 받습니다."
                     : `즐겨찾기 ${FREE_FAVORITE_LIMIT}개까지 알림을 받습니다. 프리미엄은 무제한입니다.`}
                 </p>
+
+                {/* 유료 전환 경로. 이게 없으면 게이팅만 있고 결제할 방법이 없다. */}
+                {!isPremium && (
+                  <div className="mt-4 border-t border-amber-200/60 pt-4 flex flex-col gap-2">
+                    <p className="text-sm font-bold text-espresso">
+                      프리미엄 <span className="text-mocha">월 {PREMIUM_PRICE_KRW.toLocaleString("ko-KR")}원</span>
+                    </p>
+                    <p className="text-xs text-brown-700">
+                      즐겨찾기 개수 제한 없이 재입고·가격 인하 알림을 받습니다.
+                      인기 로스터리 원두는 하루 안에 품절되는 경우가 많습니다.
+                    </p>
+
+                    {requested ? (
+                      <p className="text-xs font-semibold text-green-700">
+                        신청이 접수되었습니다. 텔레그램으로 결제 방법을 안내드립니다.
+                      </p>
+                    ) : !isLinked ? (
+                      // 연동이 없으면 결제 안내를 보낼 방법도, 알림을 줄 방법도 없다.
+                      <p className="text-xs text-brown-700">
+                        먼저 아래에서 텔레그램을 연결해 주세요. 연결된 계정으로 안내드립니다.
+                      </p>
+                    ) : (
+                      <button
+                        onClick={handleRequestPremium}
+                        disabled={requesting}
+                        className="min-h-11 px-4 rounded-full bg-espresso hover:opacity-90 disabled:opacity-60 text-white font-semibold shadow transition text-sm"
+                      >
+                        {requesting ? "신청 중..." : "프리미엄 신청"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </section>
 
               {/* 텔레그램 연결 */}

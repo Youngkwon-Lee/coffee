@@ -1,0 +1,69 @@
+name: Firestore Rules Deploy
+
+# firestore.rules는 저장소에만 있다. 배포하지 않으면 프로덕션 규칙은 그대로다.
+# 로컬에 firebase CLI가 없어 여기서 서비스 계정으로 배포한다.
+#
+# 이 규칙은 결제 우회(users/{uid}.plan 자기 부여)를 막는 유일한 방어선이라,
+# 배포 로그를 믿지 않고 활성 ruleset을 다시 받아 확인한다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "true면 문법 검사만 하고 배포하지 않는다"
+        required: false
+        default: "false"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          npm install -g firebase-tools@13
+          python3 -m pip install --quiet PyJWT cryptography
+
+      - name: Setup service account
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_KEY" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_KEY 시크릿이 없다."
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_KEY" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+          PROJECT_ID=$(python3 -c "import json,os;print(json.load(open(os.environ['RUNNER_TEMP']+'/sa.json'))['project_id'])")
+          echo "PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+          echo "project: $PROJECT_ID"
+
+      # 배포 전에 활성 규칙을 먼저 남긴다. 잘못됐을 때 무엇으로 되돌릴지 알아야 한다.
+      - name: Snapshot current rules
+        continue-on-error: true
+        run: python3 scripts/verify_firestore_rules.py
+
+      - name: Deploy rules
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          firebase deploy \
+            --only firestore:rules \
+            --project "$PROJECT_ID" \
+            --non-interactive \
+            --force
+
+      - name: Verify deployed rules
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: python3 scripts/verify_firestore_rules.py
