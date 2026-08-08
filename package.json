@@ -14,7 +14,9 @@
     "cafes:metadata:plan": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts",
     "cafes:metadata:write": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write",
     "cafes:metadata:create": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write --create-missing",
-    "test:bean-filter": "python3 scripts/test_bean_filter.py"
+    "test:bean-filter": "python3 scripts/test_bean_filter.py",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-coffee-rules \"node scripts/__tests__/firestore-rules.test.mjs\"",
+    "test:premium": "python3 scripts/test_premium_resolve.py"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.1.0",
@@ -42,6 +44,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
