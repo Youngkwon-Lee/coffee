@@ -12,6 +12,7 @@
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.parse
@@ -22,10 +23,24 @@ MUST_CONTAIN = {
     "과금 필드 잠금 함수(billingFields)": "billingFields()",
     "premium_requests 규칙": "premium_requests",
 }
-MUST_NOT_CONTAIN = {
-    # 이 한 줄이 있으면 사용자가 자기 문서에 plan='premium'을 쓸 수 있다.
-    "users 루트 무제한 write": "allow read, write: if isOwner(userId);",
-}
+
+def check_users_root(src: str) -> tuple[bool, str]:
+    """
+    users 루트 문서 블록만 잘라 검사한다.
+
+    전체 소스에서 "allow read, write: if isOwner(userId);"를 찾으면 안 된다 —
+    같은 줄을 records/favorites 같은 하위 컬렉션도 쓰기 때문에 항상 걸린다.
+    (실제로 이 느슨한 검사 때문에 정상 배포를 실패로 잘못 읽었다.)
+    """
+    m = re.search(r"match /users/\{userId\} \{(.*?)\n    \}", src, re.S)
+    if not m:
+        return False, "users 루트 match 블록을 찾지 못함"
+    block = m.group(1)
+    if "allow read, write" in block:
+        return False, "무제한 write가 남아 있음"
+    if "billingFields()" not in block:
+        return False, "과금 필드 잠금(billingFields)을 참조하지 않음"
+    return True, "과금 필드가 클라이언트로부터 잠김"
 
 
 def access_token(sa: dict) -> str:
@@ -86,11 +101,10 @@ def main() -> int:
         print(f"  {'OK  ' if ok else 'FAIL'}  {label}")
         if not ok:
             failures.append(label)
-    for label, needle in MUST_NOT_CONTAIN.items():
-        ok = needle not in src
-        print(f"  {'OK  ' if ok else 'FAIL'}  {label} 없음")
-        if not ok:
-            failures.append(f"{label}이 그대로 남아 있음")
+    ok, detail = check_users_root(src)
+    print(f"  {'OK  ' if ok else 'FAIL'}  users 루트 문서: {detail}")
+    if not ok:
+        failures.append(f"users 루트 문서 — {detail}")
 
     if failures:
         print("\n::error::배포된 규칙이 기대와 다릅니다: " + ", ".join(failures))
