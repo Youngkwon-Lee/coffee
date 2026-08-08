@@ -129,6 +129,11 @@ config/*_prod.yaml
 temp/
 cache/
 
+# 위 *.json은 크롤 산출물과 서비스 계정 키가 커밋되는 걸 막는 규칙이다.
+# 하지만 Firebase 설정 파일까지 같이 삼켰다 — firestore.indexes.json이 없으면
+# `firebase deploy --only firestore:rules`가 firebase.json을 읽다 실패한다.
+!firestore.indexes.json
+
 config/firebase_config.yaml
 
 # Firebase 인증 (실제 키 파일)
