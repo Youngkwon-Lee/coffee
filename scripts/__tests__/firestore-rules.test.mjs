@@ -73,9 +73,26 @@ await check(
   "camelCase premiumUntil 쓰기 → 거부",
   assertFails(setDoc(doc(me, "users", ME), { premiumUntil: "2099-01-01T00:00:00Z" }, { merge: true }))
 );
+// 값이 바뀌지 않는 재기록은 affectedKeys에 안 잡혀 통과한다. 권한 상승이
+// 아니므로 막을 이유가 없다 — 오히려 막으면 프로필 저장이 통째로 깨진다.
 await check(
-  "plan='free'로 낮추는 것도 거부(과금 필드는 서버 전용)",
-  assertFails(setDoc(doc(me, "users", ME), { plan: "free" }, { merge: true }))
+  "이미 free인 문서에 plan='free' 재기록 → 허용(값 변화 없음)",
+  assertSucceeds(setDoc(doc(me, "users", ME), { plan: "free" }, { merge: true }))
+);
+// 프리미엄인 사람이 스스로 값을 바꾸는 건 실제 변화라 막혀야 한다.
+await check(
+  "프리미엄 사용자가 스스로 plan='free'로 변경 → 거부",
+  assertFails(setDoc(doc(stranger, "users", OTHER), { plan: "free" }, { merge: true }))
+);
+// 문서를 새로 만들면서 plan을 끼워 넣는 경로도 막혀야 한다(create 규칙).
+await check(
+  "새 문서 생성 시 plan 포함 → 거부",
+  assertFails(
+    setDoc(doc(testEnv.authenticatedContext("user-new").firestore(), "users", "user-new"), {
+      nickname: "신규",
+      plan: "premium",
+    })
+  )
 );
 
 console.log("\n[일반 프로필] 과금과 무관한 수정은 계속 돼야 한다");
