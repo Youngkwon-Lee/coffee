@@ -178,6 +178,14 @@ jobs:
           echo "변경 이벤트 파일이 없어 다이제스트 발행을 건너뜁니다."
         fi
 
+    # 프리미엄 판정은 이 아래 알림 단계에서 매일 돈다. 조용히 틀리면 두 방향
+    # 모두 손해다 — 만료를 놓치면 결제를 멈춘 사람이 영구 프리미엄이고,
+    # 잘못 만료시키면 돈 낸 사람의 알림이 끊긴다. 보내기 전에 확인한다.
+    # (continue-on-error를 두지 않는다. 판정이 깨졌으면 보내지 않는 편이 낫다.)
+    - name: Check premium resolution
+      if: ${{ github.event.inputs.test_mode != 'true' }}
+      run: python scripts/test_premium_resolve.py
+
     # 유료 상품: 즐겨찾기 원두 재입고/가격 변동 DM
     - name: Send favorite bean alerts
       if: ${{ github.event.inputs.test_mode != 'true' && env.TELEGRAM_BOT_TOKEN != '' }}
