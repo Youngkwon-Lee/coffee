@@ -26,8 +26,15 @@ const SITE_URL = "https://coffee-omega-lovat.vercel.app";
  * 네이버를 같이 넣는 이유: 국내 검색 점유율은 네이버가 구글보다 크고,
  * 원두·카페 같은 상품·지역 질의에서 특히 그렇다. 구글만 붙이면 절반을 버린다.
  */
-const GOOGLE_VERIFICATION = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
-const NAVER_VERIFICATION = process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION;
+// 값 자체는 HTML로 누구에게나 공개되는 소유확인 토큰이라 비밀이 아니다.
+// (다른 사이트에 같은 값을 붙여도 이 도메인 소유권과는 무관하다.)
+// 환경변수 누락으로 태그가 조용히 사라지는 편이 더 위험해서 기본값을 코드에 둔다.
+const GOOGLE_VERIFICATION =
+  process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+  "BfYTHvX8gNLl08V9r2_TGaV1q5duLmhgOUiGvdMyf6U";
+const NAVER_VERIFICATION =
+  process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION ||
+  "abb659ee06f7ae988532cfc5db0bbef06e579dca";
 
 const verification: Metadata["verification"] = {
   ...(GOOGLE_VERIFICATION ? { google: GOOGLE_VERIFICATION } : {}),
