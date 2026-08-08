@@ -37,5 +37,6 @@ jobs:
         run: |
           npx -y firebase-tools@13 emulators:exec \
             --only firestore \
+            --config firebase.rules-test.json \
             --project demo-coffee-rules \
             "node scripts/__tests__/firestore-rules.test.mjs"

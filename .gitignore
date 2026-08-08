@@ -133,6 +133,7 @@ cache/
 # 하지만 Firebase 설정 파일까지 같이 삼켰다 — firestore.indexes.json이 없으면
 # `firebase deploy --only firestore:rules`가 firebase.json을 읽다 실패한다.
 !firestore.indexes.json
+!firebase.rules-test.json
 
 config/firebase_config.yaml
 
