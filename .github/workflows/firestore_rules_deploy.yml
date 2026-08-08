@@ -38,13 +38,15 @@ jobs:
 
       - name: Setup service account
         env:
-          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          # 이 저장소의 서비스 계정 시크릿 이름은 FIREBASE_CREDENTIALS다
+          # (다른 워크플로우와 동일). 이름이 다르면 조용히 빈 값이 들어온다.
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
         run: |
-          if [ -z "$FIREBASE_SERVICE_ACCOUNT_KEY" ]; then
-            echo "::error::FIREBASE_SERVICE_ACCOUNT_KEY 시크릿이 없다."
+          if [ -z "$FIREBASE_CREDENTIALS" ]; then
+            echo "::error::FIREBASE_CREDENTIALS 시크릿이 없다."
             exit 1
           fi
-          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_KEY" > "$RUNNER_TEMP/sa.json"
+          printf '%s' "$FIREBASE_CREDENTIALS" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
           PROJECT_ID=$(python3 -c "import json,os;print(json.load(open(os.environ['RUNNER_TEMP']+'/sa.json'))['project_id'])")
           echo "PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
