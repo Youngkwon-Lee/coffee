@@ -1,20 +1,46 @@
-name: Temporary Fritz selector validation cleanup
+name: Temporary full crawler validation
 
 on:
   push:
     branches:
       - fix/fritz-selector-20261002
 
-permissions:
-  actions: write
-  contents: read
-
 jobs:
-  cancel-stale-validation:
+  validate-hosted:
     runs-on: ubuntu-latest
+    env:
+      DISABLE_FIREBASE: "true"
+      GITHUB_ACTIONS: "true"
     steps:
-      - name: Force-cancel stale temporary self-hosted run
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/checkout@v4
+      - name: Install fast dependencies
+        run: python3 -m pip install -r requirements.test.txt
+      - name: Disable only known GitHub-hosted blocked cafes for validation
         run: |
-          curl --fail-with-body -L             -X POST             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer $GH_TOKEN"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${{ github.repository }}/actions/runs/36941163864/force-cancel"
+          python3 - <<'PY'
+          from pathlib import Path
+          import yaml
+          p = Path("config/crawler_config.yaml")
+          cfg = yaml.safe_load(p.read_text(encoding="utf-8"))
+          for cafe in ("lowkey", "bunkercompany"):
+              cfg["cafes"][cafe]["active"] = False
+          p.write_text(yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False), encoding="utf-8")
+          print("validation-only disabled: lowkey, bunkercompany")
+          PY
+      - name: Run and validate all remaining active cafes
+        run: |
+          mkdir -p data reports logs
+          python3 scripts/test_bean_filter.py
+          python3 scripts/run_crawler.py --all --dry-run --output data/beans_full_validation.json
+          python3 scripts/validate_crawl_output.py data/beans_full_validation.json
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          rows = json.load(open("data/beans_full_validation.json", encoding="utf-8"))
+          counts = Counter(r.get("brand") for r in rows)
+          if counts.get("프릳츠커피", 0) == 0:
+              raise SystemExit("Fritz missing from full validation")
+          print(f"Full validation rows: {len(rows)}")
+          print(f"Fritz full-run rows: {counts['프릳츠커피']}")
+          print("Brands:", dict(sorted(counts.items())))
+          PY
