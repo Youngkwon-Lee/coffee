@@ -6,34 +6,24 @@ on:
       - fix/fritz-selector-20261002
 
 jobs:
-  validate-hosted:
-    runs-on: ubuntu-latest
+  full-self-hosted:
+    runs-on: [self-hosted, coffee-crawler]
     env:
       DISABLE_FIREBASE: "true"
       GITHUB_ACTIONS: "true"
     steps:
       - uses: actions/checkout@v4
-      - name: Install fast dependencies
-        run: python3 -m pip install -r requirements.test.txt
-      - name: Disable only known GitHub-hosted blocked cafes for validation
+      - name: Validate all active cafes on production runner
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import yaml
-          p = Path("config/crawler_config.yaml")
-          cfg = yaml.safe_load(p.read_text(encoding="utf-8"))
-          for cafe in ("lowkey", "bunkercompany"):
-              cfg["cafes"][cafe]["active"] = False
-          p.write_text(yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False), encoding="utf-8")
-          print("validation-only disabled: lowkey, bunkercompany")
-          PY
-      - name: Run and validate all remaining active cafes
-        run: |
+          PYROOT=/home/yk/actions-runner-coffee/_work/_tool/Python/3.9.25/x64
+          export LD_LIBRARY_PATH="$PYROOT/lib:${LD_LIBRARY_PATH:-}"
+          PY="$PYROOT/bin/python"
+          "$PY" --version
           mkdir -p data reports logs
-          python3 scripts/test_bean_filter.py
-          python3 scripts/run_crawler.py --all --dry-run --output data/beans_full_validation.json
-          python3 scripts/validate_crawl_output.py data/beans_full_validation.json
-          python3 - <<'PY'
+          "$PY" scripts/test_bean_filter.py
+          "$PY" scripts/run_crawler.py --all --dry-run --output data/beans_full_validation.json
+          "$PY" scripts/validate_crawl_output.py data/beans_full_validation.json
+          "$PY" - <<'PY'
           import json
           from collections import Counter
           rows = json.load(open("data/beans_full_validation.json", encoding="utf-8"))
