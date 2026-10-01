@@ -36,7 +36,7 @@ cafes:
     selectors:
       product_list_container: "ul.column2"
       product_item: "li.item"
-      product_link: ".box > a"
+      product_link: ".name a"
       product_title: ".name a"
       product_price: ".price"
       product_image: "img.thumb"
