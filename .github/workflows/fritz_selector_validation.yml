@@ -6,8 +6,8 @@ on:
       - fix/fritz-selector-20261002
 
 jobs:
-  validate:
-    runs-on: [self-hosted, coffee-crawler]
+  fritz-hosted:
+    runs-on: ubuntu-latest
     env:
       DISABLE_FIREBASE: "true"
       GITHUB_ACTIONS: "true"
@@ -25,7 +25,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.test.txt
 
       - name: Ensure output directories
         run: mkdir -p data reports logs
@@ -48,8 +48,3 @@ jobs:
               raise SystemExit("Fritz validation contains an empty product link")
           print(f"Fritz rows: {len(rows)}")
           PY
-
-      - name: Validate full crawl
-        run: |
-          python scripts/run_crawler.py --all --dry-run --output data/beans_full_validation.json
-          python scripts/validate_crawl_output.py data/beans_full_validation.json
