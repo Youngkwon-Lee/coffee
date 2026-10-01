@@ -1,48 +1,22 @@
-name: Temporary Fritz selector validation
+name: Temporary Fritz selector validation cleanup
 
 on:
   push:
     branches:
       - fix/fritz-selector-20261002
 
-jobs:
-  fritz-hosted:
-    runs-on: ubuntu-latest
-    env:
-      DISABLE_FIREBASE: "true"
-      GITHUB_ACTIONS: "true"
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install fast dependencies
-        run: python3 -m pip install -r requirements.test.txt
-      - name: Validate Fritz alone
-        run: |
-          mkdir -p data reports logs
-          python3 scripts/test_bean_filter.py
-          python3 scripts/run_crawler.py --cafe fritz --dry-run --output data/beans_fritz_validation.json
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          rows = json.loads(Path("data/beans_fritz_validation.json").read_text(encoding="utf-8"))
-          if not rows:
-              raise SystemExit("Fritz validation returned 0 rows")
-          if any(not (r.get("link") or r.get("url") or r.get("product_url")) for r in rows):
-              raise SystemExit("Fritz validation contains an empty product link")
-          print(f"Fritz rows: {len(rows)}")
-          PY
+permissions:
+  actions: write
+  contents: read
 
-  full-self-hosted:
-    runs-on: [self-hosted, coffee-crawler]
-    env:
-      DISABLE_FIREBASE: "true"
-      GITHUB_ACTIONS: "true"
+jobs:
+  cancel-stale-validation:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Validate full crawl with production Python
+      - name: Cancel stale temporary validation runs
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          PY=/home/yk/actions-runner-coffee/_work/_tool/Python/3.9.25/x64/bin/python
-          test -x "$PY"
-          mkdir -p data reports logs
-          "$PY" scripts/test_bean_filter.py
-          "$PY" scripts/run_crawler.py --all --dry-run --output data/beans_full_validation.json
-          "$PY" scripts/validate_crawl_output.py data/beans_full_validation.json
+          for RUN_ID in 36941163864 36941341758; do
+            curl --fail-with-body -L               -X POST               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer $GH_TOKEN"               -H "X-GitHub-Api-Version: 2022-11-28"               "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID/cancel"               || true
+          done
