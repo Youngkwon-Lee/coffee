@@ -1,0 +1,55 @@
+name: Temporary Fritz selector validation
+
+on:
+  push:
+    branches:
+      - fix/fritz-selector-20261002
+
+jobs:
+  validate:
+    runs-on: [self-hosted, coffee-crawler]
+    env:
+      DISABLE_FIREBASE: "true"
+      GITHUB_ACTIONS: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ensure output directories
+        run: mkdir -p data reports logs
+
+      - name: Check bean filter
+        run: python scripts/test_bean_filter.py
+
+      - name: Validate Fritz alone
+        run: |
+          python scripts/run_crawler.py --cafe fritz --dry-run --output data/beans_fritz_validation.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("data/beans_fritz_validation.json")
+          rows = json.loads(p.read_text(encoding="utf-8"))
+          if not rows:
+              raise SystemExit("Fritz validation returned 0 rows")
+          if any(not (r.get("link") or r.get("url") or r.get("product_url")) for r in rows):
+              raise SystemExit("Fritz validation contains an empty product link")
+          print(f"Fritz rows: {len(rows)}")
+          PY
+
+      - name: Validate full crawl
+        run: |
+          python scripts/run_crawler.py --all --dry-run --output data/beans_full_validation.json
+          python scripts/validate_crawl_output.py data/beans_full_validation.json
