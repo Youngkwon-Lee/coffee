@@ -85,6 +85,14 @@ def main() -> int:
 
     # 1. 설정 키 이름. 이게 어긋난 것이 실제 원인이었다.
     cfg = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+    # 같은 운영 preflight에서 상품 링크 설정도 실제 HTML fixture로 검사한다.
+    # selector가 어긋나면 필터 검사만 통과해도 실제 수집은 0건이 된다.
+    from test_crawler_selectors import check_fritz_fixture
+    selector_failure = check_fritz_fixture(cfg)
+    if selector_failure:
+        failures.append(selector_failure)
+    else:
+        print("프릳츠 상품 링크 fixture 2개 확인")
     filters = cfg.get("filters", {}) or {}
     if "exclude_keywords" not in filters:
         failures.append(
