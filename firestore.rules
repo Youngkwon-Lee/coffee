@@ -71,23 +71,31 @@ service cloud.firestore {
       allow create: if isOwner(userId);
     }
     
-    // 프리미엄 신청 — 본인 것만 만들고 읽는다. 문서 ID는 uid다.
-    //
-    // status는 운영자가 서버에서 바꾼다. 클라이언트가 'approved'로 쓸 수 있어도
-    // 실제 권한은 users/{uid}.plan이 결정하므로 결제 우회는 안 되지만,
-    // 신청 목록이 오염되면 누구에게 연락해야 하는지 알 수 없게 된다.
+    // The public activation switch contains no private configuration.
+    match /premium_config/pilot {
+      allow read: if true;
+      allow write: if isAdmin()
+                    && request.resource.data.keys().hasOnly(['salesEnabled'])
+                    && request.resource.data.salesEnabled is bool;
+    }
+
+    // Latest request per user. Payment history remains in the server-only ledger.
     match /premium_requests/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId)
-                    && request.resource.data.uid == userId
-                    && request.resource.data.status == 'pending';
-      // 클라이언트는 setDoc(merge)를 쓴다 — 문서가 이미 있으면 update가 된다.
-      // 본인 재신청(pending 유지)까지 막으면 버튼이 조용히 실패한다.
-      allow update: if isAdmin()
-                    || (isOwner(userId)
-                        && request.resource.data.uid == userId
-                        && request.resource.data.status == 'pending');
+      allow create: if validPremiumRequest(userId);
+      allow update: if isAdmin() || (validPremiumRequest(userId)
+                    && ((!resource.data.keys().hasAny(['requestId']))
+                        || (resource.data.status in ['activated', 'declined', 'cancelled']
+                            && request.resource.data.requestId != resource.data.requestId)));
       allow delete: if isAdmin();
+    }
+    match /premium_payments/{paymentId} {
+      allow read: if isAdmin();
+      allow write: if false; // Admin SDK only, including immutable payment references.
+    }
+    match /favorite_deliveries/{deliveryId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // === 알림 (재입고/가격 변동) ===
@@ -139,7 +147,24 @@ service cloud.firestore {
     // camelCase 변형까지 함께 막는다. 나중에 그 이름으로 코드를 짜면
     // 규칙이 조용히 비껴가기 때문이다.
     function billingFields() {
-      return ['plan', 'premium_until', 'premiumUntil'];
+      return ['plan', 'premium_until', 'premiumUntil', 'premium_updated_at', 'telegramChatId', 'telegramLinkedAt'];
+    }
+
+    function validPremiumRequest(userId) {
+      return isOwner(userId)
+        && exists(/databases/$(database)/documents/premium_config/pilot)
+        && get(/databases/$(database)/documents/premium_config/pilot).data.salesEnabled == true
+        && get(/databases/$(database)/documents/users/$(userId)).data.get('telegramChatId', null) != null
+        && request.resource.data.keys().hasOnly(['uid', 'requestId', 'status', 'requestedAt', 'priceKrw', 'periodDays', 'currency'])
+        && request.resource.data.keys().hasAll(['uid', 'requestId', 'status', 'requestedAt', 'priceKrw', 'periodDays', 'currency'])
+        && request.resource.data.uid == userId
+        && request.resource.data.requestId is string
+        && request.resource.data.requestId.matches('^[a-f0-9-]{36}$')
+        && request.resource.data.status == 'pending'
+        && request.resource.data.requestedAt == request.time
+        && request.resource.data.priceKrw == 2900
+        && request.resource.data.periodDays == 30
+        && request.resource.data.currency == 'KRW';
     }
 
     // 관리자인지 확인 (커스텀 클레임 기반)

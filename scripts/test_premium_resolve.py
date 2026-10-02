@@ -50,6 +50,9 @@ CASES = [
     # 모호하면 무료로 떨어뜨린다
     ("만료일 깨진 문자열", {"plan": "premium", "premium_until": "언젠가"}, False),
     ("만료일 타입 미지원", {"plan": "premium", "premium_until": 12345}, False),
+    ("존재하지 않는 달력 날짜", {"plan": "premium", "premium_until": "2099-02-30T00:00:00Z"}, False),
+    ("24시는 ISO 만료시각으로 거부", {"plan": "premium", "premium_until": "2099-01-01T24:00:00Z"}, False),
+    ("일반 map은 Timestamp가 아님", {"plan": "premium", "premium_until": {"seconds": 9999999999}}, False),
     ("빈 문자열은 만료일 없음으로 취급", {"plan": "premium", "premium_until": ""}, True),
 ]
 

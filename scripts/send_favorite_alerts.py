@@ -1,348 +1,386 @@
 #!/usr/bin/env python
+"""Daily favorite alerts with an event/user delivery ledger.
+
+No live action in tests. --dry-run reads only. A sent or uncertain delivery is
+never automatically replayed. The Telegram API cannot provide exactly-once
+semantics across the network/Firestore boundary; uncertainty requires review.
 """
-즐겨찾기 원두 알림 발송 스크립트 (프리미엄 MVP)
-
-최근 `bean_events`(재입고/가격변동)를 읽어, 해당 원두를 즐겨찾기한 사용자에게
-텔레그램 DM을 보냅니다.
-
-플랜 게이팅:
-    - users/{uid}.plan == 'premium'  -> 즐겨찾기 전체 알림
-    - 그 외(무료)                     -> 가장 오래된 즐겨찾기 3개만 알림
-
-사용법:
-    python scripts/send_favorite_alerts.py                     # 최근 25시간 이벤트
-    python scripts/send_favorite_alerts.py --since-hours 48
-    python scripts/send_favorite_alerts.py --dry-run           # 발송 없이 대상만 출력
-
-필요 환경 변수:
-    TELEGRAM_BOT_TOKEN                 (없으면 조용히 종료)
-    GOOGLE_APPLICATION_CREDENTIALS     (Firebase 서비스 계정 키)
-"""
-
 import argparse
+import hashlib
+import json
 import logging
+import math
 import os
+import re
 import sys
+import time
+import uuid
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-# 프로젝트 루트 경로 추가
-sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+import requests
+from google.cloud import firestore
 
+sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 from coffee_crawler.processors.event_recorder import (
-    BEAN_EVENTS_COLLECTION,
-    EVENT_TYPE_PRICE_CHANGE,
-    EVENT_TYPE_RESTORED,
+    BEAN_EVENTS_COLLECTION, EVENT_TYPE_PRICE_CHANGE, EVENT_TYPE_RESTORED,
 )
 from coffee_crawler.storage.firebase_client import FirebaseClient
 from coffee_crawler.utils.logger import setup_logger
-from coffee_crawler.utils.telegram_notifier import (
-    TelegramNotifier,
-    format_krw,
-    truncate_message,
-)
+from coffee_crawler.utils.telegram_notifier import format_krw, truncate_message
 
-# 로거 설정
-logger = setup_logger(name="coffee_crawler.favorite_alerts")
-
-# 알림 대상 이벤트 유형
-ALERT_EVENT_TYPES = (EVENT_TYPE_RESTORED, EVENT_TYPE_PRICE_CHANGE)
-
-# 무료 플랜 알림 허용 즐겨찾기 개수
+logger = setup_logger(name='coffee_crawler.favorite_alerts')
 FREE_PLAN_FAVORITE_LIMIT = 3
-
-# 프리미엄 플랜 식별자
 PREMIUM_PLAN = 'premium'
+DELIVERIES_COLLECTION = 'favorite_deliveries'
+CLAIM_SECONDS = 120
+MAX_ATTEMPTS = 3
+TEST_EVENT_PATTERN = re.compile(r'e2e-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}')
+UID_PATTERN = re.compile(r'[A-Za-z0-9:_-]{1,128}')
 
 
-def resolve_premium(user_data: Dict[str, Any], uid: str) -> bool:
-    """
-    프리미엄 여부. plan == 'premium' 이면서 premium_until이 지나지 않아야 한다.
-
-    plan만 보면 결제를 멈춘 사람이 영구 프리미엄으로 남는다. 지금은 계좌이체
-    수동 활성화라 자동 해지가 없으므로, 만료일을 지키는 쪽이 유일한 방어선이다.
-
-    premium_until이 없으면 만료 없는 수동 부여로 본다(초기 수동 운영용).
-    값이 있는데 해석할 수 없으면 프리미엄을 주지 않는다 — 과금 판정에서
-    모호하면 안전한 쪽(무료)으로 떨어뜨린다.
-    """
+def resolve_premium(user_data: Dict[str, Any], uid: str, now=None) -> bool:
+    """Match src/lib/premium.ts, including existing undated manual grants."""
     if str(user_data.get('plan') or '').lower() != PREMIUM_PLAN:
         return False
-
-    until = user_data.get('premium_until') or user_data.get('premiumUntil')
+    until = user_data.get('premium_until')
+    if until is None:
+        until = user_data.get('premiumUntil')
     if until in (None, ''):
         return True
-
-    # Firestore Timestamp / datetime / ISO 문자열을 모두 받는다.
-    if hasattr(until, 'timestamp'):
-        expires = datetime.fromtimestamp(until.timestamp(), tz=timezone.utc)
-    elif isinstance(until, str):
-        try:
+    try:
+        if isinstance(until, datetime):
+            expires = until if until.tzinfo else until.replace(tzinfo=timezone.utc)
+        elif callable(getattr(until, 'timestamp', None)):
+            expires = datetime.fromtimestamp(until.timestamp(), tz=timezone.utc)
+        elif isinstance(until, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,6})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?', until):
             expires = datetime.fromisoformat(until.replace('Z', '+00:00'))
-        except ValueError:
-            logger.warning(f"premium_until 해석 실패({uid}): {until!r} — 무료로 처리")
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+        else:
             return False
-        if expires.tzinfo is None:
-            expires = expires.replace(tzinfo=timezone.utc)
-    else:
-        logger.warning(f"premium_until 타입 미지원({uid}): {type(until).__name__} — 무료로 처리")
+        return expires > (now or datetime.now(timezone.utc))
+    except (ValueError, TypeError, OverflowError, OSError):
+        logger.warning('Invalid premium expiry; using free plan')
         return False
-
-    if expires <= datetime.now(timezone.utc):
-        logger.info(f"프리미엄 만료({uid}): {expires.isoformat()}")
-        return False
-    return True
-
-
-def parse_args():
-    """명령행 인수 파싱"""
-    parser = argparse.ArgumentParser(description='즐겨찾기 원두 재입고/가격 알림 발송')
-    parser.add_argument('--since-hours', type=int, default=25,
-                        help='조회할 이벤트 기간(시간). 기본 25 (매일 크롤 + 여유 1시간)')
-    parser.add_argument('--dry-run', '-d', action='store_true', help='발송 없이 대상만 출력')
-    parser.add_argument('--verbose', '-v', action='store_true', help='상세 로그 출력')
-    return parser.parse_args()
 
 
 def to_epoch(value: Any) -> float:
-    """Firestore 타임스탬프/날짜 값을 epoch 초로 변환 (없으면 0)"""
-    if value is None:
-        return 0.0
-
-    # google.cloud.firestore의 DatetimeWithNanoseconds 는 datetime 서브클래스
     if isinstance(value, datetime):
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        return value.timestamp()
-
-    if isinstance(value, (int, float)):
+        return (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).timestamp()
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
         return float(value)
-
     return 0.0
 
 
+def is_alert_event(event):
+    if event.get('type') == EVENT_TYPE_RESTORED:
+        return True
+    if event.get('type') != EVENT_TYPE_PRICE_CHANGE:
+        return False
+    old, new = event.get('old_price_krw'), event.get('new_price_krw')
+    return all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and v > 0 for v in (old, new)) and new < old
+
+
+def is_test_event(event):
+    # Include old fixtures and partial markers; fail closed in ordinary daily runs.
+    return bool(event.get('is_e2e_test') or event.get('e2e_run_id') or str(event.get('id', '')).startswith('e2e-'))
+
+
+def validate_test_scope(uid, event_id):
+    if not isinstance(uid, str) or not UID_PATTERN.fullmatch(uid) or not isinstance(event_id, str) or not TEST_EVENT_PATTERN.fullmatch(event_id):
+        raise ValueError('Scoped tests require a valid uid and e2e-UUIDv4 event ID')
+
+
+def fetch_scoped_test(db, uid, event_id, now=None):
+    validate_test_scope(uid, event_id)
+    now = now or datetime.now(timezone.utc)
+    user = db.collection('users').document(uid).get()
+    event = db.collection(BEAN_EVENTS_COLLECTION).document(event_id).get()
+    data = event.to_dict() or {}
+    data['id'] = event_id
+    created = to_epoch(data.get('e2e_created_at'))
+    expires = to_epoch(data.get('e2e_expires_at'))
+    if not user.exists or not (user.to_dict() or {}).get('telegramChatId'):
+        raise ValueError('Scoped test requires an existing Telegram-linked user')
+    if (not event.exists or data.get('is_e2e_test') is not True or data.get('e2e_uid') != uid
+        or data.get('e2e_run_id') != event_id[4:] or data.get('type') != EVENT_TYPE_RESTORED
+        or not isinstance(data.get('e2e_favorite_created'), bool) or not data.get('bean_id')
+        or created <= 0 or created != to_epoch(data.get('detected_at'))
+        or created > now.timestamp() or not created < expires <= created + 1800 or expires <= now.timestamp()):
+        raise ValueError('Test fixture ownership, type or 30-minute validity does not match')
+    if data['e2e_favorite_created'] and data['bean_id'] != f"e2e-favorite-{data['e2e_run_id']}":
+        raise ValueError('Synthetic favorite path does not match the test run')
+    favorites = fetch_favorites(db, uid)
+    premium = resolve_premium(user.to_dict(), uid, now)
+    allowed = {bean for bean, _ in (favorites if premium else favorites[:FREE_PLAN_FAVORITE_LIMIT])}
+    if data['bean_id'] not in allowed:
+        raise ValueError('Test favorite is outside the current plan allowance; no gate bypass')
+    if data['e2e_favorite_created']:
+        favorite = db.collection('users').document(uid).collection('favorites_beans').document(data['bean_id']).get().to_dict() or {}
+        if (favorite.get('is_e2e_test') is not True or favorite.get('e2e_uid') != uid
+            or favorite.get('e2e_run_id') != data['e2e_run_id']
+            or to_epoch(favorite.get('e2e_created_at')) != created or to_epoch(favorite.get('addedAt')) != created):
+            raise ValueError('Synthetic favorite ownership does not match')
+    return user, data
+
+
 def fetch_recent_events(db, since_hours: int) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    최근 알림 대상 이벤트 조회
-
-    Args:
-        db: Firestore 클라이언트
-        since_hours: 조회 기간(시간)
-
-    Returns:
-        bean_id -> 이벤트 목록
-    """
     cutoff = datetime.now(timezone.utc) - timedelta(hours=since_hours)
-
-    # 복합 인덱스를 피하기 위해 detected_at 범위 조건만 사용하고 type은 파이썬에서 필터링
-    docs = db.collection(BEAN_EVENTS_COLLECTION).where('detected_at', '>=', cutoff).stream()
-
-    events_by_bean: Dict[str, List[Dict[str, Any]]] = {}
-    total = 0
-
-    for doc in docs:
+    events = {}
+    for doc in db.collection(BEAN_EVENTS_COLLECTION).where('detected_at', '>=', cutoff).stream():
         data = doc.to_dict() or {}
-        total += 1
-
-        if data.get('type') not in ALERT_EVENT_TYPES:
-            continue
-
-        bean_id = data.get('bean_id')
-        if not bean_id:
-            continue
-
         data['id'] = doc.id
-        events_by_bean.setdefault(bean_id, []).append(data)
-
-    # 원두별로 유형당 최신 이벤트 1건만 유지
-    for bean_id, events in events_by_bean.items():
-        latest_by_type: Dict[str, Dict[str, Any]] = {}
-        for event in sorted(events, key=lambda e: to_epoch(e.get('detected_at'))):
-            latest_by_type[event['type']] = event
-        events_by_bean[bean_id] = list(latest_by_type.values())
-
-    logger.info(f"최근 {since_hours}시간 이벤트 {total}건 중 알림 대상 원두 {len(events_by_bean)}개")
-    return events_by_bean
+        if data.get('bean_id') and not is_test_event(data) and is_alert_event(data):
+            data['id'] = doc.id
+            events.setdefault(data['bean_id'], []).append(data)
+    return events
 
 
 def fetch_favorites(db, uid: str) -> List[Tuple[str, float]]:
-    """
-    사용자 즐겨찾기 목록 조회 (등록 순 오래된 것부터)
-
-    Args:
-        db: Firestore 클라이언트
-        uid: 사용자 UID
-
-    Returns:
-        (bean_id, addedAt epoch) 목록
-    """
-    docs = db.collection('users').document(uid).collection('favorites_beans').stream()
-
-    favorites: List[Tuple[str, float]] = []
-    for doc in docs:
+    favorites = []
+    for doc in db.collection('users').document(uid).collection('favorites_beans').stream():
         data = doc.to_dict() or {}
-        added_at = to_epoch(data.get('addedAt') or data.get('createdAt'))
-        favorites.append((doc.id, added_at))
-
-    # addedAt 없는 항목(0)은 가장 오래된 것으로 취급
-    favorites.sort(key=lambda item: item[1])
-    return favorites
+        favorites.append((doc.id, to_epoch(data.get('addedAt') or data.get('createdAt'))))
+    # Deterministic even for old favorites lacking timestamps.
+    return sorted(favorites, key=lambda item: (item[1], item[0]))
 
 
-def build_alert_message(
-    events: List[Dict[str, Any]],
-    is_premium: bool,
-    hidden_count: int
-) -> str:
-    """
-    사용자 DM 메시지 생성
-
-    Args:
-        events: 알림 대상 이벤트 목록
-        is_premium: 프리미엄 여부
-        hidden_count: 무료 플랜 제한으로 제외된 즐겨찾기 개수
-
-    Returns:
-        메시지 문자열
-    """
-    restored = [e for e in events if e.get('type') == EVENT_TYPE_RESTORED]
-    price_changes = [e for e in events if e.get('type') == EVENT_TYPE_PRICE_CHANGE]
-
-    lines: List[str] = ['☕️ 즐겨찾기 원두 소식']
-
-    if restored:
-        lines.append('')
-        lines.append(f"♻️ 재입고 ({len(restored)})")
-        for event in restored:
-            brand = (event.get('brand') or '').strip()
-            name = (event.get('name') or '이름 미확인').strip()
-            lines.append(f"· [{brand}] {name} {format_krw(event.get('new_price_krw'))}")
-            link = (event.get('link') or '').strip()
-            if link:
-                lines.append(f"  {link}")
-
-    if price_changes:
-        lines.append('')
-        lines.append(f"💸 가격 변동 ({len(price_changes)})")
-        for event in price_changes:
-            brand = (event.get('brand') or '').strip()
-            name = (event.get('name') or '이름 미확인').strip()
-            old_price = format_krw(event.get('old_price_krw'))
-            new_price = format_krw(event.get('new_price_krw'))
-            lines.append(f"· [{brand}] {name} {old_price} → {new_price}")
-            link = (event.get('link') or '').strip()
-            if link:
-                lines.append(f"  {link}")
-
-    if not is_premium:
-        lines.append('')
-        if hidden_count > 0:
-            lines.append(
-                f"ℹ️ 무료 플랜은 즐겨찾기 {FREE_PLAN_FAVORITE_LIMIT}개까지만 알림을 받습니다 "
-                f"(알림 제외 {hidden_count}개). 프리미엄은 무제한입니다."
-            )
+def build_alert_message(events, is_premium, hidden_count):
+    lines = ['[TEST] 개인 알림 연결 확인 — 실제 상품 변화가 아닙니다' if any(is_test_event(event) for event in events) else '관심 원두 일일 확인']
+    for event in events:
+        label = '판매페이지에서 다시 확인' if event.get('type') == EVENT_TYPE_RESTORED else '가격 인하'
+        name = str(event.get('name') or '이름 미확인')[:250]
+        brand = str(event.get('brand') or '')[:100]
+        lines.extend(['', f'{label} · [{brand}] {name}'])
+        if event.get('type') == EVENT_TYPE_PRICE_CHANGE:
+            lines.append(f"{format_krw(event.get('old_price_krw'))} → {format_krw(event.get('new_price_krw'))}")
         else:
-            lines.append(f"ℹ️ 무료 플랜: 즐겨찾기 {FREE_PLAN_FAVORITE_LIMIT}개까지 알림")
-
+            lines.append(format_krw(event.get('new_price_krw')))
+        link = str(event.get('link') or '')
+        if link.startswith(('https://', 'http://')) and len(link) <= 1800:
+            lines.append(link)
+    lines.extend(['', '실시간 재고 정보가 아닙니다. 최종 가격·상품 구성·재고는 판매처에서 확인해 주세요.'])
+    if not is_premium:
+        lines.append(f'무료 알림: 먼저 등록한 즐겨찾기 {FREE_PLAN_FAVORITE_LIMIT}개' + (f' (대상 제외 {hidden_count}개)' if hidden_count else ''))
     return truncate_message('\n'.join(lines))
 
 
-def main() -> int:
-    """메인 함수"""
-    args = parse_args()
+def delivery_id(uid, event_id):
+    return hashlib.sha256(json.dumps([uid, event_id], separators=(',', ':')).encode()).hexdigest()
 
+
+@dataclass(frozen=True)
+class SendResult:
+    status: str
+    message_id: Optional[int] = None
+    error: Optional[str] = None
+    retryable: bool = False
+    retry_after: int = 0
+
+
+def send_telegram(chat_id, message, bot_token, post=None):
+    """Never retries a request with an uncertain outcome; never logs bot tokens."""
+    if not bot_token or not chat_id:
+        return SendResult('failed', error='missing_configuration')
+    try:
+        response = (post or requests.post)(
+            f'https://api.telegram.org/bot{bot_token}/sendMessage',
+            json={'chat_id': str(chat_id), 'text': message, 'disable_web_page_preview': True}, timeout=20,
+        )
+        body = response.json()
+        if not isinstance(body, dict):
+            return SendResult('unknown', error='unexpected_response')
+        message_id = (body.get('result') or {}).get('message_id') if isinstance(body.get('result'), dict) else None
+        if response.status_code == 200 and body.get('ok') is True and isinstance(message_id, int) and not isinstance(message_id, bool):
+            return SendResult('sent', message_id=message_id)
+        if 400 <= response.status_code < 500 and body.get('ok') is False:
+            retryable = response.status_code == 429
+            delay = (body.get('parameters') or {}).get('retry_after', 60) if isinstance(body.get('parameters'), dict) else 60
+            delay = delay if isinstance(delay, int) and not isinstance(delay, bool) else 60
+            return SendResult('failed', error=f'api_{response.status_code}', retryable=retryable, retry_after=max(60, delay))
+        return SendResult('unknown', error=f'uncertain_http_{response.status_code}')
+    except Exception:
+        return SendResult('unknown', error='transport_or_response_uncertain')
+
+
+class ThrottledSender:
+    """Space requests to each chat; defer remaining events after an explicit 429."""
+    def __init__(self, token, send=None, clock=None, sleep=None):
+        self.token = token
+        self.send = send or send_telegram
+        self.clock = clock or time.monotonic
+        self.sleep = sleep or time.sleep
+        self.last_call = {}
+        self.cooldown = {}
+
+    def __call__(self, chat_id, message):
+        chat_id = str(chat_id)
+        remaining = self.cooldown.get(chat_id, 0) - self.clock()
+        if remaining > 0:
+            return SendResult('failed', error='chat_cooldown', retryable=True, retry_after=math.ceil(remaining))
+        if chat_id in self.last_call:
+            delay = 1.1 - (self.clock() - self.last_call[chat_id])
+            if delay > 0:
+                self.sleep(delay)
+        self.last_call[chat_id] = self.clock()
+        result = self.send(chat_id, message, self.token)
+        if result.retryable:
+            self.cooldown[chat_id] = self.clock() + result.retry_after
+        return result
+
+
+@dataclass(frozen=True)
+class ClaimResult:
+    token: Optional[str] = None
+    status: str = 'skipped'
+
+
+class DeliveryLedger:
+    def __init__(self, db):
+        self.db = db
+
+    def claim(self, uid, event, now=None):
+        now = now or datetime.now(timezone.utc)
+        ref = self.db.collection(DELIVERIES_COLLECTION).document(delivery_id(uid, event['id']))
+        token = uuid.uuid4().hex
+
+        @firestore.transactional
+        def acquire(tx):
+            snap = ref.get(transaction=tx)
+            data = snap.to_dict() or {}
+            status = data.get('status')
+            if status in ('sent', 'unknown'):
+                return ClaimResult(status='unknown' if status == 'unknown' else 'skipped')
+            if status == 'sending':
+                if to_epoch(data.get('claimUntil')) <= now.timestamp():
+                    tx.update(ref, {'status': 'unknown', 'lastError': 'claim_expired', 'updatedAt': now})
+                    return ClaimResult(status='unknown')
+                return ClaimResult()
+            attempts = data.get('attempts', 0)
+            if status == 'failed' and (not data.get('retryable') or attempts >= MAX_ATTEMPTS or to_epoch(data.get('nextRetryAt')) > now.timestamp()):
+                return ClaimResult(status='failed' if not data.get('retryable') or attempts >= MAX_ATTEMPTS else 'skipped')
+            tx.set(ref, {
+                'uid': uid, 'eventId': event['id'], 'event': event,
+                'status': 'sending', 'claimToken': token, 'claimUntil': now + timedelta(seconds=CLAIM_SECONDS),
+                'attempts': attempts + 1, 'updatedAt': now,
+            }, merge=True)
+            return ClaimResult(token=token, status='claimed')
+
+        return acquire(self.db.transaction())
+
+    def finish(self, uid, event_id, token, result, now=None):
+        now = now or datetime.now(timezone.utc)
+        ref = self.db.collection(DELIVERIES_COLLECTION).document(delivery_id(uid, event_id))
+
+        @firestore.transactional
+        def record(tx):
+            data = ref.get(transaction=tx).to_dict() or {}
+            if data.get('status') != 'sending' or data.get('claimToken') != token:
+                raise RuntimeError('Delivery claim no longer owned; review outcome before replay')
+            tx.update(ref, {
+                'status': result.status, 'messageId': result.message_id,
+                'lastError': result.error, 'retryable': result.retryable,
+                'nextRetryAt': now + timedelta(seconds=result.retry_after), 'updatedAt': now,
+            })
+        record(self.db.transaction())
+
+    def retry_events(self, now=None):
+        """Keep eligible failed sends beyond the recent-event window."""
+        now = now or datetime.now(timezone.utc)
+        events_by_user = {}
+        for doc in self.db.collection(DELIVERIES_COLLECTION).where('status', '==', 'failed').stream():
+            data = doc.to_dict() or {}
+            if data.get('retryable') and data.get('attempts', 0) < MAX_ATTEMPTS and to_epoch(data.get('nextRetryAt')) <= now.timestamp():
+                event = data.get('event') or {}
+                if event.get('id') and event.get('bean_id') and not is_test_event(event) and is_alert_event(event):
+                    events_by_user.setdefault(data['uid'], []).append(event)
+        return events_by_user
+
+
+def deliver_event(ledger, uid, event, send, now=None):
+    claim = ledger.claim(uid, event, now)
+    if claim.token is None:
+        return claim.status
+    try:
+        result = send()
+    except Exception:
+        result = SendResult('unknown', error='sender_uncertain')
+    ledger.finish(uid, event['id'], claim.token, result, now)
+    return result.status
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='즐겨찾기 일일 알림 (발송 원장 적용)', allow_abbrev=False)
+    parser.add_argument('--uid', help='단일 테스트 사용자 (--event-id와 함께 필수)')
+    parser.add_argument('--event-id', help='단일 소유 테스트 이벤트 e2e-UUID (--uid와 함께 필수)')
+    parser.add_argument('--since-hours', type=int, default=25)
+    parser.add_argument('--dry-run', '-d', action='store_true', help='읽기만 수행; 발송/원장 쓰기 없음')
+    parser.add_argument('--verbose', '-v', action='store_true')
+    args = parser.parse_args()
+    if args.uid is not None or args.event_id is not None:
+        try:
+            validate_test_scope(args.uid, args.event_id)
+        except ValueError as error:
+            parser.error(str(error))
+    if args.since_hours <= 0:
+        parser.error('--since-hours must be positive')
+    return args
+
+
+def main():
+    args = parse_args()
     if args.verbose:
         logging.getLogger('coffee_crawler').setLevel(logging.DEBUG)
-        logger.setLevel(logging.DEBUG)
-
-    notifier = TelegramNotifier()
-
-    if not notifier.is_enabled() and not args.dry_run:
-        logger.info("TELEGRAM_BOT_TOKEN이 없어 즐겨찾기 알림을 건너뜁니다")
-        return 0
-
-    firebase_client = FirebaseClient()
-
-    if not firebase_client.is_available():
-        logger.error("Firebase를 사용할 수 없어 즐겨찾기 알림을 보낼 수 없습니다")
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
+    if not token and not args.dry_run:
+        logger.error('TELEGRAM_BOT_TOKEN missing; no alerts sent')
         return 1
-
-    db = firebase_client.db
-
+    client = FirebaseClient()
+    if not client.is_available():
+        return 1
+    db = client.db
+    ledger = DeliveryLedger(db)
+    sender = ThrottledSender(token)
+    counts = {'sent': 0, 'failed': 0, 'unknown': 0, 'skipped': 0, 'planned': 0}
     try:
-        events_by_bean = fetch_recent_events(db, args.since_hours)
-    except Exception as e:
-        logger.error(f"이벤트 조회 실패: {e}")
-        return 1
-
-    if not events_by_bean:
-        logger.info("알림 대상 이벤트가 없습니다")
-        return 0
-
-    sent = 0
-    skipped = 0
-    matched_users = 0
-
-    try:
-        user_docs = list(db.collection('users').stream())
-    except Exception as e:
-        logger.error(f"사용자 조회 실패: {e}")
-        return 1
-
-    for user_doc in user_docs:
-        user_data = user_doc.to_dict() or {}
-        chat_id = user_data.get('telegramChatId')
-
-        # 텔레그램 미연동 사용자는 건너뜀
-        if not chat_id:
-            continue
-
-        uid = user_doc.id
-        is_premium = resolve_premium(user_data, uid)
-
-        try:
-            favorites = fetch_favorites(db, uid)
-        except Exception as e:
-            logger.error(f"즐겨찾기 조회 실패({uid}): {e}")
-            continue
-
-        if not favorites:
-            continue
-
-        if is_premium:
-            allowed = [bean_id for bean_id, _ in favorites]
-            hidden_count = 0
+        scoped_uid, scoped_event = getattr(args, 'uid', None), getattr(args, 'event_id', None)
+        scoped = scoped_uid is not None or scoped_event is not None
+        if scoped:
+            user_doc, event = fetch_scoped_test(db, scoped_uid, scoped_event)
+            recent = {event['bean_id']: [event]}
+            retries, users = {}, [user_doc]
         else:
-            allowed = [bean_id for bean_id, _ in favorites[:FREE_PLAN_FAVORITE_LIMIT]]
-            hidden_count = max(0, len(favorites) - FREE_PLAN_FAVORITE_LIMIT)
-
-        matched_events: List[Dict[str, Any]] = []
-        for bean_id in allowed:
-            matched_events.extend(events_by_bean.get(bean_id, []))
-
-        if not matched_events:
-            skipped += 1
-            continue
-
-        matched_users += 1
-        message = build_alert_message(matched_events, is_premium, hidden_count)
-
-        plan_label = 'premium' if is_premium else 'free'
-        logger.info(f"알림 대상: uid={uid} plan={plan_label} 이벤트={len(matched_events)}건")
-
-        if args.dry_run:
-            print(f"--- {uid} (chat_id={chat_id}, plan={plan_label}) ---")
-            print(message)
-            continue
-
-        if notifier.send_message(str(chat_id), message):
-            sent += 1
-
-    logger.info(
-        f"즐겨찾기 알림 처리 완료: 발송 {sent}명 / 대상 {matched_users}명 / "
-        f"이벤트 없음 {skipped}명 / 전체 사용자 {len(user_docs)}명"
-    )
-    return 0
+            recent = fetch_recent_events(db, args.since_hours)
+            retries = ledger.retry_events()
+            users = db.collection('users').stream()
+        for user_doc in users:
+            user = user_doc.to_dict() or {}
+            if not user.get('telegramChatId'):
+                continue
+            uid = user_doc.id
+            premium = resolve_premium(user, uid)
+            favorites = fetch_favorites(db, uid)
+            allowed = {bean_id for bean_id, _ in (favorites if premium else favorites[:FREE_PLAN_FAVORITE_LIMIT])}
+            hidden = 0 if premium else max(0, len(favorites) - FREE_PLAN_FAVORITE_LIMIT)
+            matches = {e['id']: e for bean_id in allowed for e in recent.get(bean_id, []) if (scoped and e['id'] == scoped_event) or (not scoped and not is_test_event(e))}
+            for event in retries.get(uid, []):
+                if event['bean_id'] in allowed and not is_test_event(event):
+                    matches[event['id']] = event
+            for event in sorted(matches.values(), key=lambda e: (to_epoch(e.get('detected_at')), e['id'])):
+                message = build_alert_message([event], premium, hidden)
+                if args.dry_run:
+                    counts['planned'] += 1
+                    continue
+                status = deliver_event(ledger, uid, event, lambda: sender(user['telegramChatId'], message))
+                counts[status] += 1
+        logger.info('Delivery summary: %s', json.dumps(counts))
+        return 1 if counts['failed'] or counts['unknown'] else 0
+    except Exception as error:
+        # Do not print transport exception text containing credential-bearing URLs.
+        logger.error('Alert processing failed (%s); inspect ledger before retry', type(error).__name__)
+        return 1
 
 
 if __name__ == '__main__':

@@ -18,7 +18,7 @@ import {
   assertFails,
   assertSucceeds,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const ME = "user-me";
 const OTHER = "user-other";
@@ -47,10 +47,13 @@ const testEnv = await initializeTestEnvironment({
   },
 });
 
+// Only the fixed local demo-coffee-rules emulator is reset.
+await testEnv.clearFirestore();
+
 // 기존 사용자 문서를 규칙 무시하고 심어둔다(운영자가 부여한 상태를 흉내).
 await testEnv.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore();
-  await setDoc(doc(db, "users", ME), { nickname: "나", plan: "free" });
+  await setDoc(doc(db, "users", ME), { nickname: "나", plan: "free", telegramChatId: "123" });
   await setDoc(doc(db, "users", OTHER), { nickname: "남", plan: "premium" });
 });
 
@@ -119,31 +122,52 @@ await check(
   assertFails(getDoc(doc(anon, "users", ME)))
 );
 
-console.log("\n[프리미엄 신청] 본인 것만, pending으로만");
-await check(
-  "본인 신청 생성 → 허용",
-  assertSucceeds(
-    setDoc(doc(me, "premium_requests", ME), { uid: ME, status: "pending" })
-  )
-);
-await check(
-  "본인 재신청(pending 유지) → 허용",
-  assertSucceeds(
-    setDoc(doc(me, "premium_requests", ME), { uid: ME, status: "pending" }, { merge: true })
-  )
-);
-await check(
-  "스스로 approved로 바꾸기 → 거부",
-  assertFails(
-    setDoc(doc(me, "premium_requests", ME), { uid: ME, status: "approved" }, { merge: true })
-  )
-);
-await check(
-  "남의 uid로 신청 → 거부",
-  assertFails(
-    setDoc(doc(me, "premium_requests", OTHER), { uid: OTHER, status: "pending" })
-  )
-);
+console.log("\n[프리미엄 파일럿] 준비 상태, 신청 수명주기, 서버 원장");
+const requestId = "11111111-1111-4111-8111-111111111111";
+const renewalId = "22222222-2222-4222-8222-222222222222";
+const requestData = (id = requestId) => ({
+  uid: ME, requestId: id, status: "pending", requestedAt: serverTimestamp(),
+  priceKrw: 2900, periodDays: 30, currency: "KRW",
+});
+const reqRef = doc(me, "premium_requests", ME);
+const seed = async (path, data) => testEnv.withSecurityRulesDisabled(async ctx => {
+  await setDoc(doc(ctx.firestore(), path), data);
+});
+await check("준비 문서 없으면 신청 거부", assertFails(setDoc(reqRef, requestData())));
+await seed("premium_config/pilot", { salesEnabled: false });
+await check("비로그인 상품 준비 상태 읽기 허용", assertSucceeds(getDoc(doc(anon, "premium_config", "pilot"))));
+await check("판매 닫힘이면 신청 거부", assertFails(setDoc(reqRef, requestData())));
+await check("사용자가 판매 활성화 불가", assertFails(setDoc(doc(me, "premium_config", "pilot"), { salesEnabled: true })));
+await seed("premium_config/pilot", { salesEnabled: true });
+await check("금액 변조 거부", assertFails(setDoc(reqRef, { ...requestData(), priceKrw: 1 })));
+await check("기간 변조 거부", assertFails(setDoc(reqRef, { ...requestData(), periodDays: 365 })));
+await check("통화 변조 거부", assertFails(setDoc(reqRef, { ...requestData(), currency: 'USD' })));
+await check("임의 서버 필드 끼워넣기 거부", assertFails(setDoc(reqRef, { ...requestData(), paymentId: 'fake' })));
+await check("신청시각 위조 거부", assertFails(setDoc(reqRef, { ...requestData(), requestedAt: new Date('2000-01-01') })));
+await check("텔레그램 미연동 사용자 신청 거부", assertFails(setDoc(doc(stranger, 'premium_requests', OTHER), { ...requestData(), uid: OTHER })));
+await check("클라이언트 텔레그램 ID 위조 거부", assertFails(setDoc(doc(me, 'users', ME), { telegramChatId: 'other' }, { merge: true })));
+await check("정상 신청 생성 허용", assertSucceeds(setDoc(reqRef, requestData())));
+await check("본인 신청 읽기 허용", assertSucceeds(getDoc(reqRef)));
+await check("남의 신청 읽기 거부", assertFails(getDoc(doc(stranger, 'premium_requests', ME))));
+await check("중복 pending 덮어쓰기 거부", assertFails(setDoc(reqRef, requestData(renewalId))));
+await check("사용자가 activated 전이 불가", assertFails(setDoc(reqRef, { status: 'activated' }, { merge: true })));
+await check("남의 uid 신청 거부", assertFails(setDoc(doc(me, 'premium_requests', OTHER), { ...requestData(), uid: OTHER })));
+await seed(`premium_requests/${ME}`, { uid: ME, requestId, status: 'awaiting_payment' });
+await check("결제 대기 신청을 pending으로 되돌리기 거부", assertFails(setDoc(reqRef, requestData(renewalId))));
+await seed(`premium_requests/${ME}`, { uid: ME, requestId, status: 'activated', paymentId: 'server-receipt' });
+await check("같은 ID로 갱신 신청 거부", assertFails(setDoc(reqRef, requestData(requestId))));
+await check("종료 신청 이후 새 ID 갱신 허용", assertSucceeds(setDoc(reqRef, requestData(renewalId))));
+await seed(`premium_requests/${ME}`, { uid: ME, status: 'pending', email: 'legacy@example.invalid' });
+await check("legacy 신청을 현재 형식으로 이행 허용", assertSucceeds(setDoc(reqRef, requestData(renewalId))));
+const admin = testEnv.authenticatedContext('admin-test', { admin: true }).firestore();
+await check("관리자도 공개 config에 비밀 필드 추가 불가", assertFails(setDoc(doc(admin, 'premium_config', 'pilot'), { salesEnabled: true, token: 'not-public' })));
+await check("관리자 공개 switch 변경 허용", assertSucceeds(setDoc(doc(admin, 'premium_config', 'pilot'), { salesEnabled: false })));
+await check("사용자 입금 원장 쓰기 거부", assertFails(setDoc(doc(me, 'premium_payments', 'fake'), { uid: ME })));
+await check("사용자 발송 원장 쓰기 거부", assertFails(setDoc(doc(me, 'favorite_deliveries', 'fake'), { uid: ME, status: 'sent' })));
+await check("관리자 클라이언트 입금 원장 쓰기도 거부", assertFails(setDoc(doc(admin, 'premium_payments', 'fake'), { uid: ME })));
+await seed('premium_payments/receipt', { uid: ME, amount: 2900 });
+await check("개인정보 포함 원장은 일반 사용자 읽기 거부", assertFails(getDoc(doc(me, 'premium_payments', 'receipt'))));
+await check("관리자 원장 읽기 허용", assertSucceeds(getDoc(doc(admin, 'premium_payments', 'receipt'))));
 
 await testEnv.cleanup();
 

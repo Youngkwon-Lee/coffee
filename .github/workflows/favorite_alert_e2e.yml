@@ -3,7 +3,7 @@ name: Favorite Alert E2E
 # 찜 → 재입고 알림이 실제로 텔레그램까지 도달하는지 확인한다.
 # 유료 전환의 근거인데 찜이 오래 깨져 있어서 한 번도 실증되지 않았다.
 #
-# 테스트용 찜·이벤트를 만들고 알림을 보낸 뒤 항상 정리한다.
+# 지정한 계정에만 실행별 테스트 이벤트를 보내고 소유 fixture만 정리한다.
 # 실행 후 텔레그램 DM이 왔는지는 사람이 확인해야 한다.
 
 on:
@@ -17,6 +17,8 @@ on:
 jobs:
   e2e:
     runs-on: [self-hosted, coffee-crawler]
+    env:
+      TEST_UID: ${{ inputs.uid }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,7 +31,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install dependencies
         run: |
@@ -42,20 +44,27 @@ jobs:
           FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
         run: echo "$FIREBASE_CREDENTIALS" > firebase_credentials.json
 
-      - name: Create test favorite and restock event
+      - name: Allocate unique test run
+        id: fixture
+        run: node -e 'console.log("run_id=" + require("node:crypto").randomUUID())' >> "$GITHUB_OUTPUT"
+
+      - name: Create owned test event (existing eligible favorite preferred)
         env:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_CREDENTIALS }}
-        run: node scripts/test-favorite-alert-e2e.mjs --uid "${{ inputs.uid }}" --setup
+          TEST_RUN_ID: ${{ steps.fixture.outputs.run_id }}
+        run: node scripts/test-favorite-alert-e2e.mjs --uid "$TEST_UID" --run-id "$TEST_RUN_ID" --setup
 
-      - name: Send favorite alerts
+      - name: Send only the scoped test alert
         env:
           GOOGLE_APPLICATION_CREDENTIALS: firebase_credentials.json
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        run: python scripts/send_favorite_alerts.py --since-hours 1
+          TEST_RUN_ID: ${{ steps.fixture.outputs.run_id }}
+        run: python scripts/send_favorite_alerts.py --uid "$TEST_UID" --event-id "e2e-$TEST_RUN_ID"
 
-      # 성공이든 실패든 테스트 데이터는 남기지 않는다.
-      - name: Cleanup test data
-        if: always()
+      # Delivery receipts are retained; existing favorites are never deleted.
+      - name: Cleanup only this run's owned fixtures
+        if: ${{ always() && steps.fixture.outputs.run_id != '' }}
         env:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_CREDENTIALS }}
-        run: node scripts/test-favorite-alert-e2e.mjs --uid "${{ inputs.uid }}" --cleanup
+          TEST_RUN_ID: ${{ steps.fixture.outputs.run_id }}
+        run: node scripts/test-favorite-alert-e2e.mjs --uid "$TEST_UID" --run-id "$TEST_RUN_ID" --cleanup

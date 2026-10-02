@@ -133,6 +133,9 @@ export default function MainPageHero() {
             <p className="text-coffee-light/60 text-sm font-medium">
               오늘도 풍부한 커피 향과 함께하세요
             </p>
+            <Link href="/premium" className="mt-2 inline-flex min-h-11 items-center text-sm text-coffee-gold underline underline-offset-4 focus-visible:outline focus-visible:outline-2">
+              관심 원두 알림 · 무료부터 시작하기
+            </Link>
           </div>
           <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#c5a880] to-[#a88c74] p-[1.5px] shadow-lg flex items-center justify-center">
             <div className="w-full h-full rounded-full bg-[#120f0d] border border-white/5"></div>
