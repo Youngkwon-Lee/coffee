@@ -125,6 +125,7 @@ config/*_prod.yaml
 
 # 크롤링 결과 임시 파일
 *.html
+!scripts/fixtures/fritz_product_cards.html
 *.json
 temp/
 cache/
