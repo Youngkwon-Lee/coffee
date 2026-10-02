@@ -15,8 +15,10 @@
     "cafes:metadata:write": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write",
     "cafes:metadata:create": "npx -y node@24 --experimental-strip-types scripts/sync-cafe-metadata.ts --write --create-missing",
     "test:bean-filter": "python3 scripts/test_bean_filter.py",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-coffee-rules \"node scripts/__tests__/firestore-rules.test.mjs\"",
-    "test:premium": "python3 scripts/test_premium_resolve.py"
+    "test:rules": "FIREBASE_CLI_EXPERIMENTS=webframeworks firebase emulators:exec --only firestore --project demo-coffee-rules \"node scripts/__tests__/firestore-rules.test.mjs\"",
+    "test:premium": "python3 scripts/test_premium_resolve.py",
+    "test:premium-lifecycle": "node --test scripts/__tests__/premium-lifecycle.test.mjs",
+    "test:favorite-delivery": "python3 scripts/test_favorite_delivery.py"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.1.0",
