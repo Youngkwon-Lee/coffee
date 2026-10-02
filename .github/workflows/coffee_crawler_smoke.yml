@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cafe: [terarosa, centercoffee]
+        cafe: [terarosa, centercoffee, fritz]
 
     steps:
       - name: Checkout repository
