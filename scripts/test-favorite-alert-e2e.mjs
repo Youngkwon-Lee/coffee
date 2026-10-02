@@ -1,98 +1,130 @@
 #!/usr/bin/env node
-/**
- * 찜 → 재입고 알림 E2E 검증.
- *
- * 유료 전환의 근거가 이 경로다. 그런데 2026-08-05까지 찜 자체가 깨져 있었어서
- * (컬렉션명 불일치 + 스프레드 순서) 찜한 원두가 DB에 없었고, 알림이 실제로
- * 발송되는 것을 본 적이 없다. 코드만 도는 상태였다.
- *
- * 이 스크립트는 테스트용 찜과 재입고 이벤트를 만들고, 알림 발송 스크립트가
- * 그것을 집어내는지까지 확인한 뒤 **반드시 정리한다**. 실제 사용자 데이터는
- * 건드리지 않는다(대상 uid를 인자로 받는다).
- *
- * 사용:
- *   node scripts/test-favorite-alert-e2e.mjs --uid <uid> --setup
- *   python scripts/send_favorite_alerts.py --since-hours 1
- *   node scripts/test-favorite-alert-e2e.mjs --uid <uid> --cleanup
+/** Scoped fixture tool. It never sends messages or overwrites a real favorite.
+ * node scripts/test-favorite-alert-e2e.mjs --uid UID --run-id UUID --setup
+ * python scripts/send_favorite_alerts.py --uid UID --event-id e2e-UUID
+ * node scripts/test-favorite-alert-e2e.mjs --uid UID --run-id UUID --cleanup
+ * Keep the delivery ledger. A new test needs a fresh UUID.
  */
+import { pathToFileURL } from 'node:url';
+import { isPremium } from '../src/lib/premium.ts';
 
-import admin from "firebase-admin";
-
-// Firestore는 밑줄 두 개로 시작·끝나는 문서 ID를 예약어로 금지한다
-// ("Resource id ... is invalid because it is reserved").
-const TEST_EVENT_ID = "e2e-test-restock";
-
-function initAdmin() {
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (raw) {
-    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
-  } else {
-    admin.initializeApp({ credential: admin.credential.applicationDefault() });
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const UID = /^[A-Za-z0-9:_-]{1,128}$/;
+export function validateScope(uid, runId) {
+  if (typeof uid !== 'string' || !UID.test(uid) || typeof runId !== 'string' || !UUID.test(runId)) {
+    throw new Error('A valid --uid and lowercase UUIDv4 --run-id are required.');
   }
-  return admin.firestore();
+  return { eventId: `e2e-${runId}`, favoriteId: `e2e-favorite-${runId}` };
+}
+function millis(value) {
+  if (value instanceof Date) return value.getTime();
+  return typeof value?.toMillis === 'function' ? value.toMillis() : NaN;
+}
+function favoriteTime(data) {
+  const value = data.addedAt || data.createdAt;
+  if (typeof value === 'number' && Number.isFinite(value)) return value * 1000;
+  const valueMs = millis(value);
+  return Number.isFinite(valueMs) ? valueMs : 0;
+}
+function assertOwnership(event, uid, runId, eventId) {
+  if (!event || event.is_e2e_test !== true || event.e2e_uid !== uid || event.e2e_run_id !== runId
+    || eventId !== `e2e-${runId}` || typeof event.e2e_favorite_created !== 'boolean'
+    || !Number.isFinite(millis(event.e2e_created_at)) || millis(event.e2e_created_at) !== millis(event.detected_at)) {
+    throw new Error('Fixture ownership does not match; no documents were changed.');
+  }
 }
 
-function arg(name) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 ? process.argv[i + 1] : null;
-}
-
-async function main() {
-  const uid = arg("uid");
-  const setup = process.argv.includes("--setup");
-  const cleanup = process.argv.includes("--cleanup");
-  if (!uid || (!setup && !cleanup)) {
-    console.error("사용: --uid <uid> --setup | --cleanup");
-    process.exit(1);
-  }
-  const db = initAdmin();
-
-  // 실제 원두 하나를 고른다. 존재하지 않는 원두로는 알림 본문을 만들 수 없다.
-  const beansSnap = await db.collection("beans").limit(1).get();
-  if (beansSnap.empty) {
-    console.error("beans 컬렉션이 비었다.");
-    process.exit(1);
-  }
-  const beanDoc = beansSnap.docs[0];
-  const bean = beanDoc.data() || {};
-  const beanId = beanDoc.id;
-
-  const favRef = db.collection("users").doc(uid).collection("favorites_beans").doc(beanId);
-  const evRef = db.collection("bean_events").doc(TEST_EVENT_ID);
-
-  if (cleanup) {
-    const [f, e] = await Promise.all([favRef.get(), evRef.get()]);
-    console.log(`정리: 찜 ${f.exists ? "삭제" : "없음"} / 이벤트 ${e.exists ? "삭제" : "없음"}`);
-    await Promise.all([
-      f.exists ? favRef.delete() : Promise.resolve(),
-      e.exists ? evRef.delete() : Promise.resolve(),
+export async function setupFixture(db, uid, runId, now = new Date()) {
+  const { eventId, favoriteId } = validateScope(uid, runId);
+  if (!Number.isFinite(now.getTime())) throw new Error('Invalid fixture creation time.');
+  const userRef = db.collection('users').doc(uid);
+  const eventRef = db.collection('bean_events').doc(eventId);
+  return db.runTransaction(async tx => {
+    const [user, existing, favorites] = await Promise.all([
+      tx.get(userRef), tx.get(eventRef), tx.get(userRef.collection('favorites_beans')),
     ]);
-    console.log("완료.");
-    return;
-  }
-
-  console.log(`대상 원두: ${bean.name ?? "?"} (${beanId})`);
-  console.log(`대상 사용자: ${uid}`);
-
-  await favRef.set({ addedAt: new Date() }, { merge: true });
-  console.log("· 찜 생성");
-
-  // 크롤러가 만드는 것과 같은 형태의 재입고 이벤트.
-  await evRef.set({
-    bean_id: beanId,
-    type: "restored",
-    brand: bean.brand ?? "테스트",
-    name: bean.name ?? "테스트 원두",
-    new_price_krw: bean.price ?? 0,
-    detected_at: new Date(),
-    is_e2e_test: true,
+    if (!user.exists || !user.data().telegramChatId) throw new Error('An existing Telegram-linked user is required.');
+    if (existing.exists) {
+      assertOwnership(existing.data(), uid, runId, eventId);
+      return { eventId, reused: true, favoriteCreated: existing.data().e2e_favorite_created };
+    }
+    const ordered = favorites.docs.map(row => ({ id: row.id, data: row.data() }))
+      .sort((a, b) => favoriteTime(a.data) - favoriteTime(b.data) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const eligible = isPremium(user.data(), now.getTime()) ? ordered : ordered.slice(0, 3);
+    // Never target another active test run or move a real favorite into the free quota.
+    const target = eligible.find(row => !row.id.startsWith('e2e-') && !row.data.is_e2e_test);
+    if (!target && ordered.length) throw new Error('No eligible non-test favorite. Finish the prior fixture or choose a different linked user.');
+    const created = ordered.length === 0;
+    const beanId = target?.id ?? favoriteId;
+    const ownership = { is_e2e_test: true, e2e_uid: uid, e2e_run_id: runId, e2e_created_at: now };
+    const favoriteRef = userRef.collection('favorites_beans').doc(beanId);
+    if (created) tx.create(favoriteRef, { ...ownership, addedAt: now });
+    tx.create(eventRef, {
+      ...ownership, e2e_favorite_created: created, e2e_expires_at: new Date(now.getTime() + 30 * 60 * 1000),
+      bean_id: beanId, type: 'restored', brand: '원두레이더 테스트', name: '[TEST] 개인 알림 연결 확인',
+      new_price_krw: null, detected_at: now,
+    });
+    return { eventId, reused: false, favoriteCreated: created };
   });
-  console.log("· 재입고 이벤트 생성 (type=restored)");
-  console.log("");
-  console.log("다음: python scripts/send_favorite_alerts.py --since-hours 1");
 }
 
-main().catch((e) => {
-  console.error("실패:", e);
-  process.exit(1);
-});
+export async function cleanupFixture(db, uid, runId) {
+  const { eventId, favoriteId } = validateScope(uid, runId);
+  const eventRef = db.collection('bean_events').doc(eventId);
+  return db.runTransaction(async tx => {
+    const event = await tx.get(eventRef);
+    if (!event.exists) return { eventId, removed: false, favoriteRemoved: false };
+    const data = event.data();
+    assertOwnership(data, uid, runId, eventId);
+    let ownedFavoriteRef = null;
+    if (data.e2e_favorite_created) {
+      if (data.bean_id !== favoriteId) throw new Error('Synthetic favorite path mismatch; cleanup refused.');
+      const ref = db.collection('users').doc(uid).collection('favorites_beans').doc(favoriteId);
+      const favorite = await tx.get(ref);
+      if (favorite.exists) {
+        const f = favorite.data();
+        if (f.is_e2e_test !== true || f.e2e_uid !== uid || f.e2e_run_id !== runId
+          || millis(f.e2e_created_at) !== millis(data.e2e_created_at)
+          || millis(f.addedAt) !== millis(data.e2e_created_at)) {
+          throw new Error('Favorite ownership changed; cleanup refused.');
+        }
+        ownedFavoriteRef = ref;
+      }
+    }
+    if (ownedFavoriteRef) tx.delete(ownedFavoriteRef);
+    tx.delete(eventRef);
+    return { eventId, removed: true, favoriteRemoved: Boolean(ownedFavoriteRef) };
+  });
+}
+
+export function parseOptions(argv) {
+  const options = {};
+  for (let i = 0; i < argv.length; i++) {
+    const key = argv[i];
+    if (!['--uid', '--run-id', '--setup', '--cleanup'].includes(key) || key in options) throw new Error('Unknown or duplicate option.');
+    if (key === '--setup' || key === '--cleanup') options[key] = true;
+    else {
+      const value = argv[++i];
+      if (!value || value.startsWith('--')) throw new Error(`${key} requires a value.`);
+      options[key] = value;
+    }
+  }
+  validateScope(options['--uid'], options['--run-id']);
+  if (Boolean(options['--setup']) === Boolean(options['--cleanup'])) throw new Error('Choose exactly one of --setup or --cleanup.');
+  return options;
+}
+async function main() {
+  const options = parseOptions(process.argv.slice(2));
+  const { default: admin } = await import('firebase-admin');
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  const account = raw ? JSON.parse(raw) : null;
+  if (account && account.project_id !== 'coffee-37b81') throw new Error('Service account project mismatch.');
+  admin.initializeApp({ projectId: 'coffee-37b81', credential: account ? admin.credential.cert(account) : admin.credential.applicationDefault() });
+  const result = options['--setup']
+    ? await setupFixture(admin.firestore(), options['--uid'], options['--run-id'])
+    : await cleanupFixture(admin.firestore(), options['--uid'], options['--run-id']);
+  console.log(JSON.stringify(result));
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(error => { console.error(error.message); process.exitCode = 1; });
+}

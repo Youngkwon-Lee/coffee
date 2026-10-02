@@ -36,6 +36,8 @@ PREMIUM_PLAN = 'premium'
 DELIVERIES_COLLECTION = 'favorite_deliveries'
 CLAIM_SECONDS = 120
 MAX_ATTEMPTS = 3
+TEST_EVENT_PATTERN = re.compile(r'e2e-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}')
+UID_PATTERN = re.compile(r'[A-Za-z0-9:_-]{1,128}')
 
 
 def resolve_premium(user_data: Dict[str, Any], uid: str, now=None) -> bool:
@@ -81,12 +83,56 @@ def is_alert_event(event):
     return all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and v > 0 for v in (old, new)) and new < old
 
 
+def is_test_event(event):
+    # Include old fixtures and partial markers; fail closed in ordinary daily runs.
+    return bool(event.get('is_e2e_test') or event.get('e2e_run_id') or str(event.get('id', '')).startswith('e2e-'))
+
+
+def validate_test_scope(uid, event_id):
+    if not isinstance(uid, str) or not UID_PATTERN.fullmatch(uid) or not isinstance(event_id, str) or not TEST_EVENT_PATTERN.fullmatch(event_id):
+        raise ValueError('Scoped tests require a valid uid and e2e-UUIDv4 event ID')
+
+
+def fetch_scoped_test(db, uid, event_id, now=None):
+    validate_test_scope(uid, event_id)
+    now = now or datetime.now(timezone.utc)
+    user = db.collection('users').document(uid).get()
+    event = db.collection(BEAN_EVENTS_COLLECTION).document(event_id).get()
+    data = event.to_dict() or {}
+    data['id'] = event_id
+    created = to_epoch(data.get('e2e_created_at'))
+    expires = to_epoch(data.get('e2e_expires_at'))
+    if not user.exists or not (user.to_dict() or {}).get('telegramChatId'):
+        raise ValueError('Scoped test requires an existing Telegram-linked user')
+    if (not event.exists or data.get('is_e2e_test') is not True or data.get('e2e_uid') != uid
+        or data.get('e2e_run_id') != event_id[4:] or data.get('type') != EVENT_TYPE_RESTORED
+        or not isinstance(data.get('e2e_favorite_created'), bool) or not data.get('bean_id')
+        or created <= 0 or created != to_epoch(data.get('detected_at'))
+        or created > now.timestamp() or not created < expires <= created + 1800 or expires <= now.timestamp()):
+        raise ValueError('Test fixture ownership, type or 30-minute validity does not match')
+    if data['e2e_favorite_created'] and data['bean_id'] != f"e2e-favorite-{data['e2e_run_id']}":
+        raise ValueError('Synthetic favorite path does not match the test run')
+    favorites = fetch_favorites(db, uid)
+    premium = resolve_premium(user.to_dict(), uid, now)
+    allowed = {bean for bean, _ in (favorites if premium else favorites[:FREE_PLAN_FAVORITE_LIMIT])}
+    if data['bean_id'] not in allowed:
+        raise ValueError('Test favorite is outside the current plan allowance; no gate bypass')
+    if data['e2e_favorite_created']:
+        favorite = db.collection('users').document(uid).collection('favorites_beans').document(data['bean_id']).get().to_dict() or {}
+        if (favorite.get('is_e2e_test') is not True or favorite.get('e2e_uid') != uid
+            or favorite.get('e2e_run_id') != data['e2e_run_id']
+            or to_epoch(favorite.get('e2e_created_at')) != created or to_epoch(favorite.get('addedAt')) != created):
+            raise ValueError('Synthetic favorite ownership does not match')
+    return user, data
+
+
 def fetch_recent_events(db, since_hours: int) -> Dict[str, List[Dict[str, Any]]]:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=since_hours)
     events = {}
     for doc in db.collection(BEAN_EVENTS_COLLECTION).where('detected_at', '>=', cutoff).stream():
         data = doc.to_dict() or {}
-        if data.get('bean_id') and is_alert_event(data):
+        data['id'] = doc.id
+        if data.get('bean_id') and not is_test_event(data) and is_alert_event(data):
             data['id'] = doc.id
             events.setdefault(data['bean_id'], []).append(data)
     return events
@@ -102,7 +148,7 @@ def fetch_favorites(db, uid: str) -> List[Tuple[str, float]]:
 
 
 def build_alert_message(events, is_premium, hidden_count):
-    lines = ['관심 원두 일일 확인']
+    lines = ['[TEST] 개인 알림 연결 확인 — 실제 상품 변화가 아닙니다' if any(is_test_event(event) for event in events) else '관심 원두 일일 확인']
     for event in events:
         label = '판매페이지에서 다시 확인' if event.get('type') == EVENT_TYPE_RESTORED else '가격 인하'
         name = str(event.get('name') or '이름 미확인')[:250]
@@ -248,7 +294,7 @@ class DeliveryLedger:
             data = doc.to_dict() or {}
             if data.get('retryable') and data.get('attempts', 0) < MAX_ATTEMPTS and to_epoch(data.get('nextRetryAt')) <= now.timestamp():
                 event = data.get('event') or {}
-                if event.get('id') and event.get('bean_id') and is_alert_event(event):
+                if event.get('id') and event.get('bean_id') and not is_test_event(event) and is_alert_event(event):
                     events_by_user.setdefault(data['uid'], []).append(event)
         return events_by_user
 
@@ -266,11 +312,18 @@ def deliver_event(ledger, uid, event, send, now=None):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='즐겨찾기 일일 알림 (발송 원장 적용)')
+    parser = argparse.ArgumentParser(description='즐겨찾기 일일 알림 (발송 원장 적용)', allow_abbrev=False)
+    parser.add_argument('--uid', help='단일 테스트 사용자 (--event-id와 함께 필수)')
+    parser.add_argument('--event-id', help='단일 소유 테스트 이벤트 e2e-UUID (--uid와 함께 필수)')
     parser.add_argument('--since-hours', type=int, default=25)
     parser.add_argument('--dry-run', '-d', action='store_true', help='읽기만 수행; 발송/원장 쓰기 없음')
     parser.add_argument('--verbose', '-v', action='store_true')
     args = parser.parse_args()
+    if args.uid is not None or args.event_id is not None:
+        try:
+            validate_test_scope(args.uid, args.event_id)
+        except ValueError as error:
+            parser.error(str(error))
     if args.since_hours <= 0:
         parser.error('--since-hours must be positive')
     return args
@@ -292,9 +345,17 @@ def main():
     sender = ThrottledSender(token)
     counts = {'sent': 0, 'failed': 0, 'unknown': 0, 'skipped': 0, 'planned': 0}
     try:
-        recent = fetch_recent_events(db, args.since_hours)
-        retries = ledger.retry_events()
-        for user_doc in db.collection('users').stream():
+        scoped_uid, scoped_event = getattr(args, 'uid', None), getattr(args, 'event_id', None)
+        scoped = scoped_uid is not None or scoped_event is not None
+        if scoped:
+            user_doc, event = fetch_scoped_test(db, scoped_uid, scoped_event)
+            recent = {event['bean_id']: [event]}
+            retries, users = {}, [user_doc]
+        else:
+            recent = fetch_recent_events(db, args.since_hours)
+            retries = ledger.retry_events()
+            users = db.collection('users').stream()
+        for user_doc in users:
             user = user_doc.to_dict() or {}
             if not user.get('telegramChatId'):
                 continue
@@ -303,9 +364,9 @@ def main():
             favorites = fetch_favorites(db, uid)
             allowed = {bean_id for bean_id, _ in (favorites if premium else favorites[:FREE_PLAN_FAVORITE_LIMIT])}
             hidden = 0 if premium else max(0, len(favorites) - FREE_PLAN_FAVORITE_LIMIT)
-            matches = {e['id']: e for bean_id in allowed for e in recent.get(bean_id, [])}
+            matches = {e['id']: e for bean_id in allowed for e in recent.get(bean_id, []) if (scoped and e['id'] == scoped_event) or (not scoped and not is_test_event(e))}
             for event in retries.get(uid, []):
-                if event['bean_id'] in allowed:
+                if event['bean_id'] in allowed and not is_test_event(event):
                     matches[event['id']] = event
             for event in sorted(matches.values(), key=lambda e: (to_epoch(e.get('detected_at')), e['id'])):
                 message = build_alert_message([event], premium, hidden)

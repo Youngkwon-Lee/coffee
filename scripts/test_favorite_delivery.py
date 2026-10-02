@@ -222,5 +222,117 @@ class ContentAndTransportTests(unittest.TestCase):
         self.assertTrue(alerts.resolve_premium({'plan': 'premium', 'premium_until': NOW + timedelta(microseconds=1)}, 'u', NOW))
 
 
+class ScopedTestTests(unittest.TestCase):
+    setUp = DeliveryTests.setUp
+    RUN = '11111111-1111-4111-8111-111111111111'
+
+    def fixture(self):
+        now = datetime.now(timezone.utc)
+        event = {
+            **EVENT, 'id': 'e2e-' + self.RUN, 'is_e2e_test': True, 'e2e_run_id': self.RUN,
+            'e2e_uid': 'u', 'e2e_created_at': now, 'detected_at': now,
+            'e2e_expires_at': now + timedelta(minutes=30), 'e2e_favorite_created': False,
+        }
+        self.db.data['bean_events/' + event['id']] = event
+        self.db.data['users/u'] = {'telegramChatId': 'self-chat'}
+        self.db.data['users/other'] = {'telegramChatId': 'other-chat', 'plan': 'premium'}
+        for uid in ('u', 'other'):
+            self.db.data[f'users/{uid}/favorites_beans/bean-1'] = {'addedAt': now}
+        return event
+
+    def run_scoped(self, event_id, uid='u', dry_run=False):
+        args = SimpleNamespace(uid=uid, event_id=event_id, dry_run=dry_run, verbose=False, since_hours=25)
+        with patch.object(alerts, 'parse_args', return_value=args), \
+             patch.dict(alerts.os.environ, {'TELEGRAM_BOT_TOKEN': 'fake'}), \
+             patch.object(alerts, 'FirebaseClient', return_value=SimpleNamespace(is_available=lambda: True, db=self.db)), \
+             patch.object(alerts, 'send_telegram', return_value=alerts.SendResult('sent', message_id=7)) as send, \
+             patch.object(alerts, 'fetch_recent_events') as recent, \
+             patch.object(alerts.DeliveryLedger, 'retry_events') as retries:
+            result = alerts.main()
+            recent.assert_not_called()
+            retries.assert_not_called()
+            return result, send.call_args_list
+
+    def test_scope_sends_only_exact_user_event_and_labels_test(self):
+        event = self.fixture()
+        self.db.data['bean_events/ordinary'] = {**EVENT, 'detected_at': datetime.now(timezone.utc)}
+        before = copy.deepcopy(self.db.data['users/u/favorites_beans/bean-1'])
+        result, calls = self.run_scoped(event['id'])
+        self.assertEqual(result, 0)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].args[0], 'self-chat')
+        self.assertIn('[TEST]', calls[0].args[1])
+        self.assertIn('실제 상품 변화가 아닙니다', calls[0].args[1])
+        self.assertEqual(self.db.data['users/u/favorites_beans/bean-1'], before)
+        result, calls = self.run_scoped(event['id'])
+        self.assertEqual(result, 0)
+        self.assertEqual(calls, [])
+
+    def test_daily_query_and_durable_retry_exclude_all_test_markers(self):
+        event = self.fixture()
+        for name, extra in [('ordinary', {}), ('legacy-test', {'is_e2e_test': True}), ('e2e-partial', {}), ('partial-marker', {'e2e_run_id': self.RUN})]:
+            self.db.data['bean_events/' + name] = {**EVENT, 'detected_at': datetime.now(timezone.utc), **extra}
+        recent = alerts.fetch_recent_events(self.db, 25)
+        self.assertEqual([e['id'] for e in recent['bean-1']], ['ordinary'])
+        self.db.data['favorite_deliveries/test-retry'] = {'status': 'failed', 'retryable': True, 'attempts': 1, 'uid': 'u', 'event': event}
+        self.assertEqual(self.ledger.retry_events(), {})
+
+    def test_daily_run_never_sends_test_even_when_candidate_fetch_is_mocked(self):
+        event = self.fixture()
+        args = SimpleNamespace(dry_run=False, verbose=False, since_hours=25)
+        with patch.object(alerts, 'parse_args', return_value=args), \
+             patch.dict(alerts.os.environ, {'TELEGRAM_BOT_TOKEN': 'fake'}), \
+             patch.object(alerts, 'FirebaseClient', return_value=SimpleNamespace(is_available=lambda: True, db=self.db)), \
+             patch.object(alerts, 'fetch_recent_events', return_value={'bean-1': [event]}), \
+             patch.object(alerts, 'send_telegram') as send:
+            self.assertEqual(alerts.main(), 0)
+            send.assert_not_called()
+
+    def test_wrong_owner_expired_missing_or_non_test_event_never_sends(self):
+        for change in [{'e2e_uid': 'other'}, {'is_e2e_test': False}, {'e2e_run_id': 'wrong'}, {'e2e_expires_at': NOW}, {'e2e_created_at': NOW}, {'e2e_favorite_created': 'true'}]:
+            event = self.fixture()
+            self.db.data['bean_events/' + event['id']].update(change)
+            result, calls = self.run_scoped(event['id'])
+            self.assertEqual(result, 1)
+            self.assertEqual(calls, [])
+        self.db.data.pop('bean_events/' + event['id'])
+        self.assertEqual(self.run_scoped(event['id']), (1, []))
+
+    def test_current_free_allowance_not_bypassed(self):
+        event = self.fixture()
+        for index in range(3):
+            self.db.data[f'users/u/favorites_beans/older-{index}'] = {'addedAt': NOW}
+        self.assertEqual(self.run_scoped(event['id']), (1, []))
+        self.db.data['users/u']['plan'] = 'premium'
+        self.db.data['users/u']['premium_until'] = NOW - timedelta(days=1)
+        self.assertEqual(self.run_scoped(event['id']), (1, []))
+
+    def test_unlinked_user_is_rejected(self):
+        event = self.fixture()
+        del self.db.data['users/u']['telegramChatId']
+        self.assertEqual(self.run_scoped(event['id']), (1, []))
+        self.db.data.pop('users/u')
+        self.assertEqual(self.run_scoped(event['id']), (1, []))
+
+    def test_synthetic_favorite_ownership_and_dry_run(self):
+        event = self.fixture()
+        event.update(bean_id='e2e-favorite-' + self.RUN, e2e_favorite_created=True)
+        self.db.data['bean_events/' + event['id']] = event
+        path = 'users/u/favorites_beans/' + event['bean_id']
+        self.db.data[path] = {'is_e2e_test': True, 'e2e_uid': 'u', 'e2e_run_id': self.RUN, 'e2e_created_at': event['e2e_created_at'], 'addedAt': event['e2e_created_at']}
+        before = copy.deepcopy(self.db.data)
+        self.assertEqual(self.run_scoped(event['id'], dry_run=True), (0, []))
+        self.assertEqual(self.db.data, before)
+        self.db.data[path]['e2e_uid'] = 'other'
+        self.assertEqual(self.run_scoped(event['id']), (1, []))
+
+    def test_cli_requires_paired_well_formed_scope(self):
+        import contextlib
+        import io
+        for argv in [['--uid', 'u'], ['--event-id', 'e2e-' + self.RUN], ['--uid', 'u/path', '--event-id', 'e2e-' + self.RUN], ['--uid', 'u', '--event-id', 'ordinary'], ['--uid', 'u', '--event-id', 'e2e-test-restock']]:
+            with patch.object(sys, 'argv', ['send_favorite_alerts.py'] + argv), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                alerts.parse_args()
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

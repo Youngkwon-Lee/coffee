@@ -11,7 +11,7 @@
 - 기존 awaiting_payment 상태에서 판매 운영을 중단하면 미결 입금 여부를 먼저 대조한다. 이미 입금한 사용자는 연락·환불 등 정해진 운영 절차로 처리하거나, 운영 준비가 회복되고 별도 승인이 있을 때 다시 활성화한다. false를 우회하여 권한을 수동으로 만들어 결제 기록을 누락하지 않는다.
 - 은행 계좌/판매자/문의/취소·환불 조건/응답 시간은 운영자가 실제 조건을 정한다. 이 저장소는 값을 발명하지 않는다.
 - 설정 존재, Bot getMe 응답, 올바른 webhook URL과 오류 없음은 실제 수신 증거가 아니다. 별도 허가된 테스트 계정으로 연결→변화 이벤트→DM 수신을 확인해야 한다.
-- 판매 전 필수: 정규 main 크롤 → 검증 → 운영 데이터 반영 → 허가된 테스트 DM의 실제 성공을 확인하고, 계획된 일일 실행이 이어지는지 관측한다. 2026-10-02 읽기 조사에서 최신 자동 run(2026-09-23)은 실패했으며 이후 정규 성공은 확인되지 않았다. 최근 dry-run 성공을 일일 운영/실제 DM 성공으로 간주하지 않는다. 일정 변경이나 실제 발송은 이 구현 작업에서 수행하지 않는다.
+- 판매 전 필수: 정규 main 크롤 → 검증 → 운영 데이터 반영 → 허가된 테스트 DM의 실제 성공을 확인하고, 계획된 일일 실행이 이어지는지 관측한다. [2026-10-02 정규 run](https://github.com/Youngkwon-Lee/coffee/actions/runs/36946159733)은 수집·검증·Firestore 반영·채널 발행에 성공했다. 개인 DM은 대상이 없어 발송되지 않았다. 이 결과나 dry-run 성공을 실제 개인 DM 수신 성공으로 간주하지 않는다.
 - 현재 수집 이벤트는 후속 validation 전 기록된다. 공개 문구는 '판매페이지에서 다시 확인'이며 실시간 재입고를 보장하지 않는다. 판매 전 대상 데이터 품질을 대조해야 한다. 이 범위에서 크롤러/스케줄은 변경하지 않는다.
 
 ## 신청과 입금 확인
@@ -90,3 +90,21 @@ firebase emulators:exec --only firestore --project demo-coffee-rules --config /A
 ```
 
 이미 이 테스트를 위해 시작한 emulator가 실행 중이면 새 인스턴스를 만들지 않고 테스트 스크립트만 실행한다. 실제 Admin SDK transaction은 `scripts/lib/premium.mjs`를 demo emulator에 연결한 fixture에서 검증한다. 운영 CLI는 emulator를 거부하므로 helper를 직접 호출한다. UI 상태는 `app/settings/alerts/AlertSettingsView.tsx`의 순수 props로 렌더하며 테스트용 운영 라우트나 auth 우회를 추가하지 않는다.
+
+## 허가된 계정의 단일 테스트 DM
+
+테스트 계정이 알림 설정에서 Telegram 연결을 마친 뒤에만 실행한다. 이 절차는 판매를 열거나 권한을 부여하지 않는다. Node 24와 기존 운영 자격 증명을 사용한다. UID와 원장은 비공개로 취급하며 공개 PR/로그에 계정 정보를 붙이지 않는다.
+
+1. 매 테스트마다 새로운 UUIDv4 `RUN_ID`를 만든다. setup은 현재 플랜에서 허용되는 기존 즐겨찾기를 읽어 사용한다. 즐겨찾기가 전혀 없으면 해당 실행만 소유한 가상 즐겨찾기 1개를 만든다. 실제 즐겨찾기의 추가 시각이나 내용은 바꾸지 않는다.
+2. setup 직후 같은 UID와 event ID로 dry-run하고 계획이 1건인지 확인한다. 그다음 허가된 실제 발송을 한 번 실행한다.
+3. 성공 원장과 Telegram의 메시지를 대조한다. `sent`는 Telegram API가 메시지 ID를 반환했다는 뜻이며 사람이 읽었다는 뜻은 아니다.
+4. 성공/실패와 무관하게 동일 run ID로 cleanup한다. 소유권이 달라지면 삭제를 거부한다. 발송 원장은 중복 방지를 위해 보존한다. 결과 불명/만료 claim은 새 run ID로 다시 보내지 말고 먼저 실제 수신 여부를 확인한다.
+
+```sh
+node scripts/test-favorite-alert-e2e.mjs --uid UID --run-id RUN_ID --setup
+python scripts/send_favorite_alerts.py --uid UID --event-id e2e-RUN_ID --dry-run
+python scripts/send_favorite_alerts.py --uid UID --event-id e2e-RUN_ID
+node scripts/test-favorite-alert-e2e.mjs --uid UID --run-id RUN_ID --cleanup
+```
+
+`--uid`와 `--event-id`는 반드시 함께 사용하며, 소유권·현재 플랜·30분 유효 시간을 통과한 이벤트 1건에만 적용된다. 일반 일일 발송 및 자동 재시도는 테스트 이벤트를 제외한다. 수동 E2E workflow도 같은 범위를 사용하며 스케줄을 추가하지 않는다.
