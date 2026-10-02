@@ -24,6 +24,16 @@ CONFIG_PATH = ROOT / "config" / "crawler_config.yaml"
 
 # 굿즈·부산물 — 원두 목록에 들어오면 안 된다. 실제 DB에서 발견된 이름들이다.
 MUST_EXCLUDE = [
+    'Boat Neck Long Sleeve OATSLIFE x OURSELVES',
+    'OATSLIFE BASEBALL CAP',
+    'OATSLIFE PARIS BAG Small',
+    'OATSLIFE PARIS BAG Large',
+    'OATSLIFE x HAVEHAD CARDIGAN',
+    'Organic Cotton Work Jacket OATSLIFE x OURSELVES',
+    'Tote Bag OATSLIFE x OURSELVES',
+    'Signature Logo Bandana OATSLIFE x OURSELVES',
+    'OATSLIFE WASHED 6PANEL CAP',
+    '[디폴트밸류] 유리잔 1EA',
     "OATSLIFE x Karactor MILKFORM Pullover",
     "[프릳츠] 드립백",
     "드립백 (200개)",
@@ -41,6 +51,11 @@ MUST_EXCLUDE = [
 
 # 정상 원두 — 절대 빠지면 안 된다. 하나라도 빠지면 판매 대상이 사라진다.
 MUST_INCLUDE = [
+    'OATSCOFFEE WHOLE BEAN 250G',
+    'OATSCOFFEE WHOLE BEAN 500G',
+    'Cappuccino Blend 200g',
+    'Mexico Washed 200g',
+    '블렌드 커피 3종 (각 200g x3)',
     "에티오피아 예가체프 코케 허니 200g",
     "콜롬비아 후일라 수프리모",
     "프릳츠 올드독 블렌드 1kg",
