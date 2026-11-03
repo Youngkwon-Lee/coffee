@@ -12,11 +12,7 @@ import requests
 from typing import Dict, List, Any, Optional, Tuple
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
-try:
-    import easyocr
-    OCR_AVAILABLE = True
-except ImportError:
-    OCR_AVAILABLE = False
+# Load EasyOCR only when a permitted image actually requires OCR.
 
 from coffee_crawler.crawlers.base_crawler import BaseCrawler
 from coffee_crawler.models.bean import Bean
@@ -51,20 +47,10 @@ class HtmlCrawler(BaseCrawler):
         self.selectors = config.get('selectors', {})
         self.encoding = config.get('encoding', 'utf-8')  # 인코딩 설정 추가
         
-        # OCR 초기화
+        # HTML-only cafes must not load Torch/EasyOCR or spawn their worker threads.
         self.ocr_reader = None
-        if OCR_AVAILABLE:
-            try:
-                import os
-                os.environ['CUDA_VISIBLE_DEVICES'] = ''  # CPU 사용 강제
-                self.ocr_reader = easyocr.Reader(['ko', 'en'], gpu=False)
-                self.logger.info("OCR 초기화 완료 (CPU 모드)")
-            except Exception as e:
-                self.logger.warning(f"OCR 초기화 실패: {e}")
-                self.ocr_reader = None
-        else:
-            self.logger.warning("EasyOCR이 설치되지 않았습니다. 이미지 텍스트 추출 기능을 사용할 수 없습니다.")
-        
+        self._ocr_initialization_attempted = False
+
         # 설정 검증
         self._validate_selectors()
         
@@ -78,6 +64,22 @@ class HtmlCrawler(BaseCrawler):
         logger.debug(f"상품 목록 URL: {self.product_list_url}")
         logger.debug(f"선택자: {self.selectors}")
         
+    def _ensure_ocr_reader(self) -> bool:
+        """Initialize the optional CPU reader once, on the first eligible image."""
+        if self.ocr_reader is not None:
+            return True
+        if self._ocr_initialization_attempted:
+            return False
+        self._ocr_initialization_attempted = True
+        try:
+            import easyocr
+            self.ocr_reader = easyocr.Reader(['ko', 'en'], gpu=False)
+            self.logger.info("OCR initialized on demand (CPU)")
+        except Exception as exc:
+            self.logger.warning("Optional OCR initialization failed: %s", exc)
+            self.ocr_reader = None
+        return self.ocr_reader is not None
+
     def _validate_selectors(self):
         """필수 CSS 선택자 검증"""
         required_selectors = [
@@ -435,7 +437,7 @@ class HtmlCrawler(BaseCrawler):
                 self.logger.info("DEBUG: HTML에서 원산지/가공방식 정보를 찾을 수 없음")
             
             # HTML에서 찾지 못했고 OCR이 사용 가능하다면 이미지에서 시도
-            if (not origin or not process) and self.ocr_reader:
+            if not origin or not process:
                 self.logger.info("HTML에서 정보를 찾지 못했습니다. 이미지 OCR을 시도합니다.")
                 
                 # 상품 이미지들에서 OCR 시도
@@ -596,7 +598,7 @@ class HtmlCrawler(BaseCrawler):
         Returns:
             추출된 텍스트
         """
-        if not self.ocr_reader or not image_url:
+        if not image_url:
             return ""
 
         # OCR 대상 제한: 상품 대표 이미지 위주로만 수행 (아이콘/GIF/트래킹 픽셀 제외)
@@ -609,6 +611,9 @@ class HtmlCrawler(BaseCrawler):
         if lower_url.endswith('.gif'):
             return ""
         if not any(ext in lower_url for ext in ['.jpg', '.jpeg', '.png', '.webp']):
+            return ""
+
+        if not self._ensure_ocr_reader():
             return ""
         
         try:

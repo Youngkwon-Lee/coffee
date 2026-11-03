@@ -27,6 +27,10 @@ jobs:
     # 데스크톱 IP에서는 둘 다 200으로 응답한다.
     runs-on: [self-hosted, coffee-crawler]
     env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      NUMEXPR_NUM_THREADS: '1'
       # 자체 러너에서는 벙커컴퍼니도 정상 수집된다(GitHub IP 차단이 원인이었음).
       # 예외를 비워 두어야 수집이 멈추면 즉시 빨갛게 뜬다.
       ALLOW_ZERO_BRANDS: ""
@@ -42,13 +46,15 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
-        cache: 'pip'
+        # Persistent runner: keep local caches, avoid multi-GB remote restores.
+        cache: ${{ runner.environment == 'github-hosted' && 'pip' || '' }}
 
     - name: Set up Node
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
+        # Persistent runner: keep local caches, avoid multi-GB remote restores.
+        cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
     
     # 자체 러너에는 무비밀번호 sudo가 없다. 이 라이브러리들은 EasyOCR(선택 기능)용이고
     # 없으면 경고 후 건너뛰므로 수집 자체는 영향받지 않는다.
@@ -74,6 +80,9 @@ jobs:
       run: |
         npm install
     
+    - name: Test bounded crawler runtime (synthetic, no services)
+      run: python scripts/test_crawler_runtime.py
+
     - name: Setup Firebase credentials
       env:
         FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
