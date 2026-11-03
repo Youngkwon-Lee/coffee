@@ -35,3 +35,11 @@ This is a review candidate. Existing owner must review/merge before normal sched
 - The candidate's dependency-free synthetic suite ran on **Home WSL Ubuntu**, from the scoped candidate folder, with 10/10 tests passing. This supplements, but does not replace, the earlier Windows Python 3.9 synthetic tests; the WSL Python version and post-pin live browser/fork compatibility were not established by this run.
 - The local Second Brain reflection capture service returned exit status 0 on 2026-11-04 06:18:05 KST. This is a separate workload, not validation of the coffee fix; SNS browser approval and profile routing remain deferred by the operator.
 - PR #7 stays **Draft/unmerged** and no Home runner Python installation, job schedule, crash-dump retention, WSL memory configuration, secret, Firestore record, or notification behavior was changed in this follow-up.
+
+
+### Isolated Home Linux post-pin compatibility (2026-11-04 KST)
+- A separate, disposable Python 3.9.25 environment under `/tmp/coffee-pr7-grpc178-20261104` installed `grpcio==1.78.0` and `typing_extensions`. **No Home Actions runner toolcache, site-packages, existing service, or production dependency was modified.**
+- A loopback-only gRPC server/channel responded successfully; eight bounded child-process launches with a forced POSIX fork (`subprocess.run(..., preexec_fn=os.setsid)`) all exited 0 (about 10–11 ms each). This establishes a narrow **passing** pinned-version control on this host, not proof that every older crash was caused by gRPC.
+- In the same isolated Python environment, Selenium 4.36.0 and the existing ChromeDriver 146 launched one headless browser, rendered a `data:` URL, checked the title, and quit successfully in **301 ms**. No remote website, Firestore, notification, installed runner code, or cron dispatch was involved.
+- The 10 synthetic tests also passed under the Home Ubuntu system Python (3.12) using the same code blobs. The earlier Windows Python 3.9 synthetic suite still applies to that original code revision. These are separate scope results, not CI success for a new PR SHA.
+- The next unchanged-main scheduled coffee run must still confirm data integrity and new crash-dump absence after an authorized merge. Keep the existing six dumps until that verification; do not interpret an isolated `about:blank`/data-URL smoke as a full production crawl.
