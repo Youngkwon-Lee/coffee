@@ -2,7 +2,7 @@
 
 ## Observed, not inferred
 - Source: coffee main `6707d553f696c4c2b026dac998f78b9ba07abb5d`.
-- Home Windows 10 Pro build 19045, about 16 GiB RAM; WSL 3.0.3.0 / kernel 6.6.87.2-1. Existing `.wslconfig`: memory=8GB, processors=8, swap=8GB, pageReporting=true, autoMemoryReclaim=gradual. No change made to it.
+- Home Windows 10 Education build 19045, about 16 GiB RAM; WSL 3.0.3.0 / kernel 6.18.54.1-microsoft-standard-WSL2 (observed 2026-11-03). Existing `.wslconfig`: memory=10GB, processors=4, swap=4GB, swapFile=D:\\wsl-swap.vhdx, vmIdleTimeout=-1, guiApplications=false, autoMemoryReclaim=dropCache. No change was made to these settings.
 - During readback, Windows free RAM was 0.69–0.75 GiB; vmmem working set about 7.6–7.7 GiB. This is pressure, NOT proof of an OOM event. No matching recent Resource-Exhaustion-Detector event was returned.
 - Six existing `wsl-crashes` dumps total about 7.74 GiB: five identify coffee's Python 3.9.25, one Node 24.18.0; filenames record signal 6. They are process dump evidence, not proof that the WSL VM rebooted. Dumps were not read for memory contents, removed, or suppressed.
 - A bounded uptime read succeeded (guest uptime about five days); subsequent bounded guest diagnostics failed at WSL launch with `Wsl/Service/WSAETIMEDOUT`. No shutdown, service restart, session kill, or memory-limit change was made.
@@ -26,3 +26,12 @@
 
 ## Activation / rollback
 This is a review candidate. Existing owner must review/merge before normal scheduled use. No full workflow was dispatched, no production runtime reinstalled, and no WSL restart is authorized by this note. Roll back this scoped commit if the owner observes regression. Keep historical crash evidence until the live runtime is verified.
+
+
+## Follow-up readback — 2026-11-04 KST (no production mutation)
+- The authorized Home WSL guest is responsive at boot ID `dd9247e0-fd90-4fbf-b6e0-2089893c3c5a`: three bounded Windows-to-Ubuntu probes returned success in 86, 109, and 82 ms. This establishes one short window, not absence of future timeouts.
+- All six preexisting process dump files remain (8,308,760,576 bytes), with the latest dump still timestamped 2026-11-02 21:14:00 UTC. No new dump was detected in this readback.
+- Scheduled coffee crawler [run 41717890934](https://github.com/Youngkwon-Lee/coffee/actions/runs/41717890934) succeeded, starting 2026-11-03 21:01:09 UTC (= 2026-11-04 06:01:09 KST). It ran on the **unchanged main** `6707d553f696c4c2b026dac998f78b9ba07abb5d`, so it does **not** validate the PR #7 mitigation.
+- The candidate's dependency-free synthetic suite ran on **Home WSL Ubuntu**, from the scoped candidate folder, with 10/10 tests passing. This supplements, but does not replace, the earlier Windows Python 3.9 synthetic tests; the WSL Python version and post-pin live browser/fork compatibility were not established by this run.
+- The local Second Brain reflection capture service returned exit status 0 on 2026-11-04 06:18:05 KST. This is a separate workload, not validation of the coffee fix; SNS browser approval and profile routing remain deferred by the operator.
+- PR #7 stays **Draft/unmerged** and no Home runner Python installation, job schedule, crash-dump retention, WSL memory configuration, secret, Firestore record, or notification behavior was changed in this follow-up.
