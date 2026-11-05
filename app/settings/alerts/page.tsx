@@ -6,6 +6,7 @@ import { db, auth } from '@/firebase';
 import { createGoogleSignInProvider, getGoogleSignInErrorMessage } from '@/utils/firebaseAuth';
 import { premiumState, premiumUntilMillis, parsePremiumRequest, PREMIUM_PRICE_KRW, PREMIUM_PERIOD_DAYS, type PremiumRequest } from '@/lib/premium';
 import AlertSettingsView from './AlertSettingsView';
+import { reportCoffeeFunnel, markTelegramLinkStarted, recordConfirmedTelegramLink } from '@/lib/reportCoffeeFunnel';
 
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'wondooradar_bot';
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -31,7 +32,9 @@ export default function AlertSettingsPage() {
         getDoc(doc(db, 'users', uid)), getDoc(doc(db, 'premium_requests', uid)), getDoc(doc(db, 'premium_config', 'pilot')).catch(() => null),
       ]);
       if (auth.currentUser?.uid !== uid) return;
-      setProfile(userSnap.data() ?? {});
+      const nextProfile = userSnap.data() ?? {};
+      if (nextProfile.telegramChatId) recordConfirmedTelegramLink();
+      setProfile(nextProfile);
       const parsed = parsePremiumRequest(requestSnap.data());
       setRequest(parsed);
       setLegacyRequest(requestSnap.exists() && !parsed);
@@ -53,6 +56,9 @@ export default function AlertSettingsPage() {
     if (current) void loadProfile(current.uid); else setLoading(false);
   }), [loadProfile]);
   useEffect(() => {
+    reportCoffeeFunnel('alerts_settings_view');
+  }, []);
+  useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
@@ -69,7 +75,10 @@ export default function AlertSettingsPage() {
     try {
       const code = Array.from(crypto.getRandomValues(new Uint32Array(6))).map(n => ALPHABET[n % ALPHABET.length]).join('');
       await setDoc(doc(db, 'telegram_link_codes', code), { uid: user.uid, createdAt: serverTimestamp() });
-      if (auth.currentUser?.uid === user.uid) setLinkCode(code);
+      if (auth.currentUser?.uid === user.uid) {
+        setLinkCode(code);
+        if (!profile.telegramChatId) markTelegramLinkStarted();
+      }
     } catch { setError('연결 코드를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.'); }
     finally { setBusy(false); }
   };
@@ -85,6 +94,7 @@ export default function AlertSettingsPage() {
       if (auth.currentUser?.uid !== user.uid) return;
       setRequest({ requestId, status: 'pending' }); setLegacyRequest(false);
       setNotice('신청이 접수되었습니다. 자동으로 결제되지 않습니다.');
+      reportCoffeeFunnel('premium_request_submitted');
     } catch { setError('신청을 접수하지 못했습니다. 접수 가능 여부와 신청 상태를 다시 확인해 주세요.'); }
     finally { setBusy(false); }
   };
