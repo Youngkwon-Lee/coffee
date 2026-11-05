@@ -252,7 +252,7 @@ export default async function ChangesPage() {
                 </p>
               ) : (
                 <p className="mt-2 text-sm text-coffee-light/70">
-                  수집 시 확인된 가격: {formatPrice(row.price)}
+                  현재 목록에 표시된 가격: {formatPrice(row.price)}
                 </p>
               )}
               <div className="mt-4 flex flex-wrap gap-3 text-sm">
