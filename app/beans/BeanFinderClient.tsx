@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { db, auth } from "@/firebase";
+import { reportCoffeeFunnel } from "@/lib/reportCoffeeFunnel";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import BeanDetailModal from "../components/BeanDetailModal";
@@ -136,6 +137,7 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
               href={String(bean.link)}
               target="_blank"
               rel="noreferrer"
+              onClick={() => reportCoffeeFunnel("bean_store_open")}
               className="text-xs px-2 py-1 rounded bg-coffee-gold/20 border border-coffee-gold/40 text-coffee-gold"
             >
               구매하기
@@ -293,6 +295,7 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
       } else {
         await setDoc(ref, { addedAt: new Date() });
         setWishlist([...wishlist, beanId]);
+        reportCoffeeFunnel("favorite_saved");
       }
     } catch (error) {
       // TODO: 실패가 조용히 묻힌다. 하트가 안 바뀌는 것 말고 단서가 없어서

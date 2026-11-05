@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TrackedExternalLink } from "@/components/CoffeeFunnelActions";
 import { notFound } from "next/navigation";
 
 /**
@@ -171,14 +172,15 @@ export default async function BeanDetailPage({
 
         <div className="flex flex-col sm:flex-row gap-2 border-t border-white/5 pt-4">
           {buyUrl && (
-            <a
+            <TrackedExternalLink
+              event="bean_store_open"
               href={buyUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="min-h-11 flex-1 inline-flex items-center justify-center rounded-lg bg-[#c5a880] font-semibold text-[#120f0d]"
             >
               로스터리에서 구매
-            </a>
+            </TrackedExternalLink>
           )}
           <Link
             href="/beans"
