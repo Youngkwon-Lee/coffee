@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, ExternalLink, Heart, Star, Coffee } from "lucide-react";
+import { reportCoffeeFunnel } from "@/lib/reportCoffeeFunnel";
 import { normalizeRoastLevel, getRoastDisplayText } from "../../src/utils/roastMapping";
 import { extractOrigin, getOriginFlag } from "../../src/utils/originMapping";
 
@@ -69,6 +70,7 @@ export default function BeanDetailModal({
 
   const handlePurchase = () => {
     if (bean.link) {
+      reportCoffeeFunnel('bean_store_open');
       window.open(bean.link, '_blank', 'noopener,noreferrer');
     }
   };
