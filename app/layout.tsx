@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_KR, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import BottomNavigation from "./components/BottomNavigation";
+import CoffeeWebAnalytics from "@/components/CoffeeWebAnalytics";
 import UserButton from "./components/UserButton";
 import { Coffee } from "lucide-react";
 
@@ -127,6 +128,7 @@ export default function RootLayout({
 
           {/* Bottom Navigation with Integrated FAB */}
           <BottomNavigation />
+          <CoffeeWebAnalytics />
         </div>
       </body>
     </html>
