@@ -51,3 +51,35 @@ export function reportCoffeeFunnel(event: CoffeeFunnelEvent): void {
     // Tracking never affects the product action.
   }
 }
+
+/**
+ * A tab-local timestamp records that this user started the Telegram code flow.
+ * No token, chat ID, UID or link code is stored. Count connection success only
+ * when a subsequent authenticated profile read confirms telegramChatId exists.
+ */
+const LINK_ATTEMPT_KEY = "coffee-funnel-telegram-link-attempt-v1";
+const MAX_LINK_ATTEMPT_AGE_MS = 60 * 60_000;
+
+export function markTelegramLinkStarted(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(LINK_ATTEMPT_KEY, String(Date.now()));
+  } catch {
+    // Not all browsers permit sessionStorage.
+  }
+  reportCoffeeFunnel("telegram_link_started");
+}
+
+export function recordConfirmedTelegramLink(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const startedAt = Number(window.sessionStorage.getItem(LINK_ATTEMPT_KEY));
+    if (!Number.isFinite(startedAt) || startedAt <= 0) return;
+    window.sessionStorage.removeItem(LINK_ATTEMPT_KEY);
+    if (Date.now() >= startedAt && Date.now() - startedAt <= MAX_LINK_ATTEMPT_AGE_MS) {
+      reportCoffeeFunnel("telegram_link_confirmed");
+    }
+  } catch {
+    // Never interrupt account loading.
+  }
+}
