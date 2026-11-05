@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { COFFEE_FUNNEL_EVENTS, type CoffeeFunnelOrigin } from "@/lib/coffeeFunnelEvents";
+import { track } from "@vercel/analytics/server";
 
 export const runtime = "nodejs";
 
@@ -52,5 +53,12 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // Only two allowlisted, non-identifying categorical values are logged.
   console.info(`COFFEE_FUNNEL_V1 event=${fields.event} origin=${fields.origin}`);
+  try {
+    // An allowlisted, anonymous action count — not a user/conversion identifier.
+    await track(`coffee_${fields.event}`, { origin: fields.origin });
+  } catch {
+    // Analytics failures must never block the original product action.
+    console.warn("COFFEE_ANALYTICS_V1 delivery unavailable");
+  }
   return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
 }
