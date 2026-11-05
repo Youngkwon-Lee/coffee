@@ -155,6 +155,31 @@ export default function MainPageHero() {
         </div>
       </section>
 
+      {/* 수집한 원두 변화를 방문자가 바로 확인할 수 있는 첫 진입점 */}
+      <section className="p-4 pt-4 animate-slide-up" style={{ animationDelay: "95ms" }}>
+        <Link
+          href="/changes"
+          className="block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coffee-gold"
+        >
+          <div className="relative overflow-hidden bg-gradient-to-r from-[#1c1816]/40 to-transparent backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex items-center justify-between cursor-pointer group hover:bg-[#1c1816]/60 transition-colors shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#c5a880]/10 flex items-center justify-center group-hover:scale-105 transition-transform duration-500 border border-[#c5a880]/20">
+                <Sparkles className="w-5 h-5 text-[#c5a880]" strokeWidth={1.5} />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold text-[#f8f6f3]">이번 주 원두 변동</p>
+                <p className="text-xs font-medium text-coffee-light/50 mt-0.5">
+                  가격 인하 · 새로 확인된 상품 · 판매 목록 재등장
+                </p>
+              </div>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+              <ChevronRight className="w-4 h-4 text-coffee-light/40 group-hover:text-coffee-light group-hover:translate-x-0.5 transition-all duration-300" strokeWidth={1.5} />
+            </div>
+          </div>
+        </Link>
+      </section>
+
       {/* 메인 커피 기록 액션 */}
       <section className="p-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
         <Link href="/record/photo">
@@ -227,23 +252,7 @@ export default function MainPageHero() {
         </div>
       </section>
 
-      {/* 추가 정보 */}
-      <section className="p-4 pt-4 animate-slide-up" style={{ animationDelay: "300ms" }}>
-        <div className="relative overflow-hidden bg-gradient-to-r from-[#1c1816]/40 to-transparent backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex items-center justify-between cursor-pointer group hover:bg-[#1c1816]/60 transition-colors shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#c5a880]/10 flex items-center justify-center group-hover:scale-105 transition-transform duration-300 border border-[#c5a880]/20">
-              <Sparkles className="w-5 h-5 text-[#c5a880] animate-pulse-slow" strokeWidth={1.5} />
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-bold text-[#f8f6f3]">금주의 커피 트렌드</p>
-              <p className="text-xs font-medium text-coffee-light/50 mt-0.5">새로운 로스터리 소식을 확인하세요</p>
-            </div>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-            <ChevronRight className="w-4 h-4 text-coffee-light/40 group-hover:text-coffee-light group-hover:translate-x-0.5 transition-all duration-300" strokeWidth={1.5} />
-          </div>
-        </div>
-      </section>
+
     </div>
   );
 } 
