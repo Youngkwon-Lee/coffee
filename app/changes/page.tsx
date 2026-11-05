@@ -10,6 +10,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/firebase";
+import { ChangesViewSignal, TrackedLink, TrackedExternalLink } from "@/components/CoffeeFunnelActions";
 
 export const dynamic = "force-dynamic";
 
@@ -181,6 +182,7 @@ export default async function ChangesPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-28 pt-7 text-coffee-light">
+      <ChangesViewSignal />
       <header className="mb-7">
         <p className="mb-2 text-xs font-semibold tracking-wide text-coffee-gold">
           원두레이더 / 최근 7일
@@ -199,12 +201,13 @@ export default async function ChangesPage() {
         >
           전체 원두 비교
         </Link>
-        <Link
-          href="/premium"
+        <TrackedLink
+          event="alerts_interest"
+          href="/settings/alerts"
           className="inline-flex min-h-11 items-center rounded-xl bg-coffee-gold px-4 text-sm font-semibold text-coffee-dark"
         >
-          관심 원두 알림 알아보기
-        </Link>
+          무료 알림 연결하기
+        </TrackedLink>
       </div>
 
       {error ? (
@@ -256,21 +259,23 @@ export default async function ChangesPage() {
                 </p>
               )}
               <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                <Link
+                <TrackedLink
+                  event="change_detail_open"
                   href={`/beans/${encodeURIComponent(row.beanId)}`}
                   className="font-semibold text-coffee-gold underline underline-offset-4"
                 >
                   원두 상세
-                </Link>
+                </TrackedLink>
                 {row.sourceUrl && (
-                  <a
+                  <TrackedExternalLink
+                    event="changes_store_open"
                     href={row.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-coffee-light/80 underline underline-offset-4"
                   >
                     판매처에서 확인
-                  </a>
+                  </TrackedExternalLink>
                 )}
               </div>
             </article>
