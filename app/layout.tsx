@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "@/styles/kinelo-coffee.css";
+import "@/styles/kinelo-coffee-dark.css";
 import BottomNavigation, { DesktopCoffeeNavigation } from "./components/BottomNavigation";
 import CoffeeWebAnalytics from "@/components/CoffeeWebAnalytics";
-import UserButton from "./components/UserButton";
+import CoffeeHeaderActions from "./components/CoffeeHeaderActions";
 import KineloCoffeeBrand from "@/components/KineloCoffeeBrand";
 
 const SITE_URL = "https://coffee-omega-lovat.vercel.app";
@@ -96,8 +97,8 @@ export default function RootLayout({
         <div className="mobile-container">
           <header className="kc-header">
             <KineloCoffeeBrand />
-            <DesktopCoffeeNavigation />
-            <UserButton />
+            <div className="kc-header-middle"><DesktopCoffeeNavigation /></div>
+            <CoffeeHeaderActions />
           </header>
           <div id="coffee-content" className="main-content" tabIndex={-1}>{children}</div>
           <BottomNavigation />

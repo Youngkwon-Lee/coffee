@@ -181,6 +181,7 @@ export default async function ChangesPage() {
   const { rows, error } = await loadChanges();
   return <main className="kc-page">
     <ChangesViewSignal />
+    <nav className="kc-dark-tabs" aria-label="원두 탐색 탭"><Link href="/changes" aria-current="page">최근 변동</Link><Link href="/beans">전체 원두</Link></nav>
     <header className="kc-feed-hero">
       <div><p className="kc-eyebrow">KINELO COFFEE / BEAN RADAR</p><h1>원두레이더</h1><p>이번 주 달라진 원두를 만나보세요.</p></div>
       <div className="kc-feed-count"><strong>{error ? "—" : rows.length}</strong><span>표시된 변동</span></div>

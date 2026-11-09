@@ -79,7 +79,7 @@ test('Home SSR exposes every existing destination without waiting for authentica
   const html=server.renderToStaticMarkup(React.createElement(m.exports.default));
   for(const route of ['/beans','/changes','/my-beans','/record/photo','/record/manual','/history','/cafes','/onboarding','/premium'])assert.ok(html.includes(`href="${route}"`),route);
   assert.equal((html.match(/<h1\b/g)||[]).length,1);
-  assert.ok(html.includes('오늘의 커피'));
+  assert.ok(html.includes('커피를 고르는'));
   assert.ok(!source.includes('loadFirebaseAuth'));
 });
 test('All changed TS/TSX files parse, and restored brand artwork exists',()=>{
