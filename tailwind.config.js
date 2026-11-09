@@ -7,7 +7,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        espresso: "#14231F", mocha: "#205C53", caramel: "#56635E",
+        espresso: "#F7F6F4", mocha: "#DDBB84", caramel: "#B7B6B7",
         // 현대적인 커피 테마 색상 팔레트
         coffee: {
           50: '#fefdf8',
@@ -20,11 +20,11 @@ module.exports = {
           700: '#b8841f',
           800: '#9a6f19',
           900: '#7f5d16',
-          dark: '#F5F7F6',
-          medium: '#FFFFFF',
-          light: '#14231F',
-          gold: '#205C53',
-          latte: '#56635E',
+          dark: '#151618',
+          medium: '#222327',
+          light: '#F7F6F4',
+          gold: '#DDBB84',
+          latte: '#B7B6B7',
         },
         cream: {
           50: '#fefefe',

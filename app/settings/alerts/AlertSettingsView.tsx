@@ -50,6 +50,7 @@ export default function AlertSettingsView(props: AlertSettingsViewProps) {
   else action = <Link className={primaryActionClass} href="/beans">관심 원두 고르기 <ArrowRight size={16} aria-hidden="true" /></Link>;
 
   return <main className="kc-page max-w-2xl text-coffee-light">
+    <nav className="kc-dark-tabs" aria-label="보관함과 알림 탭"><Link href="/my-beans">찜한 원두</Link><Link href="/settings/alerts" aria-current="page">알림 설정</Link></nav>
     <header className="mb-7">
       <p className="mb-3 flex items-center gap-2 text-sm text-coffee-gold"><Bell size={18} aria-hidden="true" /> Kinelo Coffee</p>
       <h1 className="text-2xl font-bold tracking-tight">알림 설정</h1>

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { db, auth } from "@/firebase";
 import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged, signInWithPopup, signOut, User } from "firebase/auth";
-import Image from "next/image";
 import Link from "next/link";
 import { useCustomAlert } from "../components/CustomAlert";
 import { createGoogleSignInProvider, getGoogleSignInErrorMessage } from "@/utils/firebaseAuth";
@@ -111,62 +110,58 @@ export default function MyBeansPage() {
 
   return (
     <>
-      <main className="kc-page flex flex-col items-center">
-        <h1 className="text-2xl font-bold mb-3 text-coffee-light">내 원두 보관함</h1>
-        <Link href="/beans" className="mb-5 inline-flex min-h-11 items-center text-sm text-coffee-gold underline underline-offset-4">
-          원두 찾기로 돌아가기
-        </Link>
-        {/* 로그인/로그아웃 UI */}
-        <div className="mb-4 flex gap-2 items-center">
-          {user ? (
-            <>
-              <span className="text-mocha font-bold">{user.displayName || user.email} 님</span>
-              <button onClick={() => signOut(auth)} className="px-3 py-1 rounded-full bg-mocha text-white font-bold hover:bg-espresso transition">로그아웃</button>
-            </>
-          ) : (
-            <button onClick={handleGoogleLogin} className="px-3 py-1 rounded-full bg-coffee-gold text-white font-bold hover:bg-[var(--kc-primary-active)] transition">구글 로그인</button>
-          )}
-        </div>
-        {/* 재입고/가격 알림 설정 */}
-        <Link href="/settings/alerts" className="mb-4 text-sm text-mocha underline">
-          🔔 재입고 · 가격 알림 설정
-        </Link>
-        {loadError && <p role="alert" className="mb-4 max-w-md px-4 text-sm text-[var(--kc-danger)]">{loadError}</p>}
-        {loading ? (
-          <div className="text-center py-10">로딩 중...</div>
-        ) : !user ? (
-          <div className="text-center text-coffee-light py-10">Google 로그인 후 관심 원두를 저장할 수 있습니다. 로그인한 뒤 원두 찾기로 돌아가 찜해주세요.</div>
-        ) : beans.length === 0 ? (
-          <div className="text-center text-coffee-latte py-10">찜한 원두가 없습니다. 원두 찾기에서 하트를 눌러보세요.</div>
-        ) : (
-          <div className="w-full max-w-md flex flex-col gap-6">
-            {beans.map(bean => (
-              <div key={bean.id} className="card-coffee p-4 flex flex-col md:flex-row gap-4 border border-caramel items-center relative">
-                <Image src={bean.image || "/beans/default.jpg"} alt={bean.name} width={100} height={100} className="rounded-xl object-cover w-24 h-24" />
-                <div className="flex-1 flex flex-col gap-1">
-                  <div className="text-lg font-bold text-espresso">{bean.name}</div>
-                  <div className="text-xs text-mocha mb-1">향미: {bean.flavor}</div>
-                  {bean.desc && <div className="text-xs text-coffee-latte mb-1">{bean.desc}</div>}
-                  <div className="text-caramel font-bold mb-2">{bean.price}</div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => bean.link && window.open(bean.link, "_blank")}
-                      className="px-4 py-2 rounded-full bg-coffee-gold hover:bg-[var(--kc-primary-active)] text-white font-semibold shadow transition text-sm"
-                    >
-                      구매하기
-                    </button>
-                    <button
-                      onClick={() => handleRemove(bean.id)}
-                      className="px-4 py-2 rounded-full bg-[var(--kc-danger-soft)] hover:bg-[var(--kc-danger-soft)] text-[var(--kc-danger)] font-semibold shadow transition text-sm"
-                    >
-                      찜 해제
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+      <main className="kc-page kc-benefit-shell">
+        <nav className="kc-dark-tabs" aria-label="보관함과 알림 탭">
+          <Link href="/my-beans" aria-current="page">찜한 원두</Link>
+          <Link href="/settings/alerts">알림 설정</Link>
+        </nav>
+        <section className="kc-benefit-panel" aria-labelledby="saved-beans-title">
+          <header className="kc-page-heading">
+            <p className="kc-eyebrow">MY COFFEE COLLECTION</p>
+            <h1 id="saved-beans-title">나의 보관함</h1>
+            <p>마음에 드는 원두를 모아 다시 살펴보세요.</p>
+          </header>
+
+          <div className="kc-benefit-account">
+            {user ? (
+              <>
+                <span className="text-sm text-coffee-latte">{user.displayName || "로그인됨"}</span>
+                <button type="button" className="kc-logout" onClick={() => signOut(auth)}>로그아웃</button>
+              </>
+            ) : (
+              <button type="button" onClick={handleGoogleLogin}>Google로 로그인</button>
+            )}
           </div>
-        )}
+          {loadError && <p className="kc-error mb-4" role="alert">{loadError}</p>}
+          {loading ? <p role="status" className="py-9 text-center text-coffee-latte">보관함을 불러오는 중입니다.</p>
+            : !user ? <div className="kc-empty"><h2>관심 원두를 저장해보세요</h2><p>로그인 후 원두를 찜하면 이곳에서 다시 확인할 수 있습니다.</p><Link href="/beans" className="kc-text-link mt-3">원두 둘러보기</Link></div>
+            : beans.length === 0 ? <div className="kc-empty"><h2>아직 찜한 원두가 없습니다</h2><p>원두 탐색에서 하트 버튼을 누르면 여기에 모입니다.</p><Link href="/beans" className="kc-text-link mt-3">원두 찾기</Link></div>
+            : <div className="kc-benefit-list">{beans.map(bean => (
+                <article className="kc-benefit-card" key={bean.id}>
+                  <div className="flex gap-4 items-start">
+                    {typeof bean.image === "string" && /^https:\/\//.test(bean.image) &&
+                      <img src={bean.image} alt="" className="h-24 w-24 rounded-xl object-cover bg-coffee-medium" loading="lazy" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="kc-card-brand">{bean.brand || "로스터리 원두"}</p>
+                      <h3>{bean.name}</h3>
+                      <p className="kc-price">{bean.price || "가격 정보 없음"}</p>
+                    </div>
+                  </div>
+                  {bean.flavor && <p className="mt-2 text-sm text-coffee-latte">{typeof bean.flavor === "string" ? bean.flavor : String(bean.flavor)}</p>}
+                  <div className="kc-benefit-details">
+                    관심 원두로 저장됨 · 판매 가능 여부는 판매처 기준
+                    <div className="kc-benefit-actions">
+                      <Link href={"/beans/" + encodeURIComponent(bean.id)}>원두 상세 보기</Link>
+                      <button type="button" onClick={() => handleRemove(bean.id)}>찜 해제</button>
+                    </div>
+                  </div>
+                </article>
+              ))}</div>}
+          <Link href="/beans" className="kc-text-link mt-6">다른 원두 찾아보기</Link>
+        </section>
+        <div className="kc-dark-notice">
+          <span>원두 변화를 놓치고 싶지 않다면 <Link href="/settings/alerts">알림 설정</Link>을 확인하세요. 실제 발송·결제는 별도 확인이 필요합니다.</span>
+        </div>
       </main>
       <AlertComponent />
     </>

@@ -56,14 +56,14 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
 
   return (
     <div 
-      className="card-coffee p-4 card-hover h-full flex flex-col cursor-pointer"
+      className="card-coffee kc-bean-card p-4 card-hover h-full flex flex-col cursor-pointer"
       onClick={() => onCardClick(bean)}
     >
-      <div className="relative mb-3">
+      <div className="relative mb-3 kc-bean-image-wrap">
         <img
           src={bean.image || "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=200&fit=crop"}
           alt={bean.name}
-          className="w-full h-44 rounded-xl object-cover bg-[var(--kc-raised)]"
+          className="w-full h-44 rounded-xl object-cover bg-[var(--kc-raised)] kc-bean-image"
           loading="lazy"
         />
         <button
@@ -73,7 +73,7 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
           }}
           type="button"
           aria-label={`${bean.name} ${isWishlisted ? "찜 해제" : "찜하기"}`}
-          className="absolute top-2 right-2 w-11 h-11 bg-coffee-medium border border-[var(--kc-line)] rounded-full flex items-center justify-center text-coffee-dark hover:scale-110 transition-transform shadow-lg"
+          className="absolute top-2 right-2 kc-bean-favorite w-11 h-11 bg-coffee-medium border border-[var(--kc-line)] rounded-full flex items-center justify-center text-coffee-dark hover:scale-110 transition-transform shadow-lg"
         >
           <span className="text-sm">
             <Heart size={18} aria-hidden="true" className={isWishlisted ? "fill-[var(--kc-danger)] text-[var(--kc-danger)]" : "text-coffee-latte"} />
@@ -430,6 +430,7 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
   return (
     <>
     <section className="kc-page">
+      <nav className="kc-dark-tabs" aria-label="원두 탐색 탭"><Link href="/changes">최근 변동</Link><Link href="/beans" aria-current="page">전체 원두</Link></nav>
       <header className="kc-page-heading"><p className="kc-eyebrow">KINELO COFFEE / DISCOVER</p><h1>취향에 맞는 원두 찾기</h1><p>브랜드와 향미를 비교하고, 마음에 드는 원두를 모아보세요.</p></header>
       
       {/* Search Bar */}
