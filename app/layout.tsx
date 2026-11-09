@@ -1,22 +1,9 @@
 import type { Metadata } from "next";
-import { Noto_Sans_KR, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import BottomNavigation from "./components/BottomNavigation";
 import CoffeeWebAnalytics from "@/components/CoffeeWebAnalytics";
 import UserButton from "./components/UserButton";
 import { Coffee } from "lucide-react";
-
-const notoSansKr = Noto_Sans_KR({
-  variable: "--font-noto-sans-kr",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
 
 const SITE_URL = "https://coffee-omega-lovat.vercel.app";
 
@@ -103,7 +90,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head />
-      <body className={`${notoSansKr.variable} ${playfair.variable} antialiased bg-coffee-dark text-coffee-light min-h-screen`} suppressHydrationWarning>
+      <body className="antialiased bg-coffee-dark text-coffee-light min-h-screen" suppressHydrationWarning>
         {/* Mobile Container */}
         <div className="mobile-container">
           {/* Header */}
