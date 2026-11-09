@@ -26,6 +26,7 @@ export default function MyBeansPage() {
   const [beans, setBeans] = useState<Bean[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { showAlert, AlertComponent } = useCustomAlert();
 
   // 로그인 상태 감지
@@ -39,15 +40,23 @@ export default function MyBeansPage() {
     if (!user) {
       setWishlist([]);
       setBeans([]);
+      setLoadError(null);
       setLoading(false);
       return;
     }
     const fetchWishlist = async () => {
       setLoading(true);
-      const snap = await getDocs(collection(db, `users/${user.uid}/favorites_beans`));
-      const ids = snap.docs.map(doc => doc.id);
-      setWishlist(ids);
-      setLoading(false);
+      setLoadError(null);
+      try {
+        const snap = await getDocs(collection(db, `users/${user.uid}/favorites_beans`));
+        setWishlist(snap.docs.map(doc => doc.id));
+      } catch (error) {
+        console.error("원두 보관함 불러오기 실패:", error);
+        setWishlist([]);
+        setLoadError("원두 보관함을 불러오지 못했습니다. 로그인과 연결 상태를 확인하고 다시 접속해주세요.");
+      } finally {
+        setLoading(false);
+      }
     };
     fetchWishlist();
   }, [user]);
@@ -59,13 +68,16 @@ export default function MyBeansPage() {
       return;
     }
     const fetchBeans = async () => {
-      const beansCol = collection(db, "beans");
-      const beanSnapshot = await getDocs(beansCol);
-      // 스프레드를 뒤에 두면 문서 데이터의 id 필드가 문서 ID를 덮어쓴다.
-      // beans 문서에는 id("비로소커피_클래식_200g")가 따로 들어 있어서, 찜/장바구니가
-      // 저장하는 문서 ID와 어긋나 필터가 항상 비게 된다.
-      const beanList = beanSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Bean[];
-      setBeans(beanList.filter(bean => wishlist.includes(bean.id)));
+      try {
+        const beanSnapshot = await getDocs(collection(db, "beans"));
+        // 문서 ID를 우선하며 데이터의 다른 ID로 덮어쓰지 않는다.
+        const beanList = beanSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Bean[];
+        setBeans(beanList.filter(bean => wishlist.includes(bean.id)));
+      } catch (error) {
+        console.error("찜한 원두 정보 불러오기 실패:", error);
+        setBeans([]);
+        setLoadError("저장한 원두 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+      }
     };
     fetchBeans();
   }, [user, wishlist]);
@@ -73,9 +85,14 @@ export default function MyBeansPage() {
   // 찜 해제(삭제)
   const handleRemove = async (beanId: string) => {
     if (!user) return;
-    await deleteDoc(doc(db, `users/${user.uid}/favorites_beans`, beanId));
-    setWishlist(wishlist.filter(id => id !== beanId));
-    setBeans(beans.filter(bean => bean.id !== beanId));
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/favorites_beans`, beanId));
+      setWishlist(wishlist.filter(id => id !== beanId));
+      setBeans(beans.filter(bean => bean.id !== beanId));
+    } catch (error) {
+      console.error("원두 찜 해제 실패:", error);
+      showAlert({ type: "error", title: "찜 해제 실패", message: "연결을 확인한 뒤 다시 시도해주세요.", confirmText: "확인" });
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -114,12 +131,13 @@ export default function MyBeansPage() {
         <Link href="/settings/alerts" className="mb-4 text-sm text-mocha underline">
           🔔 재입고 · 가격 알림 설정
         </Link>
+        {loadError && <p role="alert" className="mb-4 max-w-md px-4 text-sm text-red-300">{loadError}</p>}
         {loading ? (
           <div className="text-center py-10">로딩 중...</div>
         ) : !user ? (
           <div className="text-center text-coffee-light/80 py-10">Google 로그인 후 관심 원두를 저장할 수 있습니다. 로그인한 뒤 원두 찾기로 돌아가 찜해주세요.</div>
         ) : beans.length === 0 ? (
-          <div className="text-center text-brown-400 py-10">찜한 원두가 없습니다.</div>
+          <div className="text-center text-coffee-light/70 py-10">찜한 원두가 없습니다. 원두 찾기에서 하트를 눌러보세요.</div>
         ) : (
           <div className="w-full max-w-md flex flex-col gap-6">
             {beans.map(bean => (
