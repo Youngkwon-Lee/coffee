@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 :root {
+  /* Local/system font stacks: avoid downloading Google Fonts during each build.
+     If Noto Sans KR or Playfair is installed locally, the browser can use it;
+     otherwise fonts fall back without delaying or failing deployment. */
+  --font-noto-sans-kr: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+  --font-playfair: "Playfair Display", Georgia, "Times New Roman", serif;
   --background: hsl(24, 12%, 6%);
   --foreground: hsl(30, 20%, 96%);
   --muted: hsl(24, 8%, 11%);
