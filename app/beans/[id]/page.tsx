@@ -100,7 +100,7 @@ export async function generateMetadata({
     title,
     description: `${title} — ${bits.join(" · ")}. 재입고와 가격 변동을 알림으로 받아보세요.`,
     openGraph: {
-      title: `${title} | 원두레이더`,
+      title: `${title} | Kinelo Coffee · 원두레이더`,
       description: bits.join(" · "),
       images: bean.image ? [{ url: bean.image }] : undefined,
     },
@@ -124,76 +124,17 @@ export default async function BeanDetailPage({
   // 크롤한 값이라 script 태그에 주입하면 XSS 경로가 된다. 제목·설명 메타데이터로
   // 얻는 효과가 대부분이고, 굳이 넣으려면 별도 이스케이프 계층이 먼저 필요하다.
 
-  return (
-    <main className="min-h-screen p-4 pb-24 max-w-2xl mx-auto">
-      <nav className="mb-4 text-xs text-coffee-light/50">
-        <Link href="/beans" className="hover:underline">
-          원두 찾기
-        </Link>
-        <span className="mx-1.5">/</span>
-        <span>{bean.brand || "원두"}</span>
-      </nav>
-
-      <article className="card-coffee p-5 space-y-4">
-        <header>
-          {bean.brand && (
-            <p className="text-sm font-semibold text-[#c5a880]">{bean.brand}</p>
-          )}
-          {/* 레이아웃 헤더가 이미 h1("Coffee Tracker")을 쓴다. 한 문서에 h1이
-              둘이면 검색엔진이 주제를 잡기 어려우니 h2로 둔다. */}
-          <h2 className="mt-1 font-display text-2xl font-bold text-coffee-light">
-            {bean.name}
-          </h2>
-          <p className="mt-2 text-lg font-semibold text-coffee-light">
-            {priceText(bean.price)}
-          </p>
-        </header>
-
-        <dl className="space-y-2 text-sm border-t border-white/5 pt-4">
-          {flavors && (
-            <div className="flex gap-3">
-              <dt className="shrink-0 w-16 text-coffee-light/50">향미</dt>
-              <dd className="text-coffee-light/85">{flavors}</dd>
-            </div>
-          )}
-          {bean.roast && (
-            <div className="flex gap-3">
-              <dt className="shrink-0 w-16 text-coffee-light/50">로스팅</dt>
-              <dd className="text-coffee-light/85">{bean.roast}</dd>
-            </div>
-          )}
-        </dl>
-
-        {bean.desc && (
-          <p className="text-sm leading-relaxed text-coffee-light/70 border-t border-white/5 pt-4">
-            {bean.desc}
-          </p>
-        )}
-
-        <div className="flex flex-col sm:flex-row gap-2 border-t border-white/5 pt-4">
-          {buyUrl && (
-            <TrackedExternalLink
-              event="bean_store_open"
-              href={buyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="min-h-11 flex-1 inline-flex items-center justify-center rounded-lg bg-[#c5a880] font-semibold text-[#120f0d]"
-            >
-              로스터리에서 구매
-            </TrackedExternalLink>
-          )}
-          <Link
-            href="/beans"
-            className="min-h-11 flex-1 inline-flex items-center justify-center rounded-lg border border-white/10 font-semibold text-coffee-light/80"
-          >
-            다른 원두 보기
-          </Link>
-        </div>
-
-        <p className="text-xs text-coffee-light/40">
-          재입고와 가격 변동을 알림으로 받으려면 원두 찾기에서 찜해두세요.
-        </p>
-      </article>
-    </main>
-  );
+  return <main className="kc-page">
+    <nav aria-label="현재 위치" className="kc-caption mb-5"><Link href="/beans" className="kc-text-link">원두 탐색</Link><span aria-hidden="true"> / </span>{bean.brand || "원두"}</nav>
+    <article className="card-coffee kc-product">
+      <div>{bean.image ? <img src={bean.image} alt={bean.name} width={480} height={480} className="kc-product-image" loading="lazy" /> : <div className="kc-product-image flex items-center justify-center"><span className="kc-muted">원두 정보</span></div>}</div>
+      <div><header><p className="kc-eyebrow">{bean.brand || "KINELO COFFEE"}</p><h1>{bean.name}</h1><p className="kc-price">{priceText(bean.price)}</p></header>
+        <dl>{flavors && <div><dt>향미</dt><dd>{flavors}</dd></div>}{bean.roast && <div><dt>로스팅</dt><dd>{bean.roast}</dd></div>}</dl>
+        {bean.desc && <p className="kc-muted text-sm leading-7 mb-6">{bean.desc}</p>}
+        <div className="kc-actions">{buyUrl && <TrackedExternalLink event="bean_store_open" href={buyUrl} target="_blank" rel="noopener noreferrer" className="kc-button kc-button-primary">판매처에서 확인</TrackedExternalLink>}
+          <Link href="/beans" className="kc-button kc-button-secondary">다른 원두 보기</Link></div>
+        <p className="kc-caption mt-5">최종 가격·중량·재고는 판매처에서 확인해주세요. 관심 원두는 원두 탐색 화면에서 찜할 수 있습니다.</p>
+      </div>
+    </article>
+  </main>;
 }

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { db, auth } from "@/firebase";
 import { reportCoffeeFunnel } from "@/lib/reportCoffeeFunnel";
@@ -62,7 +63,8 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
         <img
           src={bean.image || "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=200&fit=crop"}
           alt={bean.name}
-          className="w-full h-32 rounded-lg object-cover"
+          className="w-full h-44 rounded-xl object-cover bg-[var(--kc-raised)]"
+          loading="lazy"
         />
         <button
           onClick={(e) => {
@@ -71,10 +73,10 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
           }}
           type="button"
           aria-label={`${bean.name} ${isWishlisted ? "찜 해제" : "찜하기"}`}
-          className="absolute top-2 right-2 w-8 h-8 bg-coffee-gold rounded-full flex items-center justify-center text-coffee-dark hover:scale-110 transition-transform shadow-lg"
+          className="absolute top-2 right-2 w-11 h-11 bg-coffee-medium border border-[var(--kc-line)] rounded-full flex items-center justify-center text-coffee-dark hover:scale-110 transition-transform shadow-lg"
         >
           <span className="text-sm">
-            {isWishlisted ? "❤️" : "🤍"}
+            <Heart size={18} aria-hidden="true" className={isWishlisted ? "fill-[var(--kc-danger)] text-[var(--kc-danger)]" : "text-coffee-latte"} />
           </span>
         </button>
         <div className="absolute top-2 left-2">
@@ -99,7 +101,7 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
           )}
         </h3>
         
-        <p className="text-sm text-coffee-light opacity-70 mb-2">
+        <p className="text-sm text-coffee-latte mb-2">
           {bean.brand && `${bean.brand} • `}{formatPrice(bean.price)}
         </p>
         
@@ -122,7 +124,7 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
         
         {/* Description */}
         {bean.desc && (
-          <p className="text-xs text-coffee-light opacity-60 line-clamp-2 mt-auto">
+          <p className="text-xs text-coffee-latte line-clamp-2 mt-auto">
             {typeof bean.desc === 'string' ? bean.desc : String(bean.desc)}
           </p>
         )}
@@ -131,7 +133,7 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
           <button
             type="button"
             onClick={() => onToggleCompare(bean)}
-            className={`text-xs px-2 py-1 rounded border ${inCompare ? "bg-green-700/30 border-green-400/40" : "bg-coffee-dark border-coffee-gold/30 text-coffee-light"}`}
+            className={`text-xs px-2 py-1 rounded border ${inCompare ? "bg-[var(--kc-raised)] border-coffee-gold text-coffee-gold" : "bg-coffee-dark border-coffee-gold/30 text-coffee-light"}`}
           >
             {inCompare ? "비교함 해제" : "비교함 담기"}
           </button>
@@ -427,14 +429,15 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
 
   return (
     <>
-    <section className="p-4">
-      <h2 className="section-heading">원두 탐색</h2>
+    <section className="kc-page">
+      <header className="kc-page-heading"><p className="kc-eyebrow">KINELO COFFEE / DISCOVER</p><h1>취향에 맞는 원두 찾기</h1><p>브랜드와 향미를 비교하고, 마음에 드는 원두를 모아보세요.</p></header>
       
       {/* Search Bar */}
       <div className="search-bar">
         <input
           type="text"
           placeholder="원두명, 브랜드, 향미 검색"
+          aria-label="원두명, 브랜드, 향미 검색"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="search-input"
@@ -503,7 +506,7 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
                 disabled={compareBeans.filter((b) => !!b.link).length === 0}
                 className="text-xs px-2 py-1 rounded border border-coffee-gold/30 text-coffee-light disabled:opacity-50"
               >
-                선택항목 일괄 구매
+                선택한 판매처 열기
               </button>
               <button
                 type="button"
@@ -528,11 +531,11 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
 
       {/* Results count */}
       <div className="mb-4 flex justify-between items-center">
-        <p className="text-sm text-coffee-light opacity-70">
+        <p className="text-sm text-coffee-latte">
           총 {filteredBeans.length}개의 원두가 있습니다
         </p>
         {totalPages > 1 && (
-          <p className="text-sm text-coffee-light opacity-70">
+          <p className="text-sm text-coffee-latte">
             {currentPage} / {totalPages} 페이지
           </p>
         )}

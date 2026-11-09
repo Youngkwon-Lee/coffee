@@ -154,18 +154,18 @@ export default function OpenMapModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-3xl h-[80vh] flex flex-col rounded-2xl border border-white/10 bg-[#120f0d] overflow-hidden">
-        <div className="flex items-start justify-between p-4 border-b border-white/5">
+      <div className="w-full max-w-3xl h-[80vh] flex flex-col rounded-2xl border border-[var(--kc-line)] bg-coffee-dark overflow-hidden">
+        <div className="flex items-start justify-between p-4 border-b border-[var(--kc-line)]">
           <div>
-            <h3 className="font-display text-lg font-bold text-[#f8f6f3]">카페 지도</h3>
-            <p className="mt-0.5 text-xs text-[#f8f6f3]/50">
+            <h3 className="font-display text-lg font-bold text-coffee-light">카페 지도</h3>
+            <p className="mt-0.5 text-xs text-coffee-latte">
               총 {cafes.length}개 카페{failed ? " · 지도를 불러오지 못해 목록으로 표시합니다" : ""}
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="닫기"
-            className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-[#f8f6f3]/60 hover:bg-white/5"
+            className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-coffee-latte hover:bg-white/5"
           >
             <X className="w-5 h-5" />
           </button>
@@ -174,9 +174,9 @@ export default function OpenMapModal({
         {failed ? (
           <ul className="flex-1 overflow-y-auto p-4 space-y-2">
             {cafes.map((c) => (
-              <li key={c.id} className="rounded-lg bg-white/[0.03] border border-white/5 p-3">
-                <div className="text-sm font-semibold text-[#f8f6f3]">{c.name}</div>
-                <div className="mt-0.5 text-xs text-[#f8f6f3]/55">{c.address}</div>
+              <li key={c.id} className="rounded-lg bg-coffee-medium border border-[var(--kc-line)] p-3">
+                <div className="text-sm font-semibold text-coffee-light">{c.name}</div>
+                <div className="mt-0.5 text-xs text-coffee-latte">{c.address}</div>
               </li>
             ))}
           </ul>
@@ -188,19 +188,19 @@ export default function OpenMapModal({
                 크기를 직접 준다. */}
             <div ref={containerRef} className="w-full h-full" />
             {picked && (
-              <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/10 bg-[#120f0d]/95 backdrop-blur p-3 flex items-center gap-3">
+              <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-[var(--kc-line)] bg-coffee-dark/95 backdrop-blur p-3 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => goTo(idx - 1)}
                   aria-label="이전 카페"
-                  className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-lg text-[#c5a880] hover:bg-white/5"
+                  className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-lg text-coffee-gold hover:bg-white/5"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <div className="min-w-0 flex-1 text-center">
-                  <div className="truncate text-sm font-semibold text-[#f8f6f3]">{picked.name}</div>
-                  <div className="truncate mt-0.5 text-xs text-[#f8f6f3]/55">{picked.address}</div>
-                  <div className="mt-1 text-[10px] text-[#f8f6f3]/40">
+                  <div className="truncate text-sm font-semibold text-coffee-light">{picked.name}</div>
+                  <div className="truncate mt-0.5 text-xs text-coffee-latte">{picked.address}</div>
+                  <div className="mt-1 text-[10px] text-coffee-latte">
                     {idx + 1} / {cafes.length}
                   </div>
                 </div>
@@ -208,7 +208,7 @@ export default function OpenMapModal({
                   type="button"
                   onClick={() => goTo(idx + 1)}
                   aria-label="다음 카페"
-                  className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-lg text-[#c5a880] hover:bg-white/5"
+                  className="min-w-11 min-h-11 shrink-0 inline-flex items-center justify-center rounded-lg text-coffee-gold hover:bg-white/5"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>

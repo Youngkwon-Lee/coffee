@@ -2,12 +2,12 @@ import Link from 'next/link';
 import { Bell, ArrowRight } from 'lucide-react';
 import { PREMIUM_PRICE_KRW, PREMIUM_PERIOD_DAYS } from '@/lib/premium';
 
-export const metadata = { title: '원두레이더 프리미엄 | 30일 알림 파일럿', description: '여러 로스터리의 관심 원두 변화를 한곳에서. 무료 알림부터 시작하는 수동 결제 파일럿.' };
+export const metadata = { title: '알림 서비스 · 30일 파일럿', description: '여러 로스터리의 관심 원두 변화를 한곳에서. 무료 알림부터 시작하는 수동 결제 파일럿.' };
 
 export default function PremiumPage() {
-  return <main className="mx-auto max-w-xl px-5 pt-24 pb-28 text-coffee-light">
+  return <main className="kc-page max-w-2xl text-coffee-light">
     <header>
-      <p className="mb-4 flex items-center gap-2 text-sm text-coffee-gold"><Bell size={18} aria-hidden="true" /> 원두레이더 · 유료 파일럿</p>
+      <p className="mb-4 flex items-center gap-2 text-sm text-coffee-gold"><Bell size={18} aria-hidden="true" /> Kinelo Coffee · 알림 서비스</p>
       <h1 className="text-3xl font-bold leading-snug tracking-tight">관심 원두의 변화,<br />매일 한 번 확인합니다.</h1>
       <p className="mt-4 text-base leading-7 text-coffee-latte">로스터리마다 다시 찾아보는 수고를 줄이세요. 즐겨찾기한 원두가 판매페이지에 다시 나타나거나 가격이 내려가면 텔레그램으로 안내합니다.</p>
     </header>

@@ -76,7 +76,9 @@ export default function UserButton() {
       <div className="relative user-button-container">
         <button
           onClick={() => setShowDropdown(!showDropdown)}
-          className="flex items-center space-x-2 text-coffee-light hover:text-coffee-gold transition-colors"
+          aria-label="계정 메뉴"
+          aria-expanded={showDropdown}
+          className="kc-account-button flex items-center space-x-2 text-coffee-light hover:text-coffee-gold transition-colors"
         >
           {user ? (
             <>
@@ -117,15 +119,15 @@ export default function UserButton() {
 
         {/* 드롭다운 메뉴 */}
         {showDropdown && (
-          <div className="absolute right-0 top-full mt-2 w-48 bg-[#1c1816]/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/5 py-2 z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-2 w-48 bg-coffee-medium/95 backdrop-blur-xl rounded-xl shadow-2xl border border-[var(--kc-line)] py-2 z-50 overflow-hidden">
             {user ? (
               <>
                 {/* 사용자 정보 */}
-                <div className="px-4 py-3 border-b border-white/5">
+                <div className="px-4 py-3 border-b border-[var(--kc-line)]">
                   <p className="text-coffee-light font-medium truncate">
                     {user.displayName || '사용자'}
                   </p>
-                  <p className="text-coffee-light/60 text-xs truncate mt-0.5">
+                  <p className="text-coffee-latte text-xs truncate mt-0.5">
                     {user.email}
                   </p>
                 </div>
@@ -136,17 +138,17 @@ export default function UserButton() {
                     router.push('/history');
                     setShowDropdown(false);
                   }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light/80 hover:bg-white/5 hover:text-[#c5a880] transition-colors flex items-center space-x-2.5"
+                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light hover:bg-white/5 hover:text-coffee-gold transition-colors flex items-center space-x-2.5"
                 >
-                  <BarChart3 className="w-4 h-4 text-[#c5a880]/80" strokeWidth={1.8} />
+                  <BarChart3 className="w-4 h-4 text-coffee-gold/80" strokeWidth={1.8} />
                   <span>내 기록</span>
                 </button>
 
                 <button
                   onClick={handleLogout}
-                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light/80 hover:bg-red-500/10 hover:text-red-400 transition-colors flex items-center space-x-2.5"
+                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light hover:bg-red-500/10 hover:text-[var(--kc-danger)] transition-colors flex items-center space-x-2.5"
                 >
-                  <LogOut className="w-4 h-4 text-red-400/80" strokeWidth={1.8} />
+                  <LogOut className="w-4 h-4 text-[var(--kc-danger)]" strokeWidth={1.8} />
                   <span>로그아웃</span>
                 </button>
               </>
@@ -154,9 +156,9 @@ export default function UserButton() {
               <>
                 <button
                   onClick={handleLogin}
-                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light/80 hover:bg-white/5 hover:text-[#c5a880] transition-colors flex items-center space-x-2.5"
+                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light hover:bg-white/5 hover:text-coffee-gold transition-colors flex items-center space-x-2.5"
                 >
-                  <KeyRound className="w-4 h-4 text-[#c5a880]/80" strokeWidth={1.8} />
+                  <KeyRound className="w-4 h-4 text-coffee-gold/80" strokeWidth={1.8} />
                   <span>로그인</span>
                 </button>
 
@@ -165,9 +167,9 @@ export default function UserButton() {
                     router.push('/record/photo');
                     setShowDropdown(false);
                   }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light/80 hover:bg-white/5 hover:text-[#c5a880] transition-colors flex items-center space-x-2.5"
+                  className="w-full px-4 py-2.5 text-left text-sm text-coffee-light hover:bg-white/5 hover:text-coffee-gold transition-colors flex items-center space-x-2.5"
                 >
-                  <Sparkles className="w-4 h-4 text-[#c5a880]/80" strokeWidth={1.8} />
+                  <Sparkles className="w-4 h-4 text-coffee-gold/80" strokeWidth={1.8} />
                   <span>무료 체험</span>
                 </button>
               </>

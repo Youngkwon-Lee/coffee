@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import BottomNavigation from "./components/BottomNavigation";
+import "@/styles/kinelo-coffee.css";
+import BottomNavigation, { DesktopCoffeeNavigation } from "./components/BottomNavigation";
 import CoffeeWebAnalytics from "@/components/CoffeeWebAnalytics";
 import UserButton from "./components/UserButton";
-import { Coffee } from "lucide-react";
+import KineloCoffeeBrand from "@/components/KineloCoffeeBrand";
 
 const SITE_URL = "https://coffee-omega-lovat.vercel.app";
 
@@ -37,11 +38,11 @@ const verification: Metadata["verification"] = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "원두레이더 — 국내 로스터리 원두 신상·재입고 알림",
-    template: "%s | 원두레이더",
+    default: "Kinelo Coffee | 원두레이더 · 원두 탐색",
+    template: "%s | Kinelo Coffee",
   },
   description:
-    "프릳츠·앤트러사이트·테라로사 등 국내 스페셜티 로스터리 17곳의 원두를 매일 수집합니다. 찜한 원두가 재입고되거나 가격이 바뀌면 텔레그램으로 알려드립니다.",
+    "Kinelo Coffee에서 국내 로스터리 원두를 비교하고 취향을 모아보세요. 원두레이더로 새로 확인된 상품과 판매 목록 변동을 살펴볼 수 있습니다.",
   keywords: [
     "원두", "스페셜티 커피", "원두 재입고", "원두 신상", "로스터리",
     "프릳츠", "앤트러사이트", "테라로사", "커피리브레", "모모스커피",
@@ -54,10 +55,10 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ko_KR",
     url: SITE_URL,
-    siteName: "원두레이더",
-    title: "원두레이더 — 국내 로스터리 원두 신상·재입고 알림",
+    siteName: "Kinelo Coffee",
+    title: "Kinelo Coffee — 취향을 발견하는 커피 생활",
     description:
-      "로스터리 17곳의 원두를 매일 수집합니다. 찜한 원두가 재입고되면 텔레그램으로 알려드립니다.",
+      "원두 탐색, 원두레이더, 나의 커피 기록. 여러 로스터리의 원두를 한곳에서 비교하세요.",
     // 미리보기 이미지가 없으면 텔레그램·카톡에서 링크가 맨 텍스트로 보인다.
     // 지금 유입 경로가 텔레그램 채널이라 체감이 크다.
     images: [
@@ -65,19 +66,19 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "원두레이더 — 국내 로스터리 원두 신상·재입고 알림",
+        alt: "Kinelo Coffee — 원두레이더와 원두 탐색",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "원두레이더 — 원두 신상·재입고 알림",
-    description: "국내 스페셜티 로스터리 17곳의 원두를 매일 수집합니다.",
+    title: "Kinelo Coffee · 원두레이더",
+    description: "국내 로스터리 원두를 비교하고 취향을 모아보세요.",
     images: ["/og-image.png"],
   },
   robots: { index: true, follow: true },
   icons: {
-    icon: '/favicon.ico',
+    icon: [{ url: "/kinelo-coffee-symbol.svg", type: "image/svg+xml" }, { url: "/favicon.ico", sizes: "32x32" }],
     apple: '/icon-192.png',
   },
 };
@@ -90,30 +91,15 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head />
-      <body className="antialiased bg-coffee-dark text-coffee-light min-h-screen" suppressHydrationWarning>
-        {/* Mobile Container */}
+      <body className="kinelo-coffee antialiased" suppressHydrationWarning>
+        <a href="#coffee-content" className="kc-skip-link">본문으로 바로가기</a>
         <div className="mobile-container">
-          {/* Header */}
-          <header className="header-coffee">
-            <div className="flex items-center space-x-3" suppressHydrationWarning>
-              <div className="header-logo">
-                <Coffee className="w-5 h-5 text-[#120f0d]" strokeWidth={1.8} />
-              </div>
-              {/* 모든 페이지의 h1이다. 브랜드명(원두레이더)과 달라선 안 된다 —
-                  제목·OG·텔레그램 채널은 원두레이더인데 화면만 Coffee Tracker였다. */}
-              <h1 className="text-lg font-semibold text-coffee-light font-cafe-heading">원두레이더</h1>
-            </div>
-            <div className="flex items-center space-x-3">
-              <UserButton />
-            </div>
+          <header className="kc-header">
+            <KineloCoffeeBrand />
+            <DesktopCoffeeNavigation />
+            <UserButton />
           </header>
-
-          {/* Main Content */}
-          <main className="main-content">
-            {children}
-          </main>
-
-          {/* Bottom Navigation with Integrated FAB */}
+          <div id="coffee-content" className="main-content" tabIndex={-1}>{children}</div>
           <BottomNavigation />
           <CoffeeWebAnalytics />
         </div>
