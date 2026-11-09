@@ -15,7 +15,7 @@ import { ChangesViewSignal, TrackedLink, TrackedExternalLink } from "@/component
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "이번 주 원두 변동 — 가격 인하·새로 확인된 원두",
+  title: "원두레이더 — 이번 주 원두 변동",
   description:
     "국내 로스터리의 최근 7일간 가격 인하, 새로 확인된 원두, 판매 목록 재등장을 한곳에서 확인하세요. 실제 판매 가격과 재고는 판매처 기준입니다.",
   alternates: { canonical: "/changes" },
@@ -179,116 +179,26 @@ async function loadChanges(): Promise<{ rows: ChangeEntry[]; error: boolean }> {
 
 export default async function ChangesPage() {
   const { rows, error } = await loadChanges();
-
-  return (
-    <main className="mx-auto max-w-2xl px-4 pb-28 pt-7 text-coffee-light">
-      <ChangesViewSignal />
-      <header className="mb-7">
-        <p className="mb-2 text-xs font-semibold tracking-wide text-coffee-gold">
-          원두레이더 / 최근 7일
-        </p>
-        <h2 className="text-2xl font-bold">이번 주 원두 변동</h2>
-        <p className="mt-3 text-sm leading-6 text-coffee-light/70">
-          국내 로스터리에서 새로 확인된 상품, 가격 인하, 판매 목록 재등장을
-          수집 기록과 현재 원두 목록을 대조해 보여드립니다.
-        </p>
-      </header>
-
-      <div className="mb-6 flex flex-wrap gap-2">
-        <Link
-          href="/beans"
-          className="inline-flex min-h-11 items-center rounded-xl border border-white/15 px-4 text-sm font-medium"
-        >
-          전체 원두 비교
-        </Link>
-        <TrackedLink
-          event="alerts_interest"
-          href="/settings/alerts"
-          className="inline-flex min-h-11 items-center rounded-xl bg-coffee-gold px-4 text-sm font-semibold text-coffee-dark"
-        >
-          무료 알림 연결하기
-        </TrackedLink>
-      </div>
-
-      {error ? (
-        <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-          <h3 className="font-semibold">최근 변동을 불러오지 못했습니다.</h3>
-          <p className="mt-2 text-sm text-coffee-light/65">
-            일시적인 조회 오류일 수 있습니다. 원두 전체 목록은 별도로 확인할 수 있습니다.
-          </p>
-        </section>
-      ) : rows.length === 0 ? (
-        <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-          <h3 className="font-semibold">최근 7일간 표시할 변동이 없습니다.</h3>
-          <p className="mt-2 text-sm text-coffee-light/65">
-            변화가 없거나 현재 원두 목록과 교차 확인되지 않은 변경은 표시하지 않습니다.
-          </p>
-        </section>
-      ) : (
-        <section aria-label="최근 원두 변동" className="space-y-3">
-          {rows.map((row) => (
-            <article
-              key={row.id}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="rounded-full bg-coffee-gold/10 px-2.5 py-1 text-xs font-semibold text-coffee-gold">
-                  {labelFor(row.kind)}
-                </span>
-                <time
-                  dateTime={row.detectedAt.toISOString()}
-                  className="text-xs text-coffee-light/45"
-                >
-                  {formatKst(row.detectedAt)}
-                </time>
-              </div>
-              <p className="mt-4 text-sm text-coffee-light/60">{row.brand}</p>
-              <h3 className="mt-1 text-lg font-semibold">{row.name}</h3>
-              {row.kind === "price_drop" ? (
-                <p className="mt-2 text-sm">
-                  <span className="text-coffee-light/45 line-through">
-                    {formatPrice(row.oldPrice)}
-                  </span>
-                  <span className="ml-2 font-semibold text-coffee-gold">
-                    {formatPrice(row.price)}
-                  </span>
-                </p>
-              ) : (
-                <p className="mt-2 text-sm text-coffee-light/70">
-                  현재 목록에 표시된 가격: {formatPrice(row.price)}
-                </p>
-              )}
-              <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                <TrackedLink
-                  event="change_detail_open"
-                  href={`/beans/${encodeURIComponent(row.beanId)}`}
-                  className="font-semibold text-coffee-gold underline underline-offset-4"
-                >
-                  원두 상세
-                </TrackedLink>
-                {row.sourceUrl && (
-                  <TrackedExternalLink
-                    event="changes_store_open"
-                    href={row.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-coffee-light/80 underline underline-offset-4"
-                  >
-                    판매처에서 확인
-                  </TrackedExternalLink>
-                )}
-              </div>
-            </article>
-          ))}
-        </section>
-      )}
-
-      <p className="mt-7 text-xs leading-6 text-coffee-light/55">
-        수집 결과는 실시간 재고가 아닙니다. 새로 확인된 상품은 신규 출시를,
-        판매 목록 재등장은 실제 재입고를 보장하지 않습니다. 가격은
-        중량·선택 옵션에 따라 달라질 수 있으므로 최종 가격과 판매 여부는
-        로스터리 상품 페이지에서 확인하세요.
-      </p>
-    </main>
-  );
+  return <main className="kc-page">
+    <ChangesViewSignal />
+    <header className="kc-feed-hero">
+      <div><p className="kc-eyebrow">KINELO COFFEE / BEAN RADAR</p><h1>원두레이더</h1><p>이번 주 달라진 원두를 만나보세요.</p></div>
+      <div className="kc-feed-count"><strong>{error ? "—" : rows.length}</strong><span>표시된 변동</span></div>
+    </header>
+    <div className="kc-feed-toolbar"><span className="kc-pill">최근 7일 · 판매 목록 기준</span>
+      <div className="kc-actions"><Link href="/beans" className="kc-text-link">전체 원두 비교</Link>
+        <TrackedLink event="alerts_interest" href="/settings/alerts" className="kc-button kc-button-secondary">알림 설정</TrackedLink></div>
+    </div>
+    {error ? <section className="kc-empty" role="alert"><h2>최근 변동을 불러오지 못했습니다.</h2><p>잠시 후 다시 접속하거나 전체 원두 목록을 확인해주세요.</p><Link href="/beans" className="kc-text-link">원두 목록 보기</Link></section>
+      : rows.length === 0 ? <section className="kc-empty"><h2>최근 7일간 표시할 변동이 없습니다.</h2><p>변화가 없거나 현재 원두 목록과 교차 확인되지 않은 변경은 표시하지 않습니다.</p><Link href="/beans" className="kc-text-link">관심 원두 찾아보기</Link></section>
+      : <section aria-label="최근 원두 변동" className="kc-feed-grid">{rows.map(row => <article key={row.id} className="kc-change-card">
+        <span className="kc-badge">{labelFor(row.kind)}</span>
+        <time dateTime={row.detectedAt.toISOString()}>{formatKst(row.detectedAt)} KST</time>
+        <p className="kc-card-brand">{row.brand}</p><h2>{row.name}</h2>
+        <p className="kc-price">{row.kind === "price_drop" && <del>{formatPrice(row.oldPrice)}</del>}{formatPrice(row.price)}</p>
+        <div className="kc-card-actions"><TrackedLink event="change_detail_open" href={`/beans/${encodeURIComponent(row.beanId)}`} className="kc-text-link">원두 상세</TrackedLink>
+          {row.sourceUrl && <TrackedExternalLink event="changes_store_open" href={row.sourceUrl} target="_blank" rel="noopener noreferrer" className="kc-text-link">판매처에서 확인</TrackedExternalLink>}</div>
+      </article>)}</section>}
+    <p className="kc-caption mt-7">수집 결과는 실시간 재고가 아닙니다. 새로 확인된 상품은 신규 출시를, 판매 목록 재등장은 실제 재입고를 보장하지 않습니다. 가격은 중량·선택 옵션에 따라 달라질 수 있으므로 최종 가격과 판매 여부는 로스터리 상품 페이지에서 확인하세요.</p>
+  </main>;
 }

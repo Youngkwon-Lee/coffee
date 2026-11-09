@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, ExternalLink, Heart, Star, Coffee } from "lucide-react";
+import { X, ExternalLink, Heart, Coffee } from "lucide-react";
 import { reportCoffeeFunnel } from "@/lib/reportCoffeeFunnel";
 import { normalizeRoastLevel, getRoastDisplayText } from "../../src/utils/roastMapping";
 import { extractOrigin, getOriginFlag } from "../../src/utils/originMapping";
@@ -92,6 +92,7 @@ export default function BeanDetailModal({
           <h2 className="text-lg font-semibold text-coffee-light">원두 상세정보</h2>
           <button
             onClick={onClose}
+            aria-label="원두 상세 닫기"
             className="p-2 rounded-full hover:bg-coffee-medium transition-colors"
           >
             <X className="w-5 h-5 text-coffee-light" />
@@ -114,7 +115,7 @@ export default function BeanDetailModal({
               </div>
               <button
                 onClick={() => onToggleWishlist(bean.id || bean.name)}
-                className="absolute top-3 right-3 p-2 bg-coffee-dark bg-opacity-80 rounded-full hover:scale-110 transition-transform"
+                className="absolute top-3 right-3 p-2 bg-coffee-medium border border-[var(--kc-line)] rounded-full hover:scale-110 transition-transform"
               >
                 <Heart 
                   className={`w-5 h-5 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-coffee-light'}`} 
@@ -137,14 +138,7 @@ export default function BeanDetailModal({
                 <span className="text-lg font-semibold text-coffee-light">
                   {formatPrice(bean.price)}
                 </span>
-                <div className="flex items-center space-x-1">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <Star 
-                      key={star} 
-                      className="w-4 h-4 fill-coffee-gold text-coffee-gold" 
-                    />
-                  ))}
-                </div>
+
               </div>
             </div>
           </div>
@@ -188,13 +182,13 @@ export default function BeanDetailModal({
           <div className="mb-6 space-y-3">
             {bean.category && (
               <div className="flex justify-between text-sm">
-                <span className="text-coffee-light opacity-70">카테고리</span>
+                <span className="text-coffee-latte">카테고리</span>
                 <span className="text-coffee-light">{bean.category}</span>
               </div>
             )}
             {bean.createdAt && (
               <div className="flex justify-between text-sm">
-                <span className="text-coffee-light opacity-70">등록일</span>
+                <span className="text-coffee-latte">등록일</span>
                 <span className="text-coffee-light">
                   {new Date(bean.createdAt).toLocaleDateString('ko-KR')}
                 </span>
@@ -218,14 +212,14 @@ export default function BeanDetailModal({
                 className="flex-2 btn-primary flex items-center justify-center space-x-2"
               >
                 <ExternalLink className="w-4 h-4" />
-                <span>구매하기</span>
+                <span>판매처에서 확인</span>
               </button>
             )}
           </div>
 
           {!bean.link && (
             <div className="mt-3 p-3 bg-coffee-medium rounded-lg">
-              <p className="text-coffee-light opacity-70 text-sm text-center">
+              <p className="text-coffee-latte text-sm text-center">
                 구매 링크가 제공되지 않은 상품입니다
               </p>
             </div>

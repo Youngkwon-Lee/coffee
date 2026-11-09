@@ -59,7 +59,7 @@ export default function LoginPage() {
       showAlert({
         type: 'success',
         title: '로그인 성공!',
-        message: `환영합니다, ${user.displayName}님!\n\n이제 무제한으로 AI 분석을 이용하실 수 있어요! ☕`,
+        message: `환영합니다, ${user.displayName}님!\n\n관심 원두를 저장하고 커피 기록을 이어가세요.`,
         confirmText: '시작하기'
       });
 
@@ -134,7 +134,7 @@ export default function LoginPage() {
       showAlert({
         type: 'success',
         title: isLogin ? '로그인 성공!' : '회원가입 성공!',
-        message: `환영합니다!\n\n이제 무제한으로 AI 분석을 이용하실 수 있어요! ☕`,
+        message: `환영합니다!\n\n관심 원두를 저장하고 커피 기록을 이어가세요.`,
         confirmText: '시작하기'
       });
 
@@ -222,10 +222,10 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-coffee-light mb-2">
-            커피 트래커
+            Kinelo Coffee
           </h1>
-          <p className="text-coffee-light/60 text-sm">
-            AI로 더 스마트하게 커피를 기록하세요
+          <p className="text-coffee-latte text-sm">
+            관심 원두와 나의 기록을 한곳에 모으세요
           </p>
         </div>
 
@@ -237,7 +237,7 @@ export default function LoginPage() {
               <h3 className="text-coffee-light font-semibold text-sm">
                 체험 데이터가 있습니다!
               </h3>
-              <p className="text-coffee-light/70 text-xs mt-0.5">
+              <p className="text-coffee-latte text-xs mt-0.5">
                 로그인하시면 분석한 커피 정보를 저장할 수 있어요
               </p>
             </div>
@@ -250,20 +250,20 @@ export default function LoginPage() {
           <div className="flex rounded-xl bg-coffee-dark/50 border border-coffee-gold/10 p-1 mb-6">
             <button
               onClick={() => setLoginMethod('social')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-300 ${
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-300 ${
                 loginMethod === 'social'
                   ? 'bg-coffee-gold text-coffee-dark font-semibold shadow-md shadow-coffee-gold/10'
-                  : 'text-coffee-light/60 hover:text-coffee-gold hover:bg-white/[0.02]'
+                  : 'text-coffee-latte hover:text-coffee-gold hover:bg-coffee-medium'
               }`}
             >
               소셜 로그인
             </button>
             <button
               onClick={() => setLoginMethod('email')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-300 ${
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-300 ${
                 loginMethod === 'email'
                   ? 'bg-coffee-gold text-coffee-dark font-semibold shadow-md shadow-coffee-gold/10'
-                  : 'text-coffee-light/60 hover:text-coffee-gold hover:bg-white/[0.02]'
+                  : 'text-coffee-latte hover:text-coffee-gold hover:bg-coffee-medium'
               }`}
             >
               이메일 로그인
@@ -277,7 +277,7 @@ export default function LoginPage() {
               <button
                 onClick={handleGoogleSignIn}
                 disabled={isSigningIn}
-                className="w-full border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] text-white/90 hover:text-white font-medium py-3.5 px-6 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group hover:-translate-y-0.5"
+                className="w-full border border-[var(--kc-line)] bg-coffee-medium hover:bg-white/[0.06] text-coffee-light hover:text-coffee-gold font-medium py-3.5 px-6 rounded-xl flex items-center justify-center gap-3 transition-colors duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group hover:-translate-y-0.5"
               >
                 {isSigningIn ? (
                   <div className="w-5 h-5 border-2 border-white/40 border-t-transparent rounded-full animate-spin"></div>
@@ -298,7 +298,7 @@ export default function LoginPage() {
               <button
                 onClick={handleKakaoLogin}
                 disabled={isSigningIn}
-                className="w-full border border-[#FEE500]/25 bg-[#FEE500]/[0.03] hover:bg-[#FEE500]/[0.08] text-[#FEE500]/90 hover:text-[#FEE500] font-medium py-3.5 px-6 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group hover:-translate-y-0.5"
+                className="w-full border border-[#FEE500]/25 bg-[#FEE500]/[0.03] hover:bg-[#FEE500]/[0.08] text-[#3C1E1E] hover:text-[#3C1E1E] font-medium py-3.5 px-6 rounded-xl flex items-center justify-center gap-3 transition-colors duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group hover:-translate-y-0.5"
               >
                 <svg className="w-5 h-5 transition-transform group-hover:scale-110" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.557 1.707 4.8 4.27 6.054-.265.98-.957 3.535-1.096 4.09-.17.68.25.672.525.49 2.148-1.427 4.148-2.775 4.148-2.775.378.077.77.12 1.153.12 4.97 0 9-3.186 9-7.115C21 6.185 16.97 3 12 3z"/>
@@ -314,20 +314,20 @@ export default function LoginPage() {
                 <div className="flex bg-coffee-dark/50 border border-coffee-gold/10 rounded-lg p-1">
                   <button
                     onClick={() => setIsLogin(true)}
-                    className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all duration-300 ${
+                    className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors duration-300 ${
                       isLogin
                         ? 'bg-coffee-gold text-coffee-dark font-semibold'
-                        : 'text-coffee-light/60 hover:text-coffee-gold'
+                        : 'text-coffee-latte hover:text-coffee-gold'
                     }`}
                   >
                     로그인
                   </button>
                   <button
                     onClick={() => setIsLogin(false)}
-                    className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all duration-300 ${
+                    className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors duration-300 ${
                       !isLogin
                         ? 'bg-coffee-gold text-coffee-dark font-semibold'
-                        : 'text-coffee-light/60 hover:text-coffee-gold'
+                        : 'text-coffee-latte hover:text-coffee-gold'
                     }`}
                   >
                     회원가입
@@ -344,7 +344,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-coffee-dark/60 border border-coffee-gold/20 rounded-xl text-coffee-light placeholder-coffee-light/30 focus:outline-none focus:border-coffee-gold/60 focus:ring-1 focus:ring-coffee-gold/40 transition-all duration-300 text-sm"
+                    className="w-full px-4 py-3 bg-coffee-dark/60 border border-coffee-gold/20 rounded-xl text-coffee-light placeholder-coffee-light/30 focus:outline-none focus:border-coffee-gold/60 focus:ring-1 focus:ring-coffee-gold/40 transition-colors duration-300 text-sm"
                   />
                 </div>
                 <div>
@@ -354,7 +354,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-coffee-dark/60 border border-coffee-gold/20 rounded-xl text-coffee-light placeholder-coffee-light/30 focus:outline-none focus:border-coffee-gold/60 focus:ring-1 focus:ring-coffee-gold/40 transition-all duration-300 text-sm"
+                    className="w-full px-4 py-3 bg-coffee-dark/60 border border-coffee-gold/20 rounded-xl text-coffee-light placeholder-coffee-light/30 focus:outline-none focus:border-coffee-gold/60 focus:ring-1 focus:ring-coffee-gold/40 transition-colors duration-300 text-sm"
                   />
                 </div>
                 {!isLogin && (
@@ -365,14 +365,14 @@ export default function LoginPage() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
-                      className="w-full px-4 py-3 bg-coffee-dark/60 border border-coffee-gold/20 rounded-xl text-coffee-light placeholder-coffee-light/30 focus:outline-none focus:border-coffee-gold/60 focus:ring-1 focus:ring-coffee-gold/40 transition-all duration-300 text-sm"
+                      className="w-full px-4 py-3 bg-coffee-dark/60 border border-coffee-gold/20 rounded-xl text-coffee-light placeholder-coffee-light/30 focus:outline-none focus:border-coffee-gold/60 focus:ring-1 focus:ring-coffee-gold/40 transition-colors duration-300 text-sm"
                     />
                   </div>
                 )}
                 <button
                   type="submit"
                   disabled={isSigningIn}
-                  className="w-full bg-coffee-gold hover:bg-coffee-gold/90 text-coffee-dark font-semibold py-3.5 px-6 rounded-xl transition-all duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 shadow-md shadow-coffee-gold/10 text-sm"
+                  className="w-full bg-coffee-gold hover:bg-coffee-gold/90 text-coffee-dark font-semibold py-3.5 px-6 rounded-xl transition-colors duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 shadow-md shadow-coffee-gold/10 text-sm"
                 >
                   {isSigningIn ? '처리 중...' : (isLogin ? '로그인' : '회원가입')}
                 </button>
@@ -386,25 +386,25 @@ export default function LoginPage() {
               로그인하면 이런 혜택이 있어요:
             </h3>
             <div className="grid grid-cols-1 gap-2.5">
-              <div className="flex items-center gap-3 text-coffee-light/75 text-sm">
+              <div className="flex items-center gap-3 text-coffee-light text-sm">
                 <div className="w-7 h-7 rounded-lg bg-coffee-gold/5 border border-coffee-gold/15 flex items-center justify-center text-coffee-gold shrink-0">
                   <Cpu className="w-4 h-4 stroke-[1.8]" />
                 </div>
                 <span>AI 분석 무제한 이용</span>
               </div>
-              <div className="flex items-center gap-3 text-coffee-light/75 text-sm">
+              <div className="flex items-center gap-3 text-coffee-light text-sm">
                 <div className="w-7 h-7 rounded-lg bg-coffee-gold/5 border border-coffee-gold/15 flex items-center justify-center text-coffee-gold shrink-0">
                   <Database className="w-4 h-4 stroke-[1.8]" />
                 </div>
                 <span>커피 기록 자동 저장</span>
               </div>
-              <div className="flex items-center gap-3 text-coffee-light/75 text-sm">
+              <div className="flex items-center gap-3 text-coffee-light text-sm">
                 <div className="w-7 h-7 rounded-lg bg-coffee-gold/5 border border-coffee-gold/15 flex items-center justify-center text-coffee-gold shrink-0">
                   <BarChart3 className="w-4 h-4 stroke-[1.8]" />
                 </div>
                 <span>상세한 분석 및 통계</span>
               </div>
-              <div className="flex items-center gap-3 text-coffee-light/75 text-sm">
+              <div className="flex items-center gap-3 text-coffee-light text-sm">
                 <div className="w-7 h-7 rounded-lg bg-coffee-gold/5 border border-coffee-gold/15 flex items-center justify-center text-coffee-gold shrink-0">
                   <Cloud className="w-4 h-4 stroke-[1.8]" />
                 </div>
@@ -415,7 +415,7 @@ export default function LoginPage() {
 
           {/* 개인정보 안내 */}
           <div className="text-center">
-            <p className="text-coffee-light/40 text-[11px] leading-relaxed">
+            <p className="text-coffee-latte text-[11px] leading-relaxed">
               로그인 시 Google 계정의 기본 정보(이름, 이메일)만 사용하며,<br/>
               개인정보는 안전하게 보호됩니다.
             </p>
@@ -426,11 +426,11 @@ export default function LoginPage() {
         <div className="text-center mt-6">
           <Link 
             href="/record/photo" 
-            className="inline-flex items-center gap-2 text-coffee-gold hover:text-coffee-gold/80 text-sm transition-all duration-300 font-medium group"
+            className="inline-flex items-center gap-2 text-coffee-gold hover:text-coffee-gold/80 text-sm transition-colors duration-300 font-medium group"
           >
             <Sparkles className="w-4 h-4 stroke-[1.8] transition-transform group-hover:rotate-12" />
             <span>로그인 없이 체험해보기</span>
-            <ArrowRight className="w-4 h-4 stroke-[1.8] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
+            <ArrowRight className="w-4 h-4 stroke-[1.8] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-colors duration-300" />
           </Link>
         </div>
 
@@ -438,7 +438,7 @@ export default function LoginPage() {
         <div className="text-center mt-5">
           <Link 
             href="/" 
-            className="text-coffee-light/50 hover:text-coffee-light text-xs transition-all duration-300 inline-flex items-center gap-1.5 group"
+            className="text-coffee-latte hover:text-coffee-light text-xs transition-colors duration-300 inline-flex items-center gap-1.5 group"
           >
             <ChevronLeft className="w-4 h-4 stroke-[1.8] transition-transform group-hover:-translate-x-1" />
             메인으로 돌아가기

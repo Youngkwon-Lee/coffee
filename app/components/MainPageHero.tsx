@@ -1,258 +1,60 @@
-"use client";
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Coffee, Camera, ScanText, Store, History, ChevronRight, Sparkles, Plus } from "lucide-react";
+import { ArrowUpRight, ArrowRight, Radar, Bean, Heart, Camera, PenLine, BookOpen, MapPin, Bell, ChevronRight } from "lucide-react";
 
-interface CoffeeRecord {
-  id: string;
-  beanName: string;
-  flavor: string;
-  rating: number;
-  brewMethod: string;
-  createdAt: string;
-  imageUrl?: string;
-  cafe?: string;
-  notes?: string;
-  flavors?: string[];
-}
+const shortcuts = [
+  { href: "/changes", label: "원두레이더", note: "이번 주 달라진 원두", icon: Radar },
+  { href: "/beans", label: "원두 탐색", note: "취향에 맞게 비교하기", icon: Bean },
+  { href: "/my-beans", label: "나의 보관함", note: "관심 원두 모아두기", icon: Heart },
+];
+const routines = [
+  { href: "/record/photo", title: "사진으로 커피 기록", detail: "커피 정보를 촬영해 남겨요", icon: Camera },
+  { href: "/record/manual", title: "오늘의 커피 직접 기록", detail: "맛과 경험을 기록해요", icon: PenLine },
+  { href: "/history", title: "내 커피 기록", detail: "지난 취향을 다시 만나요", icon: BookOpen },
+  { href: "/cafes", title: "카페 찾기", detail: "다음에 갈 곳을 찾아요", icon: MapPin },
+];
 
+// Public discovery must not wait for Firebase authentication or create analytics events on the server.
 export default function MainPageHero() {
-  const [coffeeRecords, setCoffeeRecords] = useState<CoffeeRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [firebaseError, setFirebaseError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Firebase 초기화 검사
-    try {
-      // Firebase가 제대로 로드되었는지 확인
-      if (typeof window !== 'undefined') {
-        // 클라이언트 사이드에서만 Firebase 로드 시도
-        loadFirebaseAuth();
-      }
-    } catch (error) {
-      console.error("Firebase 초기화 오류:", error);
-      setFirebaseError("Firebase 연결 중 오류가 발생했습니다.");
-      setIsLoading(false);
-    }
-  }, []);
-
-  async function loadFirebaseAuth() {
-    try {
-      // 동적으로 Firebase 임포트
-      const { auth, db } = await import("@/firebase");
-      const { useAuthState } = await import("react-firebase-hooks/auth");
-      const { collection, query, orderBy, limit, getDocs } = await import("firebase/firestore");
-
-      // Firebase 연결 성공
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Firebase 로드 실패:", error);
-      setFirebaseError("Firebase를 로드할 수 없습니다.");
-      setIsLoading(false);
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="loading-spinner w-8 h-8 rounded-full border-2 border-coffee-gold border-t-transparent animate-spin"></div>
+  return <main className="kc-page kc-home">
+    <div className="kc-page-intro"><p className="kc-eyebrow">KINELO COFFEE</p><span className="kc-pill">취향을 발견하는 일상</span></div>
+    <section className="kc-hero" aria-labelledby="coffee-home-title">
+      <div className="kc-hero-copy">
+        <p className="kc-eyebrow">YOUR DAILY COFFEE</p>
+        <h1 id="coffee-home-title">오늘의 커피,<br />조금 더 나답게.</h1>
+        <p className="kc-hero-description">새로운 원두를 발견하고,<br className="kc-mobile-break" /> 마음에 드는 취향을 모아보세요.</p>
+        <div className="kc-actions"><Link href="/beans" className="kc-button kc-button-primary">원두 탐색하기 <ArrowRight size={18} aria-hidden="true" /></Link>
+          <Link href="/onboarding" className="kc-text-link">처음 이용하시나요? <ArrowUpRight size={16} aria-hidden="true" /></Link></div>
       </div>
-    );
-  }
-
-  if (firebaseError) {
-    return (
-      <div className="p-4">
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">☕</div>
-          <h2 className="text-2xl font-bold text-coffee-light mb-4">
-            커피 트래커에 오신 것을 환영합니다!
-          </h2>
-          <p className="text-coffee-light opacity-70 mb-2">
-            Firebase 연결에 문제가 있지만, 앱을 계속 사용할 수 있습니다.
-          </p>
-          <p className="text-sm text-coffee-light opacity-50 mb-6">
-            오류: {firebaseError}
-          </p>
-          {/* 메인 커피 기록 액션 */}
-          <div className="mb-6">
-            <Link href="/record/photo">
-              <div className="relative group bg-[#1c1816]/80 backdrop-blur-md rounded-2xl p-6 text-center border border-[#c5a880]/15 shadow-2xl hover:border-[#c5a880]/30 transition-all duration-300 hover:scale-[1.01] cursor-pointer overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[100%] group-hover:animate-shimmer"></div>
-                <div className="relative z-10">
-                  <Camera className="w-10 h-10 text-[#c5a880] mx-auto mb-3 animate-pulse" strokeWidth={1.5} />
-                  <h2 className="text-lg font-bold text-[#f8f6f3] mb-1">AI 커피 기록</h2>
-                  <p className="text-coffee-light/60 text-xs">카메라로 촬영해서 즉시 분석하세요!</p>
-                </div>
-              </div>
-            </Link>
-          </div>
-
-          {/* 다른 기능들 */}
-          <div className="grid grid-cols-3 gap-3">
-            <Link href="/beans">
-              <div className="stats-card hover:bg-white/5 transition-colors cursor-pointer text-center p-4">
-                <Coffee className="w-5 h-5 text-[#c5a880] mx-auto mb-2" strokeWidth={1.5} />
-                <div className="stats-label text-xs">원두 찾기</div>
-              </div>
-            </Link>
-            <Link href="/cafes">
-              <div className="stats-card hover:bg-white/5 transition-colors cursor-pointer text-center p-4">
-                <Store className="w-5 h-5 text-[#c5a880] mx-auto mb-2" strokeWidth={1.5} />
-                <div className="stats-label text-xs">카페 찾기</div>
-              </div>
-            </Link>
-            <Link href="/history">
-              <div className="stats-card hover:bg-white/5 transition-colors cursor-pointer text-center p-4">
-                <History className="w-5 h-5 text-[#c5a880] mx-auto mb-2" strokeWidth={1.5} />
-                <div className="stats-label text-xs">기록 보기</div>
-              </div>
-            </Link>
-          </div>
-        </div>
+      <div className="kc-hero-aside">
+        <span className="kc-eyebrow">BEAN RADAR</span>
+        <Radar size={38} strokeWidth={1.3} aria-hidden="true" />
+        <h2>취향의 변화는<br />작은 발견에서.</h2>
+        <p>새로 확인된 상품부터<br />판매 목록의 변화까지.</p>
+        <Link href="/changes" className="kc-text-link">이번 주 원두레이더 <ArrowUpRight size={17} aria-hidden="true" /></Link>
       </div>
-    );
-  }
-
-  return (
-    <div className="dashboard-container relative">
-      {/* Background gradients for overall app feel */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-[-1]">
-        <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-[#c5a880]/5 rounded-full blur-[110px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] bg-[#a88c74]/5 rounded-full blur-[130px]"></div>
-      </div>
-
-      {/* Welcome Section */}
-      <section className="p-4 pb-2 mt-2 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-[#f8f6f3] mb-1 flex items-center gap-2 tracking-tight">
-              안녕하세요! <Coffee className="w-6 h-6 text-[#c5a880] animate-float" strokeWidth={1.5} />
-            </h1>
-            <p className="text-coffee-light/60 text-sm font-medium">
-              오늘도 풍부한 커피 향과 함께하세요
-            </p>
-            <Link href="/premium" className="mt-2 inline-flex min-h-11 items-center text-sm text-coffee-gold underline underline-offset-4 focus-visible:outline focus-visible:outline-2">
-              관심 원두 알림 · 무료부터 시작하기
-            </Link>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#c5a880] to-[#a88c74] p-[1.5px] shadow-lg flex items-center justify-center">
-            <div className="w-full h-full rounded-full bg-[#120f0d] border border-white/5"></div>
-          </div>
-        </div>
+    </section>
+    <nav className="kc-shortcuts" aria-label="원두 서비스 바로가기">
+      {shortcuts.map(({href, label, note, icon: Icon}) => <Link href={href} key={href} className="kc-shortcut">
+        <span className="kc-icon-tile"><Icon size={22} strokeWidth={1.6} aria-hidden="true" /></span>
+        <span><strong>{label}</strong><small>{note}</small></span><ChevronRight className="kc-muted" size={18} aria-hidden="true" />
+      </Link>)}
+    </nav>
+    <div className="kc-home-columns">
+      <section aria-labelledby="coffee-routine-title">
+        <div className="kc-section-heading"><div><p className="kc-eyebrow">MY COFFEE ROUTINE</p><h2 id="coffee-routine-title">한 잔의 취향을 쌓아가요</h2></div></div>
+        <div className="kc-task-list">{routines.map(({href,title,detail,icon:Icon}) => <Link href={href} key={href} className="kc-task-row">
+          <span className="kc-icon-tile"><Icon size={20} strokeWidth={1.7} aria-hidden="true" /></span>
+          <span><strong>{title}</strong><small>{detail}</small></span><ChevronRight size={18} aria-hidden="true" />
+        </Link>)}</div>
       </section>
-
-      <section className="p-4 pt-2 animate-slide-up" style={{ animationDelay: "80ms" }}>
-        <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-coffee-light/95">처음 오셨나요?</div>
-            <div className="text-xs text-coffee-light/60 mt-0.5">변동 원두 확인·비교·찜을 무료로 체험해보세요.</div>
-          </div>
-          <Link href="/onboarding" className="text-xs px-3.5 py-2 rounded-lg bg-[#c5a880]/10 border border-[#c5a880]/20 text-[#c5a880] hover:bg-[#c5a880]/20 hover:border-[#c5a880]/40 transition-colors whitespace-nowrap">
-            무료 베타 시작
-          </Link>
-        </div>
-      </section>
-
-      {/* 수집한 원두 변화를 방문자가 바로 확인할 수 있는 첫 진입점 */}
-      <section className="p-4 pt-4 animate-slide-up" style={{ animationDelay: "95ms" }}>
-        <Link
-          href="/changes"
-          className="block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coffee-gold"
-        >
-          <div className="relative overflow-hidden bg-gradient-to-r from-[#1c1816]/40 to-transparent backdrop-blur-xl border border-white/5 rounded-2xl p-4 flex items-center justify-between cursor-pointer group hover:bg-[#1c1816]/60 transition-colors shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#c5a880]/10 flex items-center justify-center group-hover:scale-105 transition-transform duration-500 border border-[#c5a880]/20">
-                <Sparkles className="w-5 h-5 text-[#c5a880]" strokeWidth={1.5} />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-bold text-[#f8f6f3]">이번 주 원두 변동</p>
-                <p className="text-xs font-medium text-coffee-light/50 mt-0.5">
-                  가격 인하 · 새로 확인된 상품 · 판매 목록 재등장
-                </p>
-              </div>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-              <ChevronRight className="w-4 h-4 text-coffee-light/40 group-hover:text-coffee-light group-hover:translate-x-0.5 transition-all duration-300" strokeWidth={1.5} />
-            </div>
-          </div>
-        </Link>
-      </section>
-
-      {/* 메인 커피 기록 액션 */}
-      <section className="p-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
-        <Link href="/record/photo">
-          <div className="group relative rounded-[2rem] p-8 text-center mb-6 overflow-hidden cursor-pointer">
-            {/* Base Glass Layer */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#c5a880]/10 via-transparent to-[#1c1816]/80 backdrop-blur-xl border border-white/5 shadow-2xl transition-all duration-500 group-hover:scale-[1.01] group-hover:border-[#c5a880]/20 group-hover:shadow-[0_0_50px_rgba(197,168,128,0.1)]"></div>
-
-            {/* Animated Shimmer Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[100%] group-hover:animate-shimmer"></div>
-
-            {/* Ambient glowing blobs */}
-            <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#c5a880]/5 rounded-full blur-[40px] mix-blend-screen group-hover:bg-[#c5a880]/10 transition-colors duration-500"></div>
-            <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-[#a88c74]/8 rounded-full blur-[50px] mix-blend-screen animate-pulse-slow"></div>
-
-            {/* 컨텐츠 */}
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="mb-5 transform transition-transform duration-500 group-hover:scale-105 group-hover:rotate-1 drop-shadow-2xl">
-                <div className="relative">
-                  <Camera className="w-16 h-16 text-[#f8f6f3]" strokeWidth={1.2} />
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#c5a880] animate-ping"></div>
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#c5a880]"></div>
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold text-[#f8f6f3] mb-2 tracking-tight">AI 커피 기록</h2>
-              <p className="text-coffee-light/60 text-sm mb-6 font-medium">영수증 촬영으로 간편하게 기록하세요</p>
-
-              <div className="inline-flex items-center gap-2 bg-[#1c1816]/80 backdrop-blur border border-white/10 rounded-full px-5 py-2.5 text-sm font-semibold text-[#f8f6f3] shadow-lg group-hover:border-[#c5a880]/30 transition-all duration-300">
-                <ScanText className="w-4 h-4 text-[#c5a880]/80" strokeWidth={1.5} />
-                <span>스마트 기록 시작하기</span>
-              </div>
-            </div>
-          </div>
-        </Link>
-      </section>
-
-      {/* 다른 기능들 */}
-      <section className="p-4 animate-slide-up" style={{ animationDelay: "200ms" }}>
-        <div className="flex items-center justify-between mb-4 px-1">
-          <h2 className="text-lg font-bold text-[#f8f6f3] tracking-tight">빠른 메뉴</h2>
-          <span className="text-[10px] font-semibold text-[#c5a880] bg-[#c5a880]/10 border border-[#c5a880]/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">New</span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4">
-          <Link href="/beans">
-            <div className="group relative bg-white/[0.02] backdrop-blur-xl border border-white/5 rounded-[1.5rem] p-4 text-center cursor-pointer transition-all duration-300 hover:bg-white/[0.05] hover:-translate-y-1 hover:border-[#c5a880]/20 hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
-              <div className="w-12 h-12 mx-auto bg-[#c5a880]/5 rounded-full flex items-center justify-center mb-3 border border-white/5 group-hover:scale-105 transition-transform duration-300">
-                <Coffee className="w-6 h-6 text-[#c5a880] drop-shadow-md" strokeWidth={1.3} />
-              </div>
-              <div className="text-xs font-semibold text-coffee-light/90">원두 찾기</div>
-            </div>
-          </Link>
-
-          <Link href="/cafes">
-            <div className="group relative bg-white/[0.02] backdrop-blur-xl border border-white/5 rounded-[1.5rem] p-4 text-center cursor-pointer transition-all duration-300 hover:bg-white/[0.05] hover:-translate-y-1 hover:border-[#c5a880]/20 hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
-              <div className="w-12 h-12 mx-auto bg-[#c5a880]/5 rounded-full flex items-center justify-center mb-3 border border-white/5 group-hover:scale-105 transition-transform duration-300">
-                <Store className="w-6 h-6 text-[#c5a880] drop-shadow-md" strokeWidth={1.3} />
-              </div>
-              <div className="text-xs font-semibold text-coffee-light/90">카페 찾기</div>
-            </div>
-          </Link>
-
-          <Link href="/history">
-            <div className="group relative bg-white/[0.02] backdrop-blur-xl border border-white/5 rounded-[1.5rem] p-4 text-center cursor-pointer transition-all duration-300 hover:bg-white/[0.05] hover:-translate-y-1 hover:border-[#c5a880]/20 hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
-              <div className="w-12 h-12 mx-auto bg-[#c5a880]/5 rounded-full flex items-center justify-center mb-3 border border-white/5 group-hover:scale-105 transition-transform duration-300">
-                <History className="w-6 h-6 text-[#c5a880] drop-shadow-md" strokeWidth={1.3} />
-              </div>
-              <div className="text-xs font-semibold text-coffee-light/90">기록 보기</div>
-            </div>
-          </Link>
-        </div>
-      </section>
-
-
+      <aside className="kc-info-card" aria-labelledby="coffee-alert-title">
+        <span className="kc-icon-tile"><Bell size={22} strokeWidth={1.7} aria-hidden="true" /></span>
+        <p className="kc-eyebrow">KEEP YOUR FAVORITES</p><h2 id="coffee-alert-title">관심 원두의 소식,<br />놓치지 않도록.</h2>
+        <p>원두를 찜하고 알림 서비스의<br />이용 범위를 확인해보세요.</p>
+        <Link href="/premium" className="kc-button kc-button-secondary">알림 서비스 안내 <ArrowRight size={17} aria-hidden="true" /></Link>
+        <p className="kc-caption">수집된 판매 목록 기준이며,<br />실시간 재고를 보장하지 않습니다.</p>
+      </aside>
     </div>
-  );
-} 
+    <footer className="kc-footer"><span>Kinelo Coffee</span><span>원두 탐색 · 원두레이더 · 나의 기록</span><Link href="/onboarding">무료 베타 안내</Link></footer>
+  </main>;
+}

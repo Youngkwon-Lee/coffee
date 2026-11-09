@@ -7,6 +7,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        espresso: "#14231F", mocha: "#205C53", caramel: "#56635E",
         // 현대적인 커피 테마 색상 팔레트
         coffee: {
           50: '#fefdf8',
@@ -19,11 +20,11 @@ module.exports = {
           700: '#b8841f',
           800: '#9a6f19',
           900: '#7f5d16',
-          dark: '#120f0d',
-          medium: '#1c1816',
-          light: '#f8f6f3',
-          gold: '#c5a880',
-          latte: '#a6907c',
+          dark: '#F5F7F6',
+          medium: '#FFFFFF',
+          light: '#14231F',
+          gold: '#205C53',
+          latte: '#56635E',
         },
         cream: {
           50: '#fefefe',
@@ -51,9 +52,9 @@ module.exports = {
         }
       },
       fontFamily: {
-        'sans': ['Inter', 'Pretendard', 'system-ui', '-apple-system', 'sans-serif'],
-        'display': ['Inter', 'Pretendard', 'system-ui', '-apple-system', 'sans-serif'],
-        'body': ['Inter', 'Pretendard', 'system-ui', '-apple-system', 'sans-serif'],
+        'sans': ['Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'system-ui', 'sans-serif'],
+        'display': ['Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'system-ui', 'sans-serif'],
+        'body': ['Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',

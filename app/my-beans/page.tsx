@@ -111,7 +111,7 @@ export default function MyBeansPage() {
 
   return (
     <>
-      <main className="flex flex-col items-center min-h-screen pt-20 pb-20">
+      <main className="kc-page flex flex-col items-center">
         <h1 className="text-2xl font-bold mb-3 text-coffee-light">내 원두 보관함</h1>
         <Link href="/beans" className="mb-5 inline-flex min-h-11 items-center text-sm text-coffee-gold underline underline-offset-4">
           원두 찾기로 돌아가기
@@ -124,20 +124,20 @@ export default function MyBeansPage() {
               <button onClick={() => signOut(auth)} className="px-3 py-1 rounded-full bg-mocha text-white font-bold hover:bg-espresso transition">로그아웃</button>
             </>
           ) : (
-            <button onClick={handleGoogleLogin} className="px-3 py-1 rounded-full bg-blue-500 text-white font-bold hover:bg-blue-700 transition">구글 로그인</button>
+            <button onClick={handleGoogleLogin} className="px-3 py-1 rounded-full bg-coffee-gold text-white font-bold hover:bg-[var(--kc-primary-active)] transition">구글 로그인</button>
           )}
         </div>
         {/* 재입고/가격 알림 설정 */}
         <Link href="/settings/alerts" className="mb-4 text-sm text-mocha underline">
           🔔 재입고 · 가격 알림 설정
         </Link>
-        {loadError && <p role="alert" className="mb-4 max-w-md px-4 text-sm text-red-300">{loadError}</p>}
+        {loadError && <p role="alert" className="mb-4 max-w-md px-4 text-sm text-[var(--kc-danger)]">{loadError}</p>}
         {loading ? (
           <div className="text-center py-10">로딩 중...</div>
         ) : !user ? (
-          <div className="text-center text-coffee-light/80 py-10">Google 로그인 후 관심 원두를 저장할 수 있습니다. 로그인한 뒤 원두 찾기로 돌아가 찜해주세요.</div>
+          <div className="text-center text-coffee-light py-10">Google 로그인 후 관심 원두를 저장할 수 있습니다. 로그인한 뒤 원두 찾기로 돌아가 찜해주세요.</div>
         ) : beans.length === 0 ? (
-          <div className="text-center text-coffee-light/70 py-10">찜한 원두가 없습니다. 원두 찾기에서 하트를 눌러보세요.</div>
+          <div className="text-center text-coffee-latte py-10">찜한 원두가 없습니다. 원두 찾기에서 하트를 눌러보세요.</div>
         ) : (
           <div className="w-full max-w-md flex flex-col gap-6">
             {beans.map(bean => (
@@ -146,18 +146,18 @@ export default function MyBeansPage() {
                 <div className="flex-1 flex flex-col gap-1">
                   <div className="text-lg font-bold text-espresso">{bean.name}</div>
                   <div className="text-xs text-mocha mb-1">향미: {bean.flavor}</div>
-                  {bean.desc && <div className="text-xs text-brown-700 mb-1">{bean.desc}</div>}
-                  <div className="text-caramel font-bold mb-2">{bean.price} / 200g</div>
+                  {bean.desc && <div className="text-xs text-coffee-latte mb-1">{bean.desc}</div>}
+                  <div className="text-caramel font-bold mb-2">{bean.price}</div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => bean.link && window.open(bean.link, "_blank")}
-                      className="px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-500 text-white font-semibold shadow transition text-sm"
+                      className="px-4 py-2 rounded-full bg-coffee-gold hover:bg-[var(--kc-primary-active)] text-white font-semibold shadow transition text-sm"
                     >
                       구매하기
                     </button>
                     <button
                       onClick={() => handleRemove(bean.id)}
-                      className="px-4 py-2 rounded-full bg-red-400 hover:bg-red-500 text-white font-semibold shadow transition text-sm"
+                      className="px-4 py-2 rounded-full bg-[var(--kc-danger-soft)] hover:bg-[var(--kc-danger-soft)] text-[var(--kc-danger)] font-semibold shadow transition text-sm"
                     >
                       찜 해제
                     </button>

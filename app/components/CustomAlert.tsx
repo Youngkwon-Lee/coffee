@@ -45,13 +45,13 @@ export default function CustomAlert({
   const getTypeStyles = () => {
     switch (type) {
       case 'success':
-        return 'border-coffee-gold bg-gradient-to-br from-coffee-gold/20 to-coffee-600/20 backdrop-blur-md shadow-coffee-gold/20';  // 커피 골드 그라디언트
+        return 'border-coffee-gold bg-coffee-medium';  // 커피 골드 그라디언트
       case 'error':
-        return 'border-red-500 bg-red-900/30 backdrop-blur-md';
+        return 'border-[var(--kc-danger)] bg-[var(--kc-danger-soft)]';
       case 'warning':
-        return 'border-yellow-500 bg-yellow-900/30 backdrop-blur-md';
+        return 'border-[var(--kc-warning)] bg-[var(--kc-warning-soft)]';
       default:
-        return 'border-coffee-gold bg-coffee-medium/80 backdrop-blur-md';
+        return 'border-coffee-gold bg-coffee-medium';
     }
   };
 
@@ -114,14 +114,14 @@ export default function CustomAlert({
               {showCancel && (
                 <button
                   onClick={handleCancel}
-                  className="flex-1 py-2.5 px-4 bg-coffee-medium/60 border border-coffee-gold/50 text-coffee-light rounded-lg font-medium hover:bg-coffee-medium/80 transition-all duration-200 backdrop-blur-sm"
+                  className="flex-1 py-2.5 px-4 bg-coffee-medium/60 border border-coffee-gold/50 text-coffee-light rounded-lg font-medium hover:bg-coffee-medium/80 transition-colors duration-200 backdrop-blur-sm"
                 >
                   {cancelText}
                 </button>
               )}
               <button
                 onClick={handleConfirm}
-                className={`${showCancel ? 'flex-1' : 'px-8'} py-2.5 px-4 bg-coffee-gold/80 text-coffee-dark rounded-lg font-medium hover:bg-coffee-gold/90 transition-all duration-200 backdrop-blur-sm shadow-lg`}
+                className={`${showCancel ? 'flex-1' : 'px-8'} py-2.5 px-4 bg-coffee-gold/80 text-coffee-dark rounded-lg font-medium hover:bg-coffee-gold/90 transition-colors duration-200 backdrop-blur-sm shadow-lg`}
               >
                 {confirmText}
               </button>

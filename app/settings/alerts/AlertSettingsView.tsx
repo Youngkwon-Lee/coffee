@@ -49,9 +49,9 @@ export default function AlertSettingsView(props: AlertSettingsViewProps) {
   else if (salesEnabled && state !== 'manual' && state !== 'invalid') action = <button className={primaryActionClass} onClick={props.onRequest} disabled={busy}>{busy ? '신청 중…' : legacyRequest ? '신청 정보 갱신' : active || state === 'expired' ? '30일 연장 신청' : '프리미엄 신청'}</button>;
   else action = <Link className={primaryActionClass} href="/beans">관심 원두 고르기 <ArrowRight size={16} aria-hidden="true" /></Link>;
 
-  return <main className="mx-auto max-w-xl px-5 pt-24 pb-28 text-coffee-light">
+  return <main className="kc-page max-w-2xl text-coffee-light">
     <header className="mb-7">
-      <p className="mb-3 flex items-center gap-2 text-sm text-coffee-gold"><Bell size={18} aria-hidden="true" /> 원두레이더</p>
+      <p className="mb-3 flex items-center gap-2 text-sm text-coffee-gold"><Bell size={18} aria-hidden="true" /> Kinelo Coffee</p>
       <h1 className="text-2xl font-bold tracking-tight">알림 설정</h1>
       <p className="mt-2 text-sm leading-6 text-coffee-latte">관심 원두의 판매페이지 변화를 매일 확인합니다.</p>
     </header>
@@ -65,7 +65,7 @@ export default function AlertSettingsView(props: AlertSettingsViewProps) {
       {request?.status === 'awaiting_payment' && <p className="mt-3 text-sm leading-6 text-coffee-light">결제 안내 단계입니다. 운영자가 전달한 안내를 확인해 주세요. 입금 확인 후 30일 이용권이 활성화됩니다.</p>}
       {(request?.status === 'declined' || request?.status === 'cancelled') && <p className="mt-3 text-sm text-coffee-latte">이전 신청이 종료되었습니다. 판매 접수 중이면 다시 신청할 수 있습니다.</p>}
       {!salesEnabled && !waiting && <p className="mt-4 text-sm leading-6 text-coffee-latte">유료 파일럿은 준비 중입니다. 무료 알림을 먼저 이용할 수 있습니다.</p>}
-      {error && <p role="alert" className="mt-4 text-sm leading-6 text-red-300">{error}</p>}
+      {error && <p role="alert" className="mt-4 text-sm leading-6 text-[var(--kc-danger)]">{error}</p>}
       {notice && <p role="status" className="mt-4 text-sm leading-6 text-coffee-light">{notice}</p>}
       <div className="mt-5">{action}</div>
       {deepLink && !linked && <div className="mt-4 text-sm leading-6 text-coffee-latte">
