@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "무료 베타 체험 — 원두레이더",
   description: "국내 로스터리 원두의 변동을 확인하고 가격과 향미를 비교해보세요. 관심 원두 찜은 Google 로그인 후 이용할 수 있습니다.",
   alternates: { canonical: "/onboarding" },
+  robots: { index: false, follow: true },
 };
 
 const steps = [
