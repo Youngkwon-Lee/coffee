@@ -95,7 +95,10 @@ export default function MyBeansPage() {
   return (
     <>
       <main className="flex flex-col items-center min-h-screen pt-20 pb-20">
-        <h1 className="text-2xl font-bold mb-6 text-espresso">☕ 내 원두 보관함</h1>
+        <h1 className="text-2xl font-bold mb-3 text-coffee-light">내 원두 보관함</h1>
+        <Link href="/beans" className="mb-5 inline-flex min-h-11 items-center text-sm text-coffee-gold underline underline-offset-4">
+          원두 찾기로 돌아가기
+        </Link>
         {/* 로그인/로그아웃 UI */}
         <div className="mb-4 flex gap-2 items-center">
           {user ? (
@@ -114,7 +117,7 @@ export default function MyBeansPage() {
         {loading ? (
           <div className="text-center py-10">로딩 중...</div>
         ) : !user ? (
-          <div className="text-center text-mocha font-bold py-10">로그인 후 내 원두 보관함을 확인할 수 있습니다.</div>
+          <div className="text-center text-coffee-light/80 py-10">Google 로그인 후 관심 원두를 저장할 수 있습니다. 로그인한 뒤 원두 찾기로 돌아가 찜해주세요.</div>
         ) : beans.length === 0 ? (
           <div className="text-center text-brown-400 py-10">찜한 원두가 없습니다.</div>
         ) : (
