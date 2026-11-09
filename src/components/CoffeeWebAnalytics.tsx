@@ -8,6 +8,7 @@ import { Analytics } from "@vercel/analytics/next";
 function isPublicCoffeePage(path: string): boolean {
   return (
     path === "/" ||
+    path === "/onboarding" ||
     path === "/changes" ||
     path === "/beans" ||
     path.startsWith("/beans/") ||

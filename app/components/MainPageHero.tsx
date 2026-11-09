@@ -147,10 +147,10 @@ export default function MainPageHero() {
         <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-coffee-light/95">처음 오셨나요?</div>
-            <div className="text-xs text-coffee-light/60 mt-0.5">1분 온보딩으로 취향 설정하고 바로 시작하세요.</div>
+            <div className="text-xs text-coffee-light/60 mt-0.5">변동 원두 확인·비교·찜을 무료로 체험해보세요.</div>
           </div>
           <Link href="/onboarding" className="text-xs px-3.5 py-2 rounded-lg bg-[#c5a880]/10 border border-[#c5a880]/20 text-[#c5a880] hover:bg-[#c5a880]/20 hover:border-[#c5a880]/40 transition-colors whitespace-nowrap">
-            온보딩 시작
+            무료 베타 시작
           </Link>
         </div>
       </section>

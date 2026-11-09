@@ -1,11 +1,13 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { db, auth } from "@/firebase";
 import { reportCoffeeFunnel } from "@/lib/reportCoffeeFunnel";
 import { collection, setDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import BeanDetailModal from "../components/BeanDetailModal";
+import { useCustomAlert } from "../components/CustomAlert";
 import FilterDropdown from "../components/FilterDropdown";
 import { normalizeRoastLevel, getRoastDisplayText } from "../../src/utils/roastMapping";
 import { extractOrigin, getOriginFlag, STANDARD_ORIGINS } from "../../src/utils/originMapping";
@@ -67,6 +69,8 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
             e.stopPropagation();
             onToggleWishlist(bean.id || bean.name);
           }}
+          type="button"
+          aria-label={`${bean.name} ${isWishlisted ? "찜 해제" : "찜하기"}`}
           className="absolute top-2 right-2 w-8 h-8 bg-coffee-gold rounded-full flex items-center justify-center text-coffee-dark hover:scale-110 transition-transform shadow-lg"
         >
           <span className="text-sm">
@@ -150,6 +154,8 @@ function BeanCard({ bean, onToggleWishlist, isWishlisted, onCardClick, inCompare
 }
 
 export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
+  const router = useRouter();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBrand, setSelectedBrand] = useState<string>("전체");
   const [selectedOrigin, setSelectedOrigin] = useState<string>("전체");
@@ -282,8 +288,19 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
   }, [user]);
 
   const toggleWishlist = async (beanId: string) => {
-    if (!user) return;
-    
+    if (!user) {
+      showAlert({
+        type: "info",
+        title: "찜하려면 로그인이 필요합니다",
+        message: "원두 목록은 로그인 없이 볼 수 있습니다. 원두를 저장하려면 보관함에서 Google 로그인 후 다시 원두 찾기를 이용해주세요.",
+        confirmText: "로그인하러 가기",
+        cancelText: "나중에",
+        showCancel: true,
+        onConfirm: () => router.push("/my-beans"),
+      });
+      return;
+    }
+
     try {
       // 컬렉션명은 favorites_beans로 통일한다. 이 파일만 bean_favorites를 쓰고 있었는데,
       // 규칙에 없는 이름이라 찜이 403으로 조용히 실패했고(핸들러가 console.error만 함),
@@ -298,9 +315,13 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
         reportCoffeeFunnel("favorite_saved");
       }
     } catch (error) {
-      // TODO: 실패가 조용히 묻힌다. 하트가 안 바뀌는 것 말고 단서가 없어서
-      // 이번 버그도 눈에 안 띄었다. CustomAlert 작업이 정리되면 사용자에게 노출할 것.
       console.error("원두 위시리스트 업데이트 실패:", error);
+      showAlert({
+        type: "error",
+        title: "찜 저장에 실패했습니다",
+        message: "인터넷 연결과 로그인 상태를 확인한 뒤 다시 시도해주세요. 저장되지 않은 항목은 찜한 것으로 표시하지 않습니다.",
+        confirmText: "확인",
+      });
     }
   };
 
@@ -405,6 +426,7 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
   };
 
   return (
+    <>
     <section className="p-4">
       <h2 className="section-heading">원두 탐색</h2>
       
@@ -601,5 +623,7 @@ export default function BeanFinderClient({ beans }: { beans: Bean[] }) {
         isWishlisted={selectedBean ? wishlist.includes(selectedBean.id || selectedBean.name) : false}
       />
     </section>
+    <AlertComponent />
+    </>
   );
 } 
