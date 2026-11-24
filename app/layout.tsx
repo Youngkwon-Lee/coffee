@@ -26,6 +26,16 @@ const NAVER_VERIFICATION =
   process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION ||
   "abb659ee06f7ae988532cfc5db0bbef06e579dca";
 
+/**
+ * Google AdSense 게시자 ID. 사이트 소유확인용 meta 태그와 Auto Ads 스크립트가
+ * 같은 값을 쓴다. 값 자체는 HTML에 그대로 노출되는 공개 식별자라 비밀이 아니다.
+ *
+ * 배포 환경에서 env로 덮어쓸 수 있게 둔다. 다만 env 누락으로 태그가 조용히
+ * 사라지면 애드센스가 사이트를 확인하지 못하므로 기본값을 코드에 둔다.
+ */
+const ADSENSE_CLIENT =
+  process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT || "ca-pub-8246399190278584";
+
 const verification: Metadata["verification"] = {
   ...(GOOGLE_VERIFICATION ? { google: GOOGLE_VERIFICATION } : {}),
   ...(NAVER_VERIFICATION
@@ -52,6 +62,10 @@ export const metadata: Metadata = {
     "원두 추천", "싱글오리진",
   ],
   verification,
+  // AdSense 사이트 소유확인. 값이 없으면 태그를 내보내지 않는다.
+  ...(ADSENSE_CLIENT
+    ? { other: { "google-adsense-account": ADSENSE_CLIENT } }
+    : {}),
   openGraph: {
     type: "website",
     locale: "ko_KR",
@@ -91,7 +105,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <head />
+      <head>
+        {/*
+          AdSense Auto Ads. 실제 광고 노출 위치는 애드센스 관리 화면에서 정한다.
+          스크립트만으로는 광고가 나오지 않는다 — 사이트 검토·승인 뒤에 켜진다.
+          next/script 대신 head의 일반 script 태그를 쓰는 이유: afterInteractive는
+          브라우저에서만 주입돼 서버 HTML에는 남지 않는다. 애드센스 사이트 확인과
+          광고 크롤러가 서버 응답만 보는 경우에도 스크립트가 보이도록 둔다.
+        */}
+        {ADSENSE_CLIENT ? (
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+            crossOrigin="anonymous"
+          />
+        ) : null}
+      </head>
       <body className="kinelo-coffee antialiased" suppressHydrationWarning>
         <a href="#coffee-content" className="kc-skip-link">본문으로 바로가기</a>
         <div className="mobile-container">
