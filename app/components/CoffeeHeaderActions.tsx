@@ -18,6 +18,8 @@ const sections = [
   { href: "/history", text: "내 기록" },
   { href: "/login", text: "로그인 · 계정" },
   { href: "/onboarding", text: "무료 베타 안내" },
+  // 애드센스 사이트 검토가 요구하는 개인정보처리방침. 메뉴에서 한 번에 닿게 둔다.
+  { href: "/privacy", text: "개인정보처리방침" },
 ];
 
 export default function CoffeeHeaderActions() {

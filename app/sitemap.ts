@@ -39,6 +39,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/changes`, lastModified: now, changeFrequency: "daily", priority: 0.85 },
     { url: `${SITE_URL}/cafes`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
     { url: `${SITE_URL}/record/manual`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    // 광고 게재·검토에 필요한 고지 문서라 색인 대상에 포함한다.
+    { url: `${SITE_URL}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
   ];
 
   // 원두·카페 상세 페이지. 검색 유입은 개별 원두 이름으로 들어오므로
